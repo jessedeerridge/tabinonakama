@@ -111,6 +111,9 @@
   .played-card{position:absolute;left:0;top:0;transform:scale(.66);transform-origin:top left;}
   .played-card-slot.no-arrive{animation:none;}
   @keyframes cardArrive{from{opacity:0;transform:translate(var(--from-x,0),var(--from-y,0)) scale(.25) rotate(var(--tilt))}to{opacity:1;transform:translate(0,0) scale(1) rotate(var(--tilt))}}
+  .played-card-slot.gathering{animation:gatherCard .7s ease-in-out both;}
+  .played-card-slot.gathered{animation:none;transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt));}
+  @keyframes gatherCard{from{transform:translate(0,0) rotate(var(--tilt))}to{transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt))}}
   .capture-circle{position:absolute;width:38px;height:56px;transform:translate(-50%,-50%);z-index:3;}
   .capture-trick{position:absolute;top:0;width:38px;height:56px;}
   .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
@@ -554,16 +557,34 @@ function subscribeRoom(){
 
 function scheduleTrickClear(){
   clearTimeout(trickClearTimer);
-  const clearAt = state.game?.clearAt;
-  if (!clearAt || !state.roomCode) return;
+  const gatherAt = state.game?.pendingCapture?.gatherAt;
+  const captureAt = state.game?.pendingCapture?.captureAt;
+  if (!captureAt || !state.roomCode) return;
+  if (gatherAt && Date.now() < gatherAt) {
+    trickClearTimer = setTimeout(() => {
+      renderHands();
+      scheduleTrickClear();
+    }, Math.max(0, gatherAt - Date.now()) + 20);
+    return;
+  }
   trickClearTimer = setTimeout(async () => {
     await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
-      if (!game || game.clearAt !== clearAt || Date.now() < clearAt) return;
+      const pending = game?.pendingCapture;
+      if (!pending || pending.captureAt !== captureAt || Date.now() < captureAt) return;
+      game.capturedCards ||= {};
+      game.capturedCards[pending.winnerId] ||= [];
+      game.capturedCards[pending.winnerId].push(...pending.cards);
+      game.capturedTricks ||= {};
+      game.capturedTricks[pending.winnerId] ||= [];
+      game.capturedTricks[pending.winnerId].push({
+        cards: pending.cards,
+        winningCardId: pending.winningCardId
+      });
       delete game.trick;
-      delete game.clearAt;
+      delete game.pendingCapture;
       return game;
     });
-  }, Math.max(0, clearAt - Date.now()) + 20);
+  }, Math.max(0, captureAt - Date.now()) + 20);
 }
 function subscribeHostState(){
   const hostRef = ref(db, `rooms/${state.roomCode}/hostId`);
@@ -595,7 +616,7 @@ function renderMyHand(){
       ? cardData
       : { color: 'gray', name: '山', number: cardData };
     const card = createCardElement(normalized);
-    const canPlay = state.game && state.game.turnPlayerId === myId && canFollowSuit(normalized);
+    const canPlay = state.game && !state.game.pendingCapture && state.game.turnPlayerId === myId && canFollowSuit(normalized);
     if (canPlay) {
       card.classList.add('playable');
       card.addEventListener('pointerdown', event => beginCardDrag(event, normalized, cardIndex, card));
@@ -644,7 +665,7 @@ function beginCardDrag(event, cardData, cardIndex, source){
 async function playCard(cardIndex, expectedCard){
   if (!state.roomCode) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
-    if (!room?.game || room.game.turnPlayerId !== state.userId) return;
+    if (!room?.game || room.game.pendingCapture || room.game.turnPlayerId !== state.userId) return;
     const hand = room.hands?.[state.userId]?.cards;
     const card = hand?.[cardIndex];
     if (!card || card.id !== expectedCard.id) return;
@@ -666,18 +687,16 @@ async function playCard(cardIndex, expectedCard){
       room.game.lastWinnerId = winnerId;
       room.game.tricksWon ||= {};
       room.game.tricksWon[winnerId] = (room.game.tricksWon[winnerId] || 0) + 1;
-      room.game.capturedCards ||= {};
-      room.game.capturedCards[winnerId] ||= [];
-      room.game.capturedCards[winnerId].push(...plays.map(p => p.card));
-      room.game.capturedTricks ||= {};
-      room.game.capturedTricks[winnerId] ||= [];
-      room.game.capturedTricks[winnerId].push({
+      const gatherAt = Date.now() + 2000;
+      room.game.pendingCapture = {
+        winnerId,
         cards: plays.map(p => p.card),
-        winningCardId: winnerPlay.card.id
-      });
+        winningCardId: winnerPlay.card.id,
+        gatherAt,
+        captureAt: gatherAt + 700
+      };
       room.game.turnPlayerId = winnerId;
       room.game.trickNumber = (room.game.trickNumber || 1) + 1;
-      room.game.clearAt = Date.now() + 900;
       if (order.every(id => !(room.hands[id]?.cards || []).length)) room.game.finished = true;
     } else {
       const currentIndex = order.indexOf(state.userId);
@@ -873,13 +892,25 @@ function renderPlayerCircle(players){
   const step = (2 * Math.PI) / n;
   const anchorAngle = Math.PI / 2;
   const meIndex = players.findIndex(p => p.id === state.userId);
-
-  players.forEach((p, idx) => {
+  const geometryFor = (player, idx) => {
     const k = (meIndex === -1) ? idx : (idx - meIndex + n) % n;
     const angle = anchorAngle + step * k;
+    const isMe = player.id === state.userId;
+    const isTopPlayer = Math.sin(angle) < -.85;
+    const playRadius = isMe ? 30 : (isTopPlayer ? 17 : 24);
+    return {
+      angle, isMe,
+      x: 50 + radius * Math.cos(angle),
+      y: 50 + radius * Math.sin(angle),
+      playX: 50 + playRadius * Math.cos(angle),
+      playY: 50 + playRadius * Math.sin(angle)
+    };
+  };
+  const winnerIndex = players.findIndex(p => p.id === state.game?.pendingCapture?.winnerId);
+  const winnerGeometry = winnerIndex >= 0 ? geometryFor(players[winnerIndex], winnerIndex) : null;
 
-    const x = 50 + radius * Math.cos(angle);
-    const y = 50 + radius * Math.sin(angle);
+  players.forEach((p, idx) => {
+    const { angle, isMe, x, y, playX, playY } = geometryFor(p, idx);
 
     const tag = document.createElement('div');
     tag.className = 'player-tag' + (p.id === state.userId ? ' me' : '');
@@ -924,13 +955,7 @@ function renderPlayerCircle(players){
     playerCircle.appendChild(tag);
 
     const play = document.createElement('div');
-    const isMe = p.id === state.userId;
     play.className = `play-circle${isMe ? ' mine drop-hint' : ''}`;
-    // 12時側はカードがネームタグへ寄りすぎないよう、中心寄り（下側）に置く。
-    const isTopPlayer = Math.sin(angle) < -.85;
-    const playRadius = isMe ? 30 : (isTopPlayer ? 17 : 24);
-    const playX = 50 + playRadius * Math.cos(angle);
-    const playY = 50 + playRadius * Math.sin(angle);
     play.style.left = `${playX}%`;
     play.style.top = `${playY}%`;
     const played = state.game?.trick?.[p.id];
@@ -948,6 +973,18 @@ function renderPlayerCircle(players){
       slot.style.setProperty('--tilt', `${played.tilt || 0}deg`);
       slot.style.setProperty('--from-x', `${(x-playX)*2.5}px`);
       slot.style.setProperty('--from-y', `${(y-playY)*2.5}px`);
+      const pending = state.game?.pendingCapture;
+      if (pending && winnerGeometry && Date.now() >= pending.gatherAt) {
+        const size = playerCircle.clientWidth;
+        const gatherElapsed = Date.now() - pending.gatherAt;
+        slot.style.setProperty('--gather-x', `${(winnerGeometry.playX-playX)*size/100}px`);
+        slot.style.setProperty('--gather-y', `${(winnerGeometry.playY-playY)*size/100}px`);
+        if (gatherElapsed < 700) {
+          slot.classList.remove('no-arrive');
+          slot.classList.add('gathering');
+          slot.style.animationDelay = `${-gatherElapsed}ms`;
+        } else slot.classList.add('gathered');
+      }
       slot.appendChild(playedEl);
       play.appendChild(slot);
     }
@@ -955,7 +992,7 @@ function renderPlayerCircle(players){
 
     const capture = document.createElement('div');
     capture.className = 'capture-circle';
-    const captureRadius = isMe ? null : 57;
+    const captureRadius = isMe ? null : 63;
     const captureX = isMe ? playX + 13 : 50 + captureRadius * Math.cos(angle);
     const captureY = isMe ? playY + 11 : 50 + captureRadius * Math.sin(angle);
     capture.style.left = `${captureX}%`;
@@ -992,8 +1029,8 @@ function renderPlayerCircle(players){
           const size = playerCircle.clientWidth;
           holder.classList.add('new-capture');
           holder.style.animationDelay = `${-captureElapsed}ms`;
-          holder.style.setProperty('--capture-x', `${(50-captureX)*size/100}px`);
-          holder.style.setProperty('--capture-y', `${(50-captureY)*size/100}px`);
+          holder.style.setProperty('--capture-x', `${(playX-captureX)*size/100}px`);
+          holder.style.setProperty('--capture-y', `${(playY-captureY)*size/100}px`);
         }
         bundle.appendChild(holder);
       });
