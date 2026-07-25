@@ -2,10 +2,10 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>テンプレ</title>
 <style>
-  html, body{height:100%; overflow:hidden;}
+  html, body{height:100%;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;}
   body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#fff;color:#111;}
   header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #eee; position:sticky; top:0; z-index:400; background:#fff;}
   h1{margin:0;font-size:18px;}
@@ -23,8 +23,7 @@
   main{
     position:relative;
     height:calc(100vh - 60px);
-    overflow:auto;
-    -webkit-overflow-scrolling:touch;
+    overflow:hidden;
     background-size:cover;
     background-position:center;
     background-repeat:no-repeat;
@@ -992,12 +991,17 @@ function renderPlayerCircle(players){
 
     const capture = document.createElement('div');
     capture.className = 'capture-circle';
+    const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const captureRadius = isMe ? null : 63;
-    const captureX = isMe ? playX + 13 : 50 + captureRadius * Math.cos(angle);
+    let captureX = isMe ? playX + 13 : 50 + captureRadius * Math.cos(angle);
     const captureY = isMe ? playY + 11 : 50 + captureRadius * Math.sin(angle);
+    // 右半分では束が右へ増えても見切れないよう、増加分だけ開始位置を左へ送る。
+    if (!isMe && Math.cos(angle) > .05) {
+      const horizontalWidth = Math.max(0, capturedTricks.length - 1) * 44 + 12;
+      captureX -= horizontalWidth / Math.max(1, playerCircle.clientWidth) * 100;
+    }
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
-    const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const oldCount = renderedCaptureCounts.get(p.id);
     capturedTricks.forEach((capturedTrick, trickIndex) => {
       const bundle = document.createElement('div');
