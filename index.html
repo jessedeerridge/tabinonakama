@@ -100,9 +100,8 @@
     box-sizing:border-box;overflow:hidden;color:#27231f;
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(255,255,255,.7);
   }
-  .my-card.playable{cursor:grab;touch-action:none;}
+  .my-card.playable{cursor:grab;touch-action:none;animation:cardPulse 1.05s ease-in-out infinite;animation-delay:var(--pulse-offset,0ms);}
   .my-card.drag-source{visibility:hidden;animation:none;}
-  .my-hand.active-turn{animation:cardPulse 1.05s ease-in-out infinite;}
   @keyframes cardPulse{50%{transform:scale(1.07)}}
   .drag-card{position:fixed;z-index:1000;pointer-events:none;transform:translate(-50%,-50%) scale(1.08);opacity:.94;}
   .play-circle{position:absolute;width:64px;height:88px;border:0;border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:4;}
@@ -112,9 +111,10 @@
   .played-card{position:absolute;left:0;top:0;transform:scale(.66);transform-origin:top left;}
   .played-card-slot.no-arrive{animation:none;}
   @keyframes cardArrive{from{opacity:0;transform:translate(var(--from-x,0),var(--from-y,0)) scale(.25) rotate(var(--tilt))}to{opacity:1;transform:translate(0,0) scale(1) rotate(var(--tilt))}}
-  .capture-circle{position:absolute;width:38px;height:53px;transform:translate(-50%,-50%);z-index:3;}
-  .capture-card{position:absolute;inset:0;width:38px;height:53px;border-radius:5px;background:#dbe3ec;border:1px solid #9ca3af;box-sizing:border-box;box-shadow:0 2px 5px rgba(0,0,0,.18);}
-  .capture-card.yellow{background:#f7d85c;border-color:#d3ad32;}
+  .capture-circle{position:absolute;width:38px;height:56px;transform:translate(-50%,-50%);z-index:3;}
+  .capture-trick{position:absolute;top:0;width:38px;height:56px;}
+  .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
+  .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   @keyframes captureArrive{from{opacity:.25;transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{opacity:1;transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
@@ -586,7 +586,7 @@ function renderMyHand(){
   myHandEl.innerHTML = '';
   const myId = state.userId;
   const handData = state.hands[myId];
-  myHandEl.classList.toggle('active-turn', state.game?.turnPlayerId === myId && !state.game?.finished);
+  myHandEl.style.setProperty('--pulse-offset', `${-(Date.now() % 1050)}ms`);
   if (!handData || !Array.isArray(handData.cards)) return;
 
   handData.cards.forEach((cardData, cardIndex) => {
@@ -669,6 +669,12 @@ async function playCard(cardIndex, expectedCard){
       room.game.capturedCards ||= {};
       room.game.capturedCards[winnerId] ||= [];
       room.game.capturedCards[winnerId].push(...plays.map(p => p.card));
+      room.game.capturedTricks ||= {};
+      room.game.capturedTricks[winnerId] ||= [];
+      room.game.capturedTricks[winnerId].push({
+        cards: plays.map(p => p.card),
+        winningCardId: winnerPlay.card.id
+      });
       room.game.turnPlayerId = winnerId;
       room.game.trickNumber = (room.game.trickNumber || 1) + 1;
       room.game.clearAt = Date.now() + 900;
@@ -920,14 +926,17 @@ function renderPlayerCircle(players){
     const play = document.createElement('div');
     const isMe = p.id === state.userId;
     play.className = `play-circle${isMe ? ' mine drop-hint' : ''}`;
-    const playRadius = isMe ? 30 : 24;
+    // 12時側はカードがネームタグへ寄りすぎないよう、中心寄り（下側）に置く。
+    const isTopPlayer = Math.sin(angle) < -.85;
+    const playRadius = isMe ? 30 : (isTopPlayer ? 17 : 24);
     const playX = 50 + playRadius * Math.cos(angle);
     const playY = 50 + playRadius * Math.sin(angle);
     play.style.left = `${playX}%`;
     play.style.top = `${playY}%`;
     const played = state.game?.trick?.[p.id];
     if (played) {
-      const playKey = `${state.game.trickNumber || 1}:${p.id}:${played.card.id || played.order}`;
+      // カード固有IDをキーにし、手番やトリック番号の更新で既存カードを再アニメーションしない。
+      const playKey = `${p.id}:${played.card.id || played.order}`;
       const slot = document.createElement('div');
       slot.className = 'played-card-slot';
       if (!playedAnimationTimes.has(playKey)) playedAnimationTimes.set(playKey, Date.now());
@@ -951,34 +960,46 @@ function renderPlayerCircle(players){
     const captureY = isMe ? playY + 11 : 50 + captureRadius * Math.sin(angle);
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
-    const captured = state.game?.capturedCards?.[p.id] || [];
-    const orderedCaptured = [...captured.filter(c => c.color !== 'yellow'), ...captured.filter(c => c.color === 'yellow')];
+    const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const oldCount = renderedCaptureCounts.get(p.id);
-    orderedCaptured.forEach((cardData, cardIndex) => {
-      const card = document.createElement('div');
-      card.className = `capture-card${cardData.color === 'yellow' ? ' yellow' : ''}`;
-      const yellowIndex = cardData.color === 'yellow'
-        ? orderedCaptured.slice(0, cardIndex).filter(c => c.color === 'yellow').length
-        : 0;
-      card.style.left = cardData.color === 'yellow' ? `${yellowIndex * 4}px` : '0';
-      card.style.setProperty('--stack-rotate', cardData.color === 'yellow' ? `${yellowIndex * 5}deg` : '0deg');
-      card.style.transform = `rotate(${cardData.color === 'yellow' ? yellowIndex * 5 : 0}deg)`;
-      const captureKey = `${p.id}:${cardData.id || cardIndex}`;
-      if (oldCount !== undefined && cardIndex >= oldCount && !captureAnimationTimes.has(captureKey)) {
-        captureAnimationTimes.set(captureKey, Date.now());
-      }
-      const captureStarted = captureAnimationTimes.get(captureKey);
-      const captureElapsed = captureStarted ? Date.now() - captureStarted : 700;
-      if (captureElapsed < 700) {
-        const size = playerCircle.clientWidth;
-        card.classList.add('new-capture');
-        card.style.animationDelay = `${-captureElapsed}ms`;
-        card.style.setProperty('--capture-x', `${(50-captureX)*size/100}px`);
-        card.style.setProperty('--capture-y', `${(50-captureY)*size/100}px`);
-      }
-      capture.appendChild(card);
+    capturedTricks.forEach((capturedTrick, trickIndex) => {
+      const bundle = document.createElement('div');
+      bundle.className = 'capture-trick';
+      bundle.style.left = `${trickIndex * 44}px`;
+      const cards = capturedTrick.cards || [];
+      const yellows = cards.filter(card => card.color === 'yellow');
+      const winner = cards.find(card => card.id === capturedTrick.winningCardId);
+      const ordered = yellows.length
+        ? [...cards.filter(card => card.color !== 'yellow'), ...yellows]
+        : [...cards.filter(card => card.id !== capturedTrick.winningCardId), ...(winner ? [winner] : [])];
+      ordered.forEach((cardData, cardIndex) => {
+        const holder = document.createElement('div');
+        holder.className = 'capture-card';
+        const yellowIndex = cardData.color === 'yellow'
+          ? ordered.slice(0, cardIndex).filter(card => card.color === 'yellow').length
+          : 0;
+        const rotation = cardData.color === 'yellow' ? -2 + yellowIndex * 5 : -2;
+        holder.style.left = cardData.color === 'yellow' ? `${yellowIndex * 4}px` : '0';
+        holder.style.setProperty('--stack-rotate', `${rotation}deg`);
+        holder.appendChild(createCardElement(cardData));
+        const captureKey = `${p.id}:${trickIndex}`;
+        if (oldCount !== undefined && trickIndex >= oldCount && !captureAnimationTimes.has(captureKey)) {
+          captureAnimationTimes.set(captureKey, Date.now());
+        }
+        const captureStarted = captureAnimationTimes.get(captureKey);
+        const captureElapsed = captureStarted ? Date.now() - captureStarted : 700;
+        if (captureElapsed < 700) {
+          const size = playerCircle.clientWidth;
+          holder.classList.add('new-capture');
+          holder.style.animationDelay = `${-captureElapsed}ms`;
+          holder.style.setProperty('--capture-x', `${(50-captureX)*size/100}px`);
+          holder.style.setProperty('--capture-y', `${(50-captureY)*size/100}px`);
+        }
+        bundle.appendChild(holder);
+      });
+      capture.appendChild(bundle);
     });
-    renderedCaptureCounts.set(p.id, orderedCaptured.length);
+    renderedCaptureCounts.set(p.id, capturedTricks.length);
     playerCircle.appendChild(capture);
   });
 
