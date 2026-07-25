@@ -104,9 +104,19 @@
   .my-card.card-orange{--card-color:#d98236;--card-fill:#f9ead8;}
   .my-card.card-yellow{--card-color:#d3ad32;--card-fill:#fbf3cf;}
   .my-card.card-gray{--card-color:#a9aca8;--card-fill:#eff0ed;}
-  .card-number{position:absolute;top:4px;left:7px;font:900 24px/1 Georgia,serif;color:var(--card-color);text-shadow:1px 1px #fff;z-index:2;}
-  .card-number.mirror{left:auto;right:7px;transform:rotate(180deg);}
-  .card-scene{position:absolute;inset:25px 7px 25px;border:2px solid var(--card-color);border-radius:42% 42% 12px 12px;background:rgba(255,255,255,.25);overflow:hidden;}
+  .card-badge{position:absolute;top:3px;left:4px;width:20px;height:37px;border:2px solid var(--card-color);border-bottom:0;background:#fffdf3;box-sizing:border-box;z-index:3;text-align:center;}
+  .card-badge.right{left:auto;right:4px;}
+  .card-badge::after{content:'';position:absolute;left:-2px;top:36px;width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:11px solid var(--card-color);}
+  .card-badge::before{content:'';position:absolute;left:1px;top:36px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:8px solid #fffdf3;z-index:1;}
+  .card-number{display:block;font:900 19px/20px Georgia,serif;color:#302a23;text-shadow:1px 1px #fff;}
+  .card-mark{position:relative;display:block;width:14px;height:13px;margin:0 auto;color:var(--card-color);box-sizing:border-box;}
+  .card-red .card-mark{border:2px solid currentColor;border-radius:50%;background:repeating-linear-gradient(90deg,transparent 0 2px,currentColor 2px 3px);}
+  .card-green .card-mark::before{content:'♣';position:absolute;left:-1px;top:-5px;font:bold 16px/16px Georgia,serif;color:currentColor;transform:rotate(180deg);}
+  .card-orange .card-mark{height:9px;margin-top:2px;border-radius:12px 12px 2px 2px;border:2px solid currentColor;border-bottom-width:3px;}
+  .card-yellow .card-mark{width:11px;height:11px;border:3px solid currentColor;border-radius:50%;}
+  .card-gray .card-mark::before{content:'';position:absolute;left:0;top:1px;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:11px solid currentColor;}
+  .card-gray .card-mark::after{content:'';position:absolute;left:5px;top:4px;border-left:2px solid transparent;border-right:2px solid transparent;border-bottom:4px solid #fffdf3;}
+  .card-scene{position:absolute;inset:27px 7px 25px;border:2px solid var(--card-color);border-radius:42% 42% 12px 12px;background:rgba(255,255,255,.25);overflow:hidden;}
   .card-scene::before,.card-scene::after{content:'';position:absolute;}
   .card-red .card-scene::before{width:47px;height:47px;border-radius:50%;background:#a83c43;left:9px;top:13px;box-shadow:12px 9px 0 #713944;}
   .card-red .card-scene::after{width:35px;height:8px;border-radius:50%;background:rgba(61,37,42,.28);left:14px;bottom:7px;}
@@ -118,8 +128,11 @@
   .card-yellow .card-scene::after{width:21px;height:7px;border-radius:50%;background:rgba(145,113,29,.25);left:18px;bottom:7px;}
   .card-gray .card-scene::before{width:0;height:0;border-left:28px solid transparent;border-right:28px solid transparent;border-bottom:53px solid #aeb7b6;left:3px;bottom:0;}
   .card-gray .card-scene::after{width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-bottom:20px solid #f7f7f2;left:20px;top:7px;}
-  .card-name{position:absolute;left:6px;right:6px;bottom:4px;height:17px;border:1px solid var(--card-color);border-radius:50%;background:rgba(255,255,255,.82);font:700 12px/17px serif;text-align:center;letter-spacing:.12em;}
-  @media (max-width:520px){.my-hand{gap:6px}.my-card{width:68px;height:104px}.card-scene{inset:23px 5px 23px}.card-number{font-size:20px}}
+  .card-name{position:absolute;left:13px;right:13px;bottom:4px;height:17px;border:1px solid var(--card-color);background:#fffdf3;font:700 12px/17px serif;text-align:center;letter-spacing:.12em;z-index:3;}
+  .card-name::before,.card-name::after{content:'';position:absolute;top:-1px;width:0;height:0;border-top:9px solid transparent;border-bottom:9px solid transparent;}
+  .card-name::before{left:-9px;border-right:9px solid var(--card-color);}
+  .card-name::after{right:-9px;border-left:9px solid var(--card-color);}
+  @media (max-width:520px){.my-hand{gap:6px}.my-card{width:68px;height:104px}.card-scene{inset:25px 5px 23px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:11px;right:11px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
@@ -401,12 +414,19 @@ function createCardElement(cardData){
   card.className = `my-card card-${cardData.color}`;
   card.setAttribute('aria-label', `${cardData.name} ${cardData.number}`);
 
-  const number = document.createElement('span');
-  number.className = 'card-number';
-  number.textContent = cardData.number;
+  const createBadge = side => {
+    const badge = document.createElement('span');
+    badge.className = `card-badge ${side}`;
 
-  const mirrorNumber = number.cloneNode(true);
-  mirrorNumber.classList.add('mirror');
+    const number = document.createElement('span');
+    number.className = 'card-number';
+    number.textContent = cardData.number;
+
+    const mark = document.createElement('span');
+    mark.className = 'card-mark';
+    badge.append(number, mark);
+    return badge;
+  };
 
   const scene = document.createElement('span');
   scene.className = 'card-scene';
@@ -415,7 +435,8 @@ function createCardElement(cardData){
   name.className = 'card-name';
   name.textContent = cardData.name;
 
-  card.append(number, mirrorNumber, scene, name);
+  // 左右とも数字とマークは同じ通常向きで表示する。
+  card.append(createBadge('left'), createBadge('right'), scene, name);
   return card;
 }
 
