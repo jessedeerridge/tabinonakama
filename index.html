@@ -91,12 +91,28 @@
   /* 自分の手札表示（大きめ横並び） */
   .my-hand-wrapper{margin-top:16px;text-align:center;}
   .my-hand-title{display:none;}
-  .my-hand{display:flex;justify-content:center;gap:8px;margin-top:6px;min-height:100px;}
+  .my-hand{display:flex;justify-content:center;gap:10px;margin-top:6px;min-height:132px;flex-wrap:wrap;padding:0 12px;}
   .my-card{
-    width:60px;height:90px;border-radius:8px;border:1px solid #ddd;background:#fff;
-    display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;
-    box-shadow:0 4px 12px rgba(0,0,0,.15);
+    --card-color:#9ca3af;--detail-color:var(--card-color);--panel-fill:#fffdf3;
+    position:relative;width:82px;height:122px;border-radius:10px;
+    border:4px solid var(--card-color);background:#fff;
+    box-sizing:border-box;overflow:hidden;color:#27231f;
+    box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(255,255,255,.7);
   }
+  .my-card.card-red{--card-color:#c94c47;}
+  .my-card.card-green{--card-color:#559344;}
+  .my-card.card-orange{--card-color:#d98236;}
+  .my-card.card-yellow{--card-color:#d3ad32;}
+  .my-card.card-gray{--card-color:#a9aca8;}
+  .card-badge{position:absolute;top:-4px;left:4px;width:22px;height:43px;background:var(--detail-color);clip-path:polygon(0 0,100% 0,100% 73%,50% 100%,0 73%);z-index:3;text-align:center;}
+  .card-badge.right{left:auto;right:4px;}
+  .card-badge::before{content:'';position:absolute;inset:2px;bottom:3px;background:var(--panel-fill);clip-path:polygon(0 0,100% 0,100% 72%,50% 100%,0 72%);z-index:-1;}
+  .card-number{display:block;padding-top:2px;font:700 18px/19px system-ui,-apple-system,"Segoe UI",sans-serif;color:#252321;}
+  .card-mark{display:block;width:15px;height:15px;margin:0 auto;color:var(--card-color);}
+  .card-mark svg{display:block;width:100%;height:100%;overflow:visible;}
+  .card-name{position:absolute;left:7px;right:7px;bottom:4px;height:19px;background:var(--detail-color);clip-path:polygon(0 50%,10px 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,10px 100%);font:700 12px/19px system-ui,-apple-system,"Segoe UI",sans-serif;text-align:center;letter-spacing:.12em;z-index:3;}
+  .card-name::before{content:'';position:absolute;inset:1px;background:var(--panel-fill);clip-path:polygon(0 50%,9px 0,calc(100% - 9px) 0,100% 50%,calc(100% - 9px) 100%,9px 100%);z-index:-1;}
+  @media (max-width:520px){.my-hand{gap:6px}.my-card{width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
@@ -357,6 +373,58 @@ const ROLE_HELP = [
   { name: "カード4", text: "うううう" },
 ];
 
+// 山札は各カード1枚ずつ（黄のみ1〜5、ほかの色は1〜8）。
+const CARD_TYPES = [
+  { color: 'red', name: '影', max: 8 },
+  { color: 'green', name: '森', max: 8 },
+  { color: 'orange', name: '丘', max: 8 },
+  { color: 'yellow', name: '指輪', max: 5 },
+  { color: 'gray', name: '山', max: 8 }
+];
+const CARD_DECK = CARD_TYPES.flatMap(type =>
+  Array.from({ length: type.max }, (_, index) => ({
+    color: type.color,
+    name: type.name,
+    number: index + 1
+  }))
+);
+
+function createCardElement(cardData){
+  const card = document.createElement('div');
+  card.className = `my-card card-${cardData.color}`;
+  card.setAttribute('aria-label', `${cardData.name} ${cardData.number}`);
+
+  const createBadge = side => {
+    const badge = document.createElement('span');
+    badge.className = `card-badge ${side}`;
+
+    const number = document.createElement('span');
+    number.className = 'card-number';
+    number.textContent = cardData.number;
+
+    const mark = document.createElement('span');
+    mark.className = 'card-mark';
+    const markSvg = {
+      red: `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M1.5 10c2.3-4 5.1-6 8.5-6s6.2 2 8.5 6c-2.3 4-5.1 6-8.5 6s-6.2-2-8.5-6Z" fill="#9f2932"/><ellipse cx="10" cy="10" rx="1.8" ry="5" fill="#4d121a"/></svg>`,
+      green: `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 11C7.7 8.3 8.1 4.6 10 1.5c1.9 3.1 2.3 6.8 0 9.5ZM9.5 11c-3.3 1.3-6.5-.2-8-3.2 3.5-.6 6.7.4 8 3.2ZM10.5 11c3.3 1.3 6.5-.2 8-3.2-3.5-.6-6.7.4-8 3.2Z" fill="currentColor"/></svg>`,
+      orange: `<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="currentColor"/><g stroke="#704321" stroke-width="1" opacity=".55"><path d="M5 5.2v9.6M7.5 3.2v13.6M10 2v16M12.5 3.2v13.6M15 5.2v9.6"/></g></svg>`,
+      yellow: `<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="3"/><path d="M5.5 5.5 7 3.8h6l1.5 1.7" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`,
+      gray: `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m1 16 5.2-7 3.1 4.1L13 5l6 11H1Z" fill="currentColor"/><path d="m10.8 10 2.2-5 2.5 4.6-1.7-1-1.2 1.6Z" fill="#fff" opacity=".9"/></svg>`
+    };
+    mark.innerHTML = markSvg[cardData.color] || '';
+    badge.append(number, mark);
+    return badge;
+  };
+
+  const name = document.createElement('span');
+  name.className = 'card-name';
+  name.textContent = cardData.name;
+
+  // 左右とも数字とマークは同じ通常向きで表示する。
+  card.append(createBadge('left'), createBadge('right'), name);
+  return card;
+}
+
 function renderHelpList(){
   helpBody.innerHTML = '';
   ROLE_HELP.forEach((r, idx) => {
@@ -476,11 +544,12 @@ function renderMyHand(){
   const handData = state.hands[myId];
   if (!handData || !Array.isArray(handData.cards)) return;
 
-  handData.cards.forEach(v => {
-    const card = document.createElement('div');
-    card.className = 'my-card';
-    card.textContent = v;
-    myHandEl.appendChild(card);
+  handData.cards.forEach(cardData => {
+    // 古いルームに残っている数字カードも表示を壊さない。
+    const normalized = (typeof cardData === 'object' && cardData)
+      ? cardData
+      : { color: 'gray', name: '山', number: cardData };
+    myHandEl.appendChild(createCardElement(normalized));
   });
 }
 function renderHands(){
@@ -768,17 +837,20 @@ async function dealInitialHands(){
 
   const tablesSnap = await get(ref(db, `rooms/${state.roomCode}/tables`));
   const tables = tablesSnap.val() || {};
+  const seatedPlayers = Object.values(tables).filter(t => t && t.playerId);
   const hands = {};
+  const deck = CARD_DECK.map(card => ({ ...card }));
+  for (let i = deck.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  let deckIndex = 0;
+  // 8人でも同じ枚数を受け取れるよう、山札の範囲内で最大5枚配る。
+  const cardsPerPlayer = Math.min(5, Math.floor(deck.length / seatedPlayers.length));
 
-  for (const seatIndex of Object.keys(tables)) {
-    const t = tables[seatIndex];
-    if (!t || !t.playerId) continue;
-
-    const cards = [];
-    for (let i=0;i<5;i++){
-      const v = Math.floor(Math.random()*10)+1;
-      cards.push(v);
-    }
+  for (const t of seatedPlayers) {
+    const cards = deck.slice(deckIndex, deckIndex + cardsPerPlayer);
+    deckIndex += cards.length;
     hands[t.playerId] = { cards };
   }
   await set(ref(db, `rooms/${state.roomCode}/hands`), hands);
