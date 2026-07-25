@@ -10,8 +10,30 @@
   header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #eee; position:sticky; top:0; z-index:400; background:#fff;}
   h1{margin:0;font-size:18px;}
   .small{font-size:12px;opacity:.75;}
-  .join-box{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:12px; position:relative; z-index:2;}
-  .join-box input{padding:8px;border:1px solid #ddd;border-radius:6px;font-size:16px;}
+  .join-box{display:flex;flex-direction:column;align-items:center;padding:12px;position:relative;z-index:2;}
+  .room-button{
+    position:relative;display:flex;align-items:center;width:min(88vw, 420px);height:76px;min-height:76px;
+    margin:0 0 10px;padding:10px 12px;box-sizing:border-box;border:1px solid rgba(0,0,0,.70);
+    border-radius:10px;box-shadow:0 3px 12px rgba(0,0,0,.10);font-family:inherit;cursor:pointer;
+  }
+  .create-room{justify-content:center;background:rgba(0,0,0,.72);color:#fff;font-size:15px;font-weight:700;line-height:1;letter-spacing:.08em;}
+  .create-room:hover{background:rgba(0,0,0,.82);}
+  .room-card{background:rgba(255,255,255,.72);color:#111;text-align:left;}
+  .room-card:hover{background:rgba(255,255,255,.86);}
+  .room-button:has(.name-form){padding:0;}
+  .room-owner{align-self:flex-start;min-width:0;max-width:calc(100% - 12px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:650;line-height:22px;color:#111;}
+  .room-meta{position:absolute;right:10px;bottom:7px;display:flex;gap:8px;max-width:calc(100% - 20px);font-size:11px;font-weight:400;line-height:1;color:rgba(17,17,17,.78);white-space:nowrap;}
+  .room-loading{display:flex;align-items:center;justify-content:center;width:100%;height:28px;min-height:28px;font-size:13px;font-weight:400;line-height:1;color:rgba(17,17,17,.72);}
+  .room-loading.hidden{display:none;}
+  .name-form{display:flex;align-items:center;width:100%;height:100%;padding:0 12px;box-sizing:border-box;}
+  .name-input{flex:1 1 auto;min-width:0;height:40px;padding:7px 10px;box-sizing:border-box;border:1px solid rgba(0,0,0,.55);border-radius:7px 0 0 7px;background:rgba(255,255,255,.90);color:#111;font:400 15px/24px inherit;outline:none;}
+  .name-input::placeholder{color:rgba(17,17,17,.36);opacity:1;}
+  .name-input:focus{border-color:rgba(0,0,0,.82);}
+  .name-submit{height:40px;min-width:64px;padding:0 14px;box-sizing:border-box;border:1px solid #111;border-radius:0 7px 7px 0;background:#111;color:#fff;font:700 14px/1 inherit;cursor:pointer;}
+  @media (max-width:480px){
+    .room-card{height:72px;min-height:72px}.room-owner{font-size:14px}.room-meta{font-size:10px}
+    .name-input{font-size:16px}.name-submit{font-size:13px}
+  }
   .btn{padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:#f8f8f8;cursor:pointer;}
   .btn.primary{background:#111;color:#fff;border-color:#111;}
   .btn.ghost{background:transparent;}
@@ -237,9 +259,9 @@
 
 <main id="main" class="prejoin">
   <div class="join-box" id="joinBox">
-    <input id="userName" placeholder="名前（4文字以内）" maxlength="4" />
-    <input id="roomCode" placeholder="ルームコード（未入力で自動生成）" maxlength="12" />
-    <button class="btn primary" id="btnJoin">入室</button>
+    <button class="room-button create-room" id="createRoom" type="button">CREATE ROOM</button>
+    <div class="room-loading" id="roomLoading">loading...</div>
+    <div id="roomList"></div>
   </div>
 
   <div id="lobby" class="hidden">
@@ -353,9 +375,9 @@ const state = {
 
 const mainEl = document.getElementById('main');
 const joinBox = document.getElementById('joinBox');
-const inputName = document.getElementById('userName');
-const inputCode = document.getElementById('roomCode');
-const btnJoin = document.getElementById('btnJoin');
+const createRoomBtn = document.getElementById('createRoom');
+const roomLoading = document.getElementById('roomLoading');
+const roomList = document.getElementById('roomList');
 const lobby = document.getElementById('lobby');
 const roomInfo = document.getElementById('roomInfo');
 const roomInfoLobby = document.getElementById('roomInfoLobby');
@@ -711,11 +733,15 @@ function renderHands(){
 
 const urlParams = new URLSearchParams(window.location.search);
 const roomFromUrl = urlParams.get('room');
-if(roomFromUrl) inputCode.value = roomFromUrl;
+let roomFromUrlHandled = false;
 
-btnJoin.addEventListener('click', async () => {
-  state.userName = inputName.value || '名無し';
-  state.roomCode = inputCode.value.trim() || generateRoomCode();
+async function joinRoom(userName, roomCode, createNew = false) {
+  state.userName = userName.trim() || '名無し';
+  state.roomCode = roomCode || generateRoomCode();
+
+  if (createNew) {
+    await update(ref(db, `rooms/${state.roomCode}`), { createdAt: Date.now() });
+  }
 
   await set(ref(db, `rooms/${state.roomCode}/users/${state.userId}`), {
     name: state.userName,
@@ -750,6 +776,65 @@ btnJoin.addEventListener('click', async () => {
   subscribeHands();
 
   syncSeatUI();
+}
+
+function showNameForm(card, roomCode = null) {
+  document.querySelectorAll('.name-form').forEach(form => form.closest('.room-button')?.replaceWith(form.closest('.room-button')._original));
+  const replacement = document.createElement('div');
+  replacement.className = card.className;
+  replacement._original = card;
+  replacement.innerHTML = `<form class="name-form"><input class="name-input" maxlength="20" placeholder="your name" aria-label="your name"><button class="name-submit" type="submit">決定</button></form>`;
+  card.replaceWith(replacement);
+  const input = replacement.querySelector('.name-input');
+  replacement.querySelector('form').addEventListener('submit', event => {
+    event.preventDefault();
+    joinRoom(input.value, roomCode, !roomCode);
+  });
+  input.focus();
+}
+
+createRoomBtn.addEventListener('click', () => showNameForm(createRoomBtn));
+
+function formatCreatedAt(timestamp) {
+  if (!timestamp) return '--:--';
+  return new Intl.DateTimeFormat('ja-JP', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).format(timestamp);
+}
+
+onValue(ref(db, 'rooms'), snapshot => {
+  roomLoading.classList.add('hidden');
+  roomList.replaceChildren();
+  const rooms = snapshot.val() || {};
+  Object.entries(rooms)
+    .sort(([, a], [, b]) => (b.createdAt || 0) - (a.createdAt || 0))
+    .forEach(([code, room]) => {
+      const card = document.createElement('div');
+      card.className = 'room-button room-card';
+      card.setAttribute('role', 'button');
+      card.tabIndex = 0;
+      const users = Object.values(room.users || {}).sort((a,b) => (a.joinedAt || 0) - (b.joinedAt || 0));
+      const names = users.map(user => user.name).filter(Boolean).join('、') || '参加者を募集中';
+      const name = document.createElement('span');
+      name.className = 'room-owner';
+      name.textContent = names;
+      const meta = document.createElement('span');
+      meta.className = 'room-meta';
+      const codeEl = document.createElement('span');
+      codeEl.textContent = code;
+      const time = document.createElement('time');
+      time.textContent = formatCreatedAt(room.createdAt || users[0]?.joinedAt);
+      meta.append(codeEl, time);
+      card.append(name, meta);
+      const selectRoom = () => showNameForm(card, code);
+      card.addEventListener('click', selectRoom);
+      card.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectRoom(); }
+      });
+      roomList.append(card);
+      if (!roomFromUrlHandled && roomFromUrl === code) {
+        roomFromUrlHandled = true;
+        showNameForm(card, code);
+      }
+    });
 });
 
 copyLinkBtn.addEventListener('click', async () => {
@@ -758,7 +843,6 @@ copyLinkBtn.addEventListener('click', async () => {
     await navigator.clipboard.writeText(url);
     copyLinkBtn.classList.add('copied');
     copyLinkBtn.textContent = 'COPIED';
-    inputCode.value = state.roomCode;
     setTimeout(()=>{
       copyLinkBtn.classList.remove('copied');
       copyLinkBtn.textContent='COPY';
