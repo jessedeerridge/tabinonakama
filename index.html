@@ -994,11 +994,13 @@ function renderPlayerCircle(players){
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const captureRadius = isMe ? null : 63;
     let captureX = isMe ? playX + 13 : 50 + captureRadius * Math.cos(angle);
-    const captureY = isMe ? playY + 11 : 50 + captureRadius * Math.sin(angle);
-    // 右半分では束が右へ増えても見切れないよう、増加分だけ開始位置を左へ送る。
+    let captureY = isMe ? playY + 11 : 50 + captureRadius * Math.sin(angle);
+    const circleSize = Math.max(1, playerCircle.clientWidth);
+    // 他プレイヤーの獲得束はネームタグから少し上へ離す。
+    if (!isMe) captureY -= 2 / circleSize * 100;
+    // 右半分の獲得束は枚数にかかわらず、初期位置を固定で左へ寄せる。
     if (!isMe && Math.cos(angle) > .05) {
-      const horizontalWidth = Math.max(0, capturedTricks.length - 1) * 44 + 12;
-      captureX -= horizontalWidth / Math.max(1, playerCircle.clientWidth) * 100;
+      captureX -= 52 / circleSize * 100;
     }
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
