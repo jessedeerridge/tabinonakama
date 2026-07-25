@@ -61,8 +61,8 @@
 
   /* ★ プレイヤー円配置用 */
   .player-circle{
-    position:relative;width:260px;height:260px;
-    margin:20px auto 0;border-radius:50%;
+    position:relative;width:min(76vw,420px);height:min(76vw,420px);
+    margin:8px auto 0;border-radius:50%;
     box-sizing:border-box;border:none;
   }
   .player-circle::before{content:'';}
@@ -72,6 +72,9 @@
     border:1px solid #ddd;font-size:12px;white-space:nowrap;
   }
   .player-tag.me{ background:#111;color:#fff;border-color:#111; }
+  .player-tag.active{animation:turnPulse 1.05s ease-in-out infinite;z-index:15;}
+  .player-tag.me{margin-top:12px;}
+  @keyframes turnPulse{50%{transform:translate(-50%,-50%) scale(1.14);box-shadow:0 0 0 7px rgba(56,189,248,.2)}}
 
   /* 他プレイヤーのミニカード（ネームタグの下に扇状） */
   .player-tag .mini-hand{
@@ -89,7 +92,7 @@
   }
 
   /* 自分の手札表示（大きめ横並び） */
-  .my-hand-wrapper{margin-top:16px;text-align:center;}
+  .my-hand-wrapper{margin-top:28px;text-align:center;}
   .my-hand-title{display:none;}
   .my-hand{display:flex;justify-content:center;gap:10px;margin-top:6px;min-height:132px;flex-wrap:wrap;padding:0 12px;}
   .my-card{
@@ -99,6 +102,17 @@
     box-sizing:border-box;overflow:hidden;color:#27231f;
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(255,255,255,.7);
   }
+  .my-card.playable{cursor:grab;touch-action:none;animation:cardPulse 1.05s ease-in-out infinite;}
+  .my-card.drag-source{visibility:hidden;animation:none;}
+  @keyframes cardPulse{50%{transform:scale(1.08);box-shadow:0 9px 22px rgba(14,165,233,.38)}}
+  .drag-card{position:fixed;z-index:1000;pointer-events:none;transform:translate(-50%,-50%) scale(1.08);opacity:.94;}
+  .table-hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:112px;height:112px;border-radius:50%;display:grid;place-items:center;background:rgba(125,211,252,.25);border:2px dashed #38bdf8;color:#0369a1;font-size:12px;font-weight:800;opacity:0;transition:opacity .15s;pointer-events:none;z-index:3;}
+  .player-circle.dragging .table-hint{opacity:1;}
+  .play-circle{position:absolute;width:64px;height:88px;border:1px dashed rgba(3,105,161,.36);border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:4;}
+  .played-card{width:54px;height:80px;border-width:3px;transform:rotate(var(--tilt));box-shadow:0 5px 13px rgba(0,0,0,.25);animation:cardArrive .35s ease-out both;}
+  .played-card .card-badge{transform:scale(.67);transform-origin:top left}.played-card .card-badge.right{transform-origin:top right}.played-card .card-name{font-size:9px;line-height:15px;height:15px}
+  @keyframes cardArrive{from{opacity:0;transform:translate(var(--from-x,0),var(--from-y,0)) scale(.25) rotate(var(--tilt))}to{opacity:1;transform:translate(0,0) scale(1) rotate(var(--tilt))}}
+  .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .my-card.card-red{--card-color:#c94c47;}
   .my-card.card-green{--card-color:#559344;}
   .my-card.card-orange{--card-color:#d98236;}
@@ -226,6 +240,7 @@
     <div id="roomInfoLobby" style="margin-bottom:8px;"></div>
     <p>ここにテーブルや情報が表示されます。</p>
 
+    <div id="gameStatus" class="game-status"></div>
     <div id="playerCircle" class="player-circle"></div>
 
     <div class="my-hand-wrapper">
@@ -295,7 +310,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
-  getDatabase, ref, set, get, update, onDisconnect, onValue, remove
+  getDatabase, ref, set, get, update, onDisconnect, onValue, remove, runTransaction
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
 // ▼ Firebase 設定
@@ -325,7 +340,8 @@ const state = {
   seatedTable: null,
   isHost: false,
   hands: {},
-  room: {}
+  room: {},
+  game: null
 };
 
 const mainEl = document.getElementById('main');
@@ -347,6 +363,7 @@ const seatLabel = seatPop.querySelector('label');
 
 const playerCircle = document.getElementById('playerCircle');
 const myHandEl = document.getElementById('myHand');
+const gameStatus = document.getElementById('gameStatus');
 
 const kickDialog = document.getElementById('kickDialog');
 const kickMessage = document.getElementById('kickMessage');
@@ -393,6 +410,7 @@ function createCardElement(cardData){
   const card = document.createElement('div');
   card.className = `my-card card-${cardData.color}`;
   card.setAttribute('aria-label', `${cardData.name} ${cardData.number}`);
+  if (cardData.id) card.dataset.cardId = cardData.id;
 
   const createBadge = side => {
     const badge = document.createElement('span');
@@ -468,6 +486,7 @@ let pendingSeatIndexToSteal = null;
 let pendingSeatPlayerIdToSteal = null;
 let isRenderingSeatTabs = false;
 let latestPlayers = [];
+let trickClearTimer = null;
 
 function generateRoomCode(length = 6){
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -516,10 +535,27 @@ function subscribeRoom(){
   const roomRef = ref(db, `rooms/${state.roomCode}`);
   onValue(roomRef, snap => {
     state.room = snap.val() || {};
+    state.game = state.room.game || null;
     const waiting = (!state.isHost && !state.room.maxPlayers);
     hostSelectingPop.classList.toggle('hidden', !waiting);
+    renderHands();
+    scheduleTrickClear();
     syncSeatUI();
   });
+}
+
+function scheduleTrickClear(){
+  clearTimeout(trickClearTimer);
+  const clearAt = state.game?.clearAt;
+  if (!clearAt || !state.roomCode) return;
+  trickClearTimer = setTimeout(async () => {
+    await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+      if (!game || game.clearAt !== clearAt || Date.now() < clearAt) return;
+      delete game.trick;
+      delete game.clearAt;
+      return game;
+    });
+  }, Math.max(0, clearAt - Date.now()) + 20);
 }
 function subscribeHostState(){
   const hostRef = ref(db, `rooms/${state.roomCode}/hostId`);
@@ -544,12 +580,90 @@ function renderMyHand(){
   const handData = state.hands[myId];
   if (!handData || !Array.isArray(handData.cards)) return;
 
-  handData.cards.forEach(cardData => {
+  handData.cards.forEach((cardData, cardIndex) => {
     // 古いルームに残っている数字カードも表示を壊さない。
     const normalized = (typeof cardData === 'object' && cardData)
       ? cardData
       : { color: 'gray', name: '山', number: cardData };
-    myHandEl.appendChild(createCardElement(normalized));
+    const card = createCardElement(normalized);
+    const canPlay = state.game && state.game.turnPlayerId === myId && canFollowSuit(normalized);
+    if (canPlay) {
+      card.classList.add('playable');
+      card.addEventListener('pointerdown', event => beginCardDrag(event, normalized, cardIndex, card));
+    }
+    myHandEl.appendChild(card);
+  });
+}
+
+function canFollowSuit(card){
+  const trick = state.game?.trick || {};
+  const plays = Object.values(trick);
+  if (!plays.length) return true;
+  const leadColor = plays.sort((a,b) => a.order-b.order)[0].card.color;
+  const cards = state.hands[state.userId]?.cards || [];
+  return card.color === leadColor || !cards.some(c => c.color === leadColor);
+}
+
+function beginCardDrag(event, cardData, cardIndex, source){
+  if (event.button !== undefined && event.button !== 0) return;
+  event.preventDefault();
+  source.setPointerCapture(event.pointerId);
+  source.classList.add('drag-source');
+  playerCircle.classList.add('dragging');
+  const floating = createCardElement(cardData);
+  floating.classList.add('drag-card');
+  document.body.appendChild(floating);
+  const move = e => { floating.style.left = `${e.clientX}px`; floating.style.top = `${e.clientY}px`; };
+  move(event);
+  const finish = async e => {
+    source.removeEventListener('pointermove', move);
+    source.removeEventListener('pointerup', finish);
+    source.removeEventListener('pointercancel', cancel);
+    floating.remove(); source.classList.remove('drag-source'); playerCircle.classList.remove('dragging');
+    const rect = playerCircle.getBoundingClientRect();
+    const distance = Math.hypot(e.clientX-(rect.left+rect.width/2), e.clientY-(rect.top+rect.height/2));
+    if (distance < Math.min(rect.width, rect.height) * .29) await playCard(cardIndex, cardData);
+  };
+  const cancel = () => { floating.remove(); source.classList.remove('drag-source'); playerCircle.classList.remove('dragging'); };
+  source.addEventListener('pointermove', move);
+  source.addEventListener('pointerup', finish, { once:true });
+  source.addEventListener('pointercancel', cancel, { once:true });
+}
+
+async function playCard(cardIndex, expectedCard){
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    if (!room?.game || room.game.turnPlayerId !== state.userId) return;
+    const hand = room.hands?.[state.userId]?.cards;
+    const card = hand?.[cardIndex];
+    if (!card || card.id !== expectedCard.id) return;
+    const existing = Object.values(room.game.trick || {}).sort((a,b)=>a.order-b.order);
+    if (existing.length) {
+      const lead = existing[0].card.color;
+      if (card.color !== lead && hand.some(c => c.color === lead)) return;
+    }
+    hand.splice(cardIndex, 1);
+    room.hands[state.userId].cards = hand;
+    room.game.trick ||= {};
+    room.game.trick[state.userId] = { card, order: existing.length, tilt: Math.floor(Math.random()*5)-2 };
+    const order = room.game.playerOrder;
+    if (existing.length + 1 === order.length) {
+      const plays = [...existing, room.game.trick[state.userId]];
+      const lead = plays[0].card.color;
+      const winnerPlay = plays.filter(p=>p.card.color===lead).reduce((best,p)=>p.card.number>best.card.number?p:best);
+      const winnerId = Object.entries(room.game.trick).find(([,p])=>p===winnerPlay)?.[0] || state.userId;
+      room.game.lastWinnerId = winnerId;
+      room.game.tricksWon ||= {};
+      room.game.tricksWon[winnerId] = (room.game.tricksWon[winnerId] || 0) + 1;
+      room.game.turnPlayerId = winnerId;
+      room.game.trickNumber = (room.game.trickNumber || 1) + 1;
+      room.game.clearAt = Date.now() + 900;
+      if (order.every(id => !(room.hands[id]?.cards || []).length)) room.game.finished = true;
+    } else {
+      const currentIndex = order.indexOf(state.userId);
+      room.game.turnPlayerId = order[(currentIndex + 1) % order.length];
+    }
+    return room;
   });
 }
 function renderHands(){
@@ -734,6 +848,10 @@ function renderPlayerCircle(players){
   playerCircle.innerHTML = '';
   if (!players.length) return;
 
+  const hint = document.createElement('div');
+  hint.className = 'table-hint'; hint.textContent = 'ここにドロップ';
+  playerCircle.appendChild(hint);
+
   const n = players.length;
   const radius = 45;
   const step = (2 * Math.PI) / n;
@@ -748,7 +866,7 @@ function renderPlayerCircle(players){
     const y = 50 + radius * Math.sin(angle);
 
     const tag = document.createElement('div');
-    tag.className = 'player-tag' + (p.id === state.userId ? ' me' : '');
+    tag.className = 'player-tag' + (p.id === state.userId ? ' me' : '') + (state.game?.turnPlayerId === p.id ? ' active' : '');
     tag.textContent = p.name;
     tag.style.left = `${x}%`;
     tag.style.top = `${y}%`;
@@ -788,7 +906,31 @@ function renderPlayerCircle(players){
     }
 
     playerCircle.appendChild(tag);
+
+    const play = document.createElement('div');
+    play.className = 'play-circle';
+    const playRadius = 24;
+    play.style.left = `${50 + playRadius * Math.cos(angle)}%`;
+    play.style.top = `${50 + playRadius * Math.sin(angle)}%`;
+    const played = state.game?.trick?.[p.id];
+    if (played) {
+      const playedEl = createCardElement(played.card);
+      playedEl.classList.add('played-card');
+      playedEl.style.setProperty('--tilt', `${played.tilt || 0}deg`);
+      playedEl.style.setProperty('--from-x', `${(x-50)*2.5}px`);
+      playedEl.style.setProperty('--from-y', `${(y-50)*2.5}px`);
+      play.appendChild(playedEl);
+    }
+    playerCircle.appendChild(play);
   });
+
+  const active = players.find(p=>p.id===state.game?.turnPlayerId);
+  if (state.game?.finished) {
+    const scores = players.map(p => `${p.name} ${state.game.tricksWon?.[p.id] || 0}`).join(' / ');
+    gameStatus.textContent = `ゲーム終了　獲得トリック: ${scores}`;
+  } else {
+    gameStatus.textContent = active ? `${active.name} の手番${state.game?.lastWinnerId === active.id ? '（トリック獲得）' : ''}` : '';
+  }
 }
 
 kickDialog.addEventListener('click', (e) => {
@@ -851,9 +993,14 @@ async function dealInitialHands(){
   for (const t of seatedPlayers) {
     const cards = deck.slice(deckIndex, deckIndex + cardsPerPlayer);
     deckIndex += cards.length;
-    hands[t.playerId] = { cards };
+    hands[t.playerId] = { cards: cards.map((card, index) => ({ ...card, id: `${t.playerId}-${index}-${Date.now()}` })) };
   }
-  await set(ref(db, `rooms/${state.roomCode}/hands`), hands);
+  const playerOrder = seatedPlayers.map(t => t.playerId);
+  const starter = playerOrder[Math.floor(Math.random() * playerOrder.length)];
+  await update(ref(db, `rooms/${state.roomCode}`), {
+    hands,
+    game: { playerOrder, turnPlayerId: starter, trickNumber: 1 }
+  });
 }
 
 hostSettingsBtn.addEventListener('click', () => {
@@ -877,7 +1024,8 @@ btnResetRoom.addEventListener('click', async () => {
   await Promise.all([
     remove(ref(db, `${base}/maxPlayers`)),
     remove(ref(db, `${base}/tables`)),
-    remove(ref(db, `${base}/hands`))
+    remove(ref(db, `${base}/hands`)),
+    remove(ref(db, `${base}/game`))
   ]);
 
   state.seatedTable = null;
