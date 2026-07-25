@@ -118,7 +118,7 @@
   .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
   .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
-  @keyframes captureArrive{from{opacity:.25;transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{opacity:1;transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
+  @keyframes captureArrive{from{transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .my-card.card-red{--card-color:#c94c47;}
   .my-card.card-green{--card-color:#559344;}
@@ -998,9 +998,11 @@ function renderPlayerCircle(players){
     const circleSize = Math.max(1, playerCircle.clientWidth);
     // 他プレイヤーの獲得束はネームタグから少し上へ離す。
     if (!isMe) captureY -= 2 / circleSize * 100;
-    // 右半分の獲得束は枚数にかかわらず、初期位置を固定で左へ寄せる。
+    // 右半分では、左側プレイヤーの「ネームタグ→獲得位置」と同じ距離だけ
+    // ネームタグから左へ離し、左右で余白を対称にする。
     if (!isMe && Math.cos(angle) > .05) {
-      captureX -= 52 / circleSize * 100;
+      const tagToCaptureDistance = (captureRadius - radius) * Math.abs(Math.cos(angle));
+      captureX = x - tagToCaptureDistance;
     }
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
