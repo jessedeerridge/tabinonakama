@@ -91,12 +91,35 @@
   /* 自分の手札表示（大きめ横並び） */
   .my-hand-wrapper{margin-top:16px;text-align:center;}
   .my-hand-title{display:none;}
-  .my-hand{display:flex;justify-content:center;gap:8px;margin-top:6px;min-height:100px;}
+  .my-hand{display:flex;justify-content:center;gap:10px;margin-top:6px;min-height:132px;flex-wrap:wrap;padding:0 12px;}
   .my-card{
-    width:60px;height:90px;border-radius:8px;border:1px solid #ddd;background:#fff;
-    display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;
-    box-shadow:0 4px 12px rgba(0,0,0,.15);
+    --card-color:#9ca3af;--card-fill:#f3f4f6;
+    position:relative;width:82px;height:122px;border-radius:10px;
+    border:4px solid var(--card-color);background:var(--card-fill);
+    box-sizing:border-box;overflow:hidden;color:#27231f;
+    box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(255,255,255,.7);
   }
+  .my-card.card-red{--card-color:#c94c47;--card-fill:#f9e5e2;}
+  .my-card.card-green{--card-color:#559344;--card-fill:#e8f2df;}
+  .my-card.card-orange{--card-color:#d98236;--card-fill:#f9ead8;}
+  .my-card.card-yellow{--card-color:#d3ad32;--card-fill:#fbf3cf;}
+  .my-card.card-gray{--card-color:#a9aca8;--card-fill:#eff0ed;}
+  .card-number{position:absolute;top:4px;left:7px;font:900 24px/1 Georgia,serif;color:var(--card-color);text-shadow:1px 1px #fff;z-index:2;}
+  .card-number.mirror{left:auto;right:7px;transform:rotate(180deg);}
+  .card-scene{position:absolute;inset:25px 7px 25px;border:2px solid var(--card-color);border-radius:42% 42% 12px 12px;background:rgba(255,255,255,.25);overflow:hidden;}
+  .card-scene::before,.card-scene::after{content:'';position:absolute;}
+  .card-red .card-scene::before{width:47px;height:47px;border-radius:50%;background:#a83c43;left:9px;top:13px;box-shadow:12px 9px 0 #713944;}
+  .card-red .card-scene::after{width:35px;height:8px;border-radius:50%;background:rgba(61,37,42,.28);left:14px;bottom:7px;}
+  .card-green .card-scene::before{width:14px;height:44px;background:#755b3b;left:25px;bottom:0;box-shadow:-19px 11px 0 -3px #6c5437,20px 9px 0 -3px #6c5437;}
+  .card-green .card-scene::after{width:43px;height:39px;border-radius:50%;background:#6ca653;left:10px;top:7px;box-shadow:-14px 10px 0 -5px #4c843c,19px 9px 0 -4px #4c843c;}
+  .card-orange .card-scene::before{width:72px;height:43px;border-radius:50% 50% 0 0;background:#daa052;left:-4px;bottom:-14px;box-shadow:-22px 13px 0 #c77c3e,25px 15px 0 #ebb66b;}
+  .card-orange .card-scene::after{width:13px;height:13px;border-radius:50%;background:#f2c766;right:7px;top:7px;box-shadow:0 0 0 4px rgba(242,199,102,.25);}
+  .card-yellow .card-scene::before{width:35px;height:35px;border:8px solid #caa22a;border-radius:50%;left:10px;top:10px;box-sizing:border-box;}
+  .card-yellow .card-scene::after{width:21px;height:7px;border-radius:50%;background:rgba(145,113,29,.25);left:18px;bottom:7px;}
+  .card-gray .card-scene::before{width:0;height:0;border-left:28px solid transparent;border-right:28px solid transparent;border-bottom:53px solid #aeb7b6;left:3px;bottom:0;}
+  .card-gray .card-scene::after{width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-bottom:20px solid #f7f7f2;left:20px;top:7px;}
+  .card-name{position:absolute;left:6px;right:6px;bottom:4px;height:17px;border:1px solid var(--card-color);border-radius:50%;background:rgba(255,255,255,.82);font:700 12px/17px serif;text-align:center;letter-spacing:.12em;}
+  @media (max-width:520px){.my-hand{gap:6px}.my-card{width:68px;height:104px}.card-scene{inset:23px 5px 23px}.card-number{font-size:20px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
@@ -357,6 +380,45 @@ const ROLE_HELP = [
   { name: "カード4", text: "うううう" },
 ];
 
+// 山札は各カード1枚ずつ（黄のみ1〜5、ほかの色は1〜8）。
+const CARD_TYPES = [
+  { color: 'red', name: '影', max: 8 },
+  { color: 'green', name: '森', max: 8 },
+  { color: 'orange', name: '丘', max: 8 },
+  { color: 'yellow', name: '指輪', max: 5 },
+  { color: 'gray', name: '山', max: 8 }
+];
+const CARD_DECK = CARD_TYPES.flatMap(type =>
+  Array.from({ length: type.max }, (_, index) => ({
+    color: type.color,
+    name: type.name,
+    number: index + 1
+  }))
+);
+
+function createCardElement(cardData){
+  const card = document.createElement('div');
+  card.className = `my-card card-${cardData.color}`;
+  card.setAttribute('aria-label', `${cardData.name} ${cardData.number}`);
+
+  const number = document.createElement('span');
+  number.className = 'card-number';
+  number.textContent = cardData.number;
+
+  const mirrorNumber = number.cloneNode(true);
+  mirrorNumber.classList.add('mirror');
+
+  const scene = document.createElement('span');
+  scene.className = 'card-scene';
+
+  const name = document.createElement('span');
+  name.className = 'card-name';
+  name.textContent = cardData.name;
+
+  card.append(number, mirrorNumber, scene, name);
+  return card;
+}
+
 function renderHelpList(){
   helpBody.innerHTML = '';
   ROLE_HELP.forEach((r, idx) => {
@@ -476,11 +538,12 @@ function renderMyHand(){
   const handData = state.hands[myId];
   if (!handData || !Array.isArray(handData.cards)) return;
 
-  handData.cards.forEach(v => {
-    const card = document.createElement('div');
-    card.className = 'my-card';
-    card.textContent = v;
-    myHandEl.appendChild(card);
+  handData.cards.forEach(cardData => {
+    // 古いルームに残っている数字カードも表示を壊さない。
+    const normalized = (typeof cardData === 'object' && cardData)
+      ? cardData
+      : { color: 'gray', name: '山', number: cardData };
+    myHandEl.appendChild(createCardElement(normalized));
   });
 }
 function renderHands(){
@@ -768,17 +831,20 @@ async function dealInitialHands(){
 
   const tablesSnap = await get(ref(db, `rooms/${state.roomCode}/tables`));
   const tables = tablesSnap.val() || {};
+  const seatedPlayers = Object.values(tables).filter(t => t && t.playerId);
   const hands = {};
+  const deck = CARD_DECK.map(card => ({ ...card }));
+  for (let i = deck.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  let deckIndex = 0;
+  // 8人でも同じ枚数を受け取れるよう、山札の範囲内で最大5枚配る。
+  const cardsPerPlayer = Math.min(5, Math.floor(deck.length / seatedPlayers.length));
 
-  for (const seatIndex of Object.keys(tables)) {
-    const t = tables[seatIndex];
-    if (!t || !t.playerId) continue;
-
-    const cards = [];
-    for (let i=0;i<5;i++){
-      const v = Math.floor(Math.random()*10)+1;
-      cards.push(v);
-    }
+  for (const t of seatedPlayers) {
+    const cards = deck.slice(deckIndex, deckIndex + cardsPerPlayer);
+    deckIndex += cards.length;
     hands[t.playerId] = { cards };
   }
   await set(ref(db, `rooms/${state.roomCode}/hands`), hands);
