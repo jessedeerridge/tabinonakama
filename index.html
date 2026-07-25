@@ -72,19 +72,17 @@
     border:1px solid #ddd;font-size:12px;white-space:nowrap;
   }
   .player-tag.me{ background:#111;color:#fff;border-color:#111; }
-  .player-tag.active{animation:turnPulse 1.05s ease-in-out infinite;z-index:15;}
   .player-tag.me{margin-top:12px;}
-  @keyframes turnPulse{50%{transform:translate(-50%,-50%) scale(1.14);box-shadow:0 0 0 7px rgba(56,189,248,.2)}}
 
   /* 他プレイヤーのミニカード（ネームタグの下に扇状） */
   .player-tag .mini-hand{
     position:absolute;left:50%;top:100%;
     transform:translate(-50%,3px);
-    width:60px;height:30px;pointer-events:none;
+    width:100px;height:56px;pointer-events:none;
   }
   .player-tag .mini-card{
-    position:absolute;left:50%;top:0;width:16px;height:22px;
-    border-radius:4px;border:1px solid #bbb;
+    position:absolute;left:50%;top:0;width:32px;height:44px;
+    border-radius:6px;border:1px solid #bbb;
     background:linear-gradient(135deg,#e5e7eb,#cbd5f5);
     font-size:10px;display:flex;align-items:center;justify-content:center;
     transform-origin:bottom center;
@@ -102,16 +100,23 @@
     box-sizing:border-box;overflow:hidden;color:#27231f;
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(255,255,255,.7);
   }
-  .my-card.playable{cursor:grab;touch-action:none;animation:cardPulse 1.05s ease-in-out infinite;}
+  .my-card.playable{cursor:grab;touch-action:none;}
   .my-card.drag-source{visibility:hidden;animation:none;}
-  @keyframes cardPulse{50%{transform:scale(1.08);box-shadow:0 9px 22px rgba(14,165,233,.38)}}
+  .my-hand.active-turn{animation:cardPulse 1.05s ease-in-out infinite;}
+  @keyframes cardPulse{50%{transform:scale(1.07)}}
   .drag-card{position:fixed;z-index:1000;pointer-events:none;transform:translate(-50%,-50%) scale(1.08);opacity:.94;}
-  .table-hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:112px;height:112px;border-radius:50%;display:grid;place-items:center;background:rgba(125,211,252,.25);border:2px dashed #38bdf8;color:#0369a1;font-size:12px;font-weight:800;opacity:0;transition:opacity .15s;pointer-events:none;z-index:3;}
-  .player-circle.dragging .table-hint{opacity:1;}
-  .play-circle{position:absolute;width:64px;height:88px;border:1px dashed rgba(3,105,161,.36);border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:4;}
-  .played-card{width:54px;height:80px;border-width:3px;transform:rotate(var(--tilt));box-shadow:0 5px 13px rgba(0,0,0,.25);animation:cardArrive .35s ease-out both;}
-  .played-card .card-badge{transform:scale(.67);transform-origin:top left}.played-card .card-badge.right{transform-origin:top right}.played-card .card-name{font-size:9px;line-height:15px;height:15px}
+  .play-circle{position:absolute;width:64px;height:88px;border:0;border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:4;}
+  .play-circle.drop-hint::before{content:'';position:absolute;inset:0;border-radius:inherit;background:rgba(125,211,252,.22);opacity:0;transition:opacity .15s;}
+  .player-circle.dragging .play-circle.drop-hint::before{opacity:1;}
+  .played-card-slot{position:relative;width:54px;height:81px;transform:rotate(var(--tilt));animation:cardArrive .35s ease-out both;}
+  .played-card{position:absolute;left:0;top:0;transform:scale(.66);transform-origin:top left;}
+  .played-card-slot.no-arrive{animation:none;}
   @keyframes cardArrive{from{opacity:0;transform:translate(var(--from-x,0),var(--from-y,0)) scale(.25) rotate(var(--tilt))}to{opacity:1;transform:translate(0,0) scale(1) rotate(var(--tilt))}}
+  .capture-circle{position:absolute;width:38px;height:53px;transform:translate(-50%,-50%);z-index:3;}
+  .capture-card{position:absolute;inset:0;width:38px;height:53px;border-radius:5px;background:#dbe3ec;border:1px solid #9ca3af;box-sizing:border-box;box-shadow:0 2px 5px rgba(0,0,0,.18);}
+  .capture-card.yellow{background:#f7d85c;border-color:#d3ad32;}
+  .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
+  @keyframes captureArrive{from{opacity:.25;transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{opacity:1;transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .my-card.card-red{--card-color:#c94c47;}
   .my-card.card-green{--card-color:#559344;}
@@ -487,6 +492,9 @@ let pendingSeatPlayerIdToSteal = null;
 let isRenderingSeatTabs = false;
 let latestPlayers = [];
 let trickClearTimer = null;
+const playedAnimationTimes = new Map();
+const captureAnimationTimes = new Map();
+const renderedCaptureCounts = new Map();
 
 function generateRoomCode(length = 6){
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -578,6 +586,7 @@ function renderMyHand(){
   myHandEl.innerHTML = '';
   const myId = state.userId;
   const handData = state.hands[myId];
+  myHandEl.classList.toggle('active-turn', state.game?.turnPlayerId === myId && !state.game?.finished);
   if (!handData || !Array.isArray(handData.cards)) return;
 
   handData.cards.forEach((cardData, cardIndex) => {
@@ -620,9 +629,11 @@ function beginCardDrag(event, cardData, cardIndex, source){
     source.removeEventListener('pointerup', finish);
     source.removeEventListener('pointercancel', cancel);
     floating.remove(); source.classList.remove('drag-source'); playerCircle.classList.remove('dragging');
-    const rect = playerCircle.getBoundingClientRect();
-    const distance = Math.hypot(e.clientX-(rect.left+rect.width/2), e.clientY-(rect.top+rect.height/2));
-    if (distance < Math.min(rect.width, rect.height) * .29) await playCard(cardIndex, cardData);
+    const target = playerCircle.querySelector('.play-circle.mine');
+    const rect = target?.getBoundingClientRect();
+    if (rect && e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+      await playCard(cardIndex, cardData);
+    }
   };
   const cancel = () => { floating.remove(); source.classList.remove('drag-source'); playerCircle.classList.remove('dragging'); };
   source.addEventListener('pointermove', move);
@@ -655,6 +666,9 @@ async function playCard(cardIndex, expectedCard){
       room.game.lastWinnerId = winnerId;
       room.game.tricksWon ||= {};
       room.game.tricksWon[winnerId] = (room.game.tricksWon[winnerId] || 0) + 1;
+      room.game.capturedCards ||= {};
+      room.game.capturedCards[winnerId] ||= [];
+      room.game.capturedCards[winnerId].push(...plays.map(p => p.card));
       room.game.turnPlayerId = winnerId;
       room.game.trickNumber = (room.game.trickNumber || 1) + 1;
       room.game.clearAt = Date.now() + 900;
@@ -848,10 +862,6 @@ function renderPlayerCircle(players){
   playerCircle.innerHTML = '';
   if (!players.length) return;
 
-  const hint = document.createElement('div');
-  hint.className = 'table-hint'; hint.textContent = 'ここにドロップ';
-  playerCircle.appendChild(hint);
-
   const n = players.length;
   const radius = 45;
   const step = (2 * Math.PI) / n;
@@ -866,7 +876,7 @@ function renderPlayerCircle(players){
     const y = 50 + radius * Math.sin(angle);
 
     const tag = document.createElement('div');
-    tag.className = 'player-tag' + (p.id === state.userId ? ' me' : '') + (state.game?.turnPlayerId === p.id ? ' active' : '');
+    tag.className = 'player-tag' + (p.id === state.userId ? ' me' : '');
     tag.textContent = p.name;
     tag.style.left = `${x}%`;
     tag.style.top = `${y}%`;
@@ -908,29 +918,75 @@ function renderPlayerCircle(players){
     playerCircle.appendChild(tag);
 
     const play = document.createElement('div');
-    play.className = 'play-circle';
-    const playRadius = 24;
-    play.style.left = `${50 + playRadius * Math.cos(angle)}%`;
-    play.style.top = `${50 + playRadius * Math.sin(angle)}%`;
+    const isMe = p.id === state.userId;
+    play.className = `play-circle${isMe ? ' mine drop-hint' : ''}`;
+    const playRadius = isMe ? 30 : 24;
+    const playX = 50 + playRadius * Math.cos(angle);
+    const playY = 50 + playRadius * Math.sin(angle);
+    play.style.left = `${playX}%`;
+    play.style.top = `${playY}%`;
     const played = state.game?.trick?.[p.id];
     if (played) {
+      const playKey = `${state.game.trickNumber || 1}:${p.id}:${played.card.id || played.order}`;
+      const slot = document.createElement('div');
+      slot.className = 'played-card-slot';
+      if (!playedAnimationTimes.has(playKey)) playedAnimationTimes.set(playKey, Date.now());
+      const playElapsed = Date.now() - playedAnimationTimes.get(playKey);
+      if (playElapsed >= 350) slot.classList.add('no-arrive');
+      else slot.style.animationDelay = `${-playElapsed}ms`;
       const playedEl = createCardElement(played.card);
       playedEl.classList.add('played-card');
-      playedEl.style.setProperty('--tilt', `${played.tilt || 0}deg`);
-      playedEl.style.setProperty('--from-x', `${(x-50)*2.5}px`);
-      playedEl.style.setProperty('--from-y', `${(y-50)*2.5}px`);
-      play.appendChild(playedEl);
+      slot.style.setProperty('--tilt', `${played.tilt || 0}deg`);
+      slot.style.setProperty('--from-x', `${(x-playX)*2.5}px`);
+      slot.style.setProperty('--from-y', `${(y-playY)*2.5}px`);
+      slot.appendChild(playedEl);
+      play.appendChild(slot);
     }
     playerCircle.appendChild(play);
+
+    const capture = document.createElement('div');
+    capture.className = 'capture-circle';
+    const captureRadius = isMe ? null : 57;
+    const captureX = isMe ? playX + 13 : 50 + captureRadius * Math.cos(angle);
+    const captureY = isMe ? playY + 11 : 50 + captureRadius * Math.sin(angle);
+    capture.style.left = `${captureX}%`;
+    capture.style.top = `${captureY}%`;
+    const captured = state.game?.capturedCards?.[p.id] || [];
+    const orderedCaptured = [...captured.filter(c => c.color !== 'yellow'), ...captured.filter(c => c.color === 'yellow')];
+    const oldCount = renderedCaptureCounts.get(p.id);
+    orderedCaptured.forEach((cardData, cardIndex) => {
+      const card = document.createElement('div');
+      card.className = `capture-card${cardData.color === 'yellow' ? ' yellow' : ''}`;
+      const yellowIndex = cardData.color === 'yellow'
+        ? orderedCaptured.slice(0, cardIndex).filter(c => c.color === 'yellow').length
+        : 0;
+      card.style.left = cardData.color === 'yellow' ? `${yellowIndex * 4}px` : '0';
+      card.style.setProperty('--stack-rotate', cardData.color === 'yellow' ? `${yellowIndex * 5}deg` : '0deg');
+      card.style.transform = `rotate(${cardData.color === 'yellow' ? yellowIndex * 5 : 0}deg)`;
+      const captureKey = `${p.id}:${cardData.id || cardIndex}`;
+      if (oldCount !== undefined && cardIndex >= oldCount && !captureAnimationTimes.has(captureKey)) {
+        captureAnimationTimes.set(captureKey, Date.now());
+      }
+      const captureStarted = captureAnimationTimes.get(captureKey);
+      const captureElapsed = captureStarted ? Date.now() - captureStarted : 700;
+      if (captureElapsed < 700) {
+        const size = playerCircle.clientWidth;
+        card.classList.add('new-capture');
+        card.style.animationDelay = `${-captureElapsed}ms`;
+        card.style.setProperty('--capture-x', `${(50-captureX)*size/100}px`);
+        card.style.setProperty('--capture-y', `${(50-captureY)*size/100}px`);
+      }
+      capture.appendChild(card);
+    });
+    renderedCaptureCounts.set(p.id, orderedCaptured.length);
+    playerCircle.appendChild(capture);
   });
 
   const active = players.find(p=>p.id===state.game?.turnPlayerId);
   if (state.game?.finished) {
     const scores = players.map(p => `${p.name} ${state.game.tricksWon?.[p.id] || 0}`).join(' / ');
     gameStatus.textContent = `ゲーム終了　獲得トリック: ${scores}`;
-  } else {
-    gameStatus.textContent = active ? `${active.name} の手番${state.game?.lastWinnerId === active.id ? '（トリック獲得）' : ''}` : '';
-  }
+  } else gameStatus.textContent = '';
 }
 
 kickDialog.addEventListener('click', (e) => {
