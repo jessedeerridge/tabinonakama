@@ -126,8 +126,7 @@
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .stage-dialog{position:fixed;inset:0;z-index:320;display:grid;place-items:center;background:rgba(0,0,0,.38);}
   .stage-dialog.hidden{display:none;}
-  .stage-panel{box-sizing:border-box;width:min(300px,calc(100vw - 32px));padding:12px;border-radius:14px;background:#fff;box-shadow:0 18px 40px rgba(0,0,0,.35);}
-  .stage-panel-header{display:flex;align-items:center;justify-content:flex-end;margin-bottom:6px;}
+  .stage-panel{box-sizing:border-box;width:max-content;max-width:calc(100vw - 32px);padding:0 0 12px;border-radius:14px;background:#fff;box-shadow:0 18px 40px rgba(0,0,0,.35);overflow:hidden;}
   .stage-grid{display:grid;grid-template-columns:repeat(4,36px);justify-content:center;gap:10px;}
   .stage-tab{width:36px;height:36px;padding:0;border:1px solid #111;border-radius:50%;background:#fff;font-size:12px;font-weight:800;cursor:pointer;}
   .stage-tab:hover,.stage-tab:focus-visible{background:#111;color:#fff;}
@@ -464,9 +463,6 @@
 <!-- ステージ選択 -->
 <div id="stageDialog" class="stage-dialog hidden" role="dialog" aria-modal="true" aria-label="ステージ選択">
   <div class="stage-panel">
-    <div class="stage-panel-header">
-      <button id="btnStageClose" class="btn ghost" type="button">×</button>
-    </div>
     <div id="stageGrid" class="stage-grid"></div>
   </div>
 </div>
@@ -550,7 +546,6 @@ const btnGameStart = document.getElementById('btnGameStart');
 const btnResetRoom = document.getElementById('btnResetRoom');
 const stageDialog = document.getElementById('stageDialog');
 const stageGrid = document.getElementById('stageGrid');
-const btnStageClose = document.getElementById('btnStageClose');
 const cardZoomBackdrop = document.getElementById('cardZoomBackdrop');
 const cardZoomFrame = document.getElementById('cardZoomFrame');
 const centerLowerCardArea = document.getElementById('centerLowerCardArea');
@@ -627,6 +622,20 @@ const cardNameFitObserver = new ResizeObserver(entries => {
   });
 });
 
+// キャラクター名が名前欄に収まらない場合だけ、元の9pxから必要な分だけ縮小する。
+const characterNameFitObserver = new ResizeObserver(entries => {
+  entries.forEach(({ target }) => {
+    target.style.fontSize = '9px';
+    const styles = getComputedStyle(target);
+    const availableWidth = target.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    const textWidth = range.getBoundingClientRect().width;
+    if (!availableWidth || textWidth <= availableWidth) return;
+    target.style.fontSize = `${Math.max(4, 9 * availableWidth / textWidth)}px`;
+  });
+});
+
 function createCardElement(cardData){
   if (cardData.kind === 'character') return createCharacterCardElement(cardData);
   const card = document.createElement('div');
@@ -690,6 +699,7 @@ function createCharacterCardElement(cardData){
   const name = document.createElement('span');
   name.className = 'character-label';
   name.textContent = cardData.name;
+  characterNameFitObserver.observe(name);
   const special = document.createElement('span');
   special.className = 'character-label character-special';
   appendWrappedCharacterName(special, cardData.specialName || '特殊名');
@@ -1669,8 +1679,8 @@ function renderPlayerCircle(players){
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
     // 公開キャラクターをネームタグの左上から離し、着地時に窮屈に見えない余白を作る。
-    const captureX = isMe ? playX + 13 : x + (-32 - tag.offsetWidth / 2) / circleSize * 100;
-    const captureY = isMe ? playY + 11 : y + (-39 - tag.offsetHeight / 2) / circleHeight * 100;
+    const captureX = isMe ? playX + 13 : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
+    const captureY = isMe ? playY + 11 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
@@ -1865,7 +1875,6 @@ btnGameStart.addEventListener('click', () => {
   startPop.classList.add('hidden');
   openStageDialog();
 });
-btnStageClose.addEventListener('click', () => stageDialog.classList.add('hidden'));
 stageDialog.addEventListener('click', event => {
   if (event.target === stageDialog) stageDialog.classList.add('hidden');
 });
