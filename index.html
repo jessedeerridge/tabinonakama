@@ -240,7 +240,7 @@
   .character-choice{position:relative;flex:0 1 104px;width:min(104px,calc((100vw - 54px)/4));aspect-ratio:82/122;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transition:transform .15s ease;}
   .character-choice:hover{transform:translateY(-5px);}
   .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
-  .required-character-dot{position:absolute;right:5px;bottom:5px;width:10px;height:10px;border-radius:50%;background:var(--character-frame);box-shadow:0 0 0 2px var(--character-panel);z-index:5;}
+  .required-character-dot{position:absolute;right:-7px;bottom:-7px;width:16px;height:16px;border-radius:50%;background:var(--character-frame);box-shadow:0 0 0 2px var(--character-panel);z-index:5;}
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
   .character-flight>.my-card{position:absolute;left:0;top:0;transform:scale(var(--flight-scale));transform-origin:top left;}
@@ -1140,7 +1140,10 @@ function characterCardData(character, playerId){
 
 function animateCharacterSelection(playerId, character, sourceRect){
   const isMe = playerId === state.userId;
-  const target = isMe ? myHandEl : playerCircle.querySelector(`[data-player-id="${CSS.escape(playerId)}"]`);
+  // 自分は手札の先頭枠、他プレイヤーは公開キャラクター専用の獲得カード枠を着地点にする。
+  const target = isMe
+    ? (myHandEl.firstElementChild || myHandEl)
+    : playerCircle.querySelector(`.capture-circle[data-player-id="${CSS.escape(playerId)}"]`);
   const targetRect = target?.getBoundingClientRect();
   if (!sourceRect || !targetRect) return;
   const flight = document.createElement('div');
@@ -1149,25 +1152,28 @@ function animateCharacterSelection(playerId, character, sourceRect){
   flight.style.top = `${sourceRect.top}px`;
   flight.style.width = `${sourceRect.width}px`;
   flight.style.height = `${sourceRect.height}px`;
-  flight.style.setProperty('--flight-scale', sourceRect.width / 82);
-  flight.appendChild(createCharacterCardElement(characterCardData(character, playerId)));
+  const flightCard = createCharacterCardElement(characterCardData(character, playerId));
+  flight.appendChild(flightCard);
   document.body.appendChild(flight);
-  const destinationWidth = isMe ? (window.innerWidth <= 520 ? 68 : 82) : 38;
-  const destinationHeight = destinationWidth * 122 / 82;
-  const destinationLeft = isMe ? targetRect.left + targetRect.width / 2 - destinationWidth / 2 : targetRect.left - destinationWidth - 6;
-  const destinationTop = isMe ? targetRect.top : targetRect.top - destinationHeight - 5;
+  const baseWidth = flightCard.offsetWidth || 82;
+  const destinationWidth = isMe ? targetRect.width : 38;
+  const destinationHeight = isMe ? targetRect.height : 56;
+  const destinationLeft = targetRect.left;
+  const destinationTop = targetRect.top;
+  flight.style.setProperty('--flight-scale', sourceRect.width / baseWidth);
   const animation = flight.animate([
     { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, width:`${sourceRect.width}px`, height:`${sourceRect.height}px`, opacity:1 },
     { left:`${destinationLeft}px`, top:`${destinationTop}px`, width:`${destinationWidth}px`, height:`${destinationHeight}px`, opacity:1 }
   ], { duration:650, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' });
   flight.animate([
-    { '--flight-scale':String(sourceRect.width / 82) },
-    { '--flight-scale':String(destinationWidth / 82) }
+    { '--flight-scale':String(sourceRect.width / baseWidth) },
+    { '--flight-scale':String(destinationWidth / baseWidth) }
   ], { duration:650, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' });
   characterAnimationUntil.set(playerId, Date.now() + 650);
   animation.finished.finally(() => {
     flight.remove();
     characterAnimationUntil.delete(playerId);
+    renderMyHand();
     if (latestPlayers.length) renderPlayerCircle(latestPlayers);
   });
 }
@@ -1231,10 +1237,11 @@ function renderCharacterPicker(){
     choice.type = 'button';
     choice.className = 'character-choice';
     choice.dataset.characterName = character.name;
-    choice.appendChild(createCharacterCardElement(characterCardData(character, state.userId)));
+    const choiceCard = createCharacterCardElement(characterCardData(character, state.userId));
+    choice.appendChild(choiceCard);
     choice.addEventListener('click', event => { event.stopPropagation(); chooseCharacter(character.name, choice); });
     characterPickerRow.appendChild(choice);
-    choice.style.setProperty('--choice-scale', choice.getBoundingClientRect().width / 82);
+    choice.style.setProperty('--choice-scale', choice.getBoundingClientRect().width / (choiceCard.offsetWidth || 82));
   });
 }
 
@@ -1640,6 +1647,7 @@ function renderPlayerCircle(players){
 
     const capture = document.createElement('div');
     capture.className = 'capture-circle';
+    capture.dataset.playerId = p.id;
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
