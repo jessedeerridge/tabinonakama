@@ -1055,7 +1055,10 @@ function renderPlayerCircle(players){
   if (!players.length) return;
 
   const n = players.length;
-  const radius = 45;
+  const tagRadius = 45;
+  // 他プレイヤーの表示一式を同じ倍率で外側へ移動し、
+  // ネームタグ・プレイ位置・獲得カード間の距離の比率を維持する。
+  const opponentDistanceScale = 1.12;
   const step = (2 * Math.PI) / n;
   const anchorAngle = Math.PI / 2;
   const meIndex = players.findIndex(p => p.id === state.userId);
@@ -1064,11 +1067,12 @@ function renderPlayerCircle(players){
     const angle = anchorAngle + step * k;
     const isMe = player.id === state.userId;
     const isTopPlayer = Math.sin(angle) < -.85;
-    const playRadius = isMe ? 30 : (isTopPlayer ? 17 : 24);
+    const playerTagRadius = isMe ? tagRadius : tagRadius * opponentDistanceScale;
+    const playRadius = isMe ? 30 : (isTopPlayer ? 17 : 24) * opponentDistanceScale;
     return {
       angle, isMe,
-      x: 50 + radius * Math.cos(angle),
-      y: 50 + radius * Math.sin(angle),
+      x: 50 + playerTagRadius * Math.cos(angle),
+      y: 50 + playerTagRadius * Math.sin(angle),
       playX: 50 + playRadius * Math.cos(angle),
       playY: 50 + playRadius * Math.sin(angle)
     };
@@ -1160,7 +1164,7 @@ function renderPlayerCircle(players){
     const capture = document.createElement('div');
     capture.className = 'capture-circle';
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
-    const captureRadius = isMe ? null : 63;
+    const captureRadius = isMe ? null : 63 * opponentDistanceScale;
     let captureX = isMe ? playX + 13 : 50 + captureRadius * Math.cos(angle);
     let captureY = isMe ? playY + 11 : 50 + captureRadius * Math.sin(angle);
     const circleSize = Math.max(1, playerCircle.clientWidth);
@@ -1169,7 +1173,7 @@ function renderPlayerCircle(players){
     // 右半分では、左側プレイヤーの「ネームタグ→獲得位置」と同じ距離だけ
     // ネームタグから左へ離し、左右で余白を対称にする。
     if (!isMe && Math.cos(angle) > .05) {
-      const tagToCaptureDistance = (captureRadius - radius) * Math.abs(Math.cos(angle));
+      const tagToCaptureDistance = (captureRadius - tagRadius * opponentDistanceScale) * Math.abs(Math.cos(angle));
       captureX = x - tagToCaptureDistance;
     }
     capture.style.left = `${captureX}%`;
