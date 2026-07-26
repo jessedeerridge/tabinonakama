@@ -240,7 +240,10 @@
   .character-choice:not(:disabled):hover{transform:translateY(-5px);}
   .character-picker.locked .character-choice{cursor:default;}
   .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
-  .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;border-radius:50%;background:#d5a313;box-shadow:0 0 0 2px #fff8e8;z-index:5;pointer-events:none;}
+  .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;box-sizing:border-box;border:2px solid #10233f;border-radius:50%;background:transparent url('definitechara.jpg') center/cover no-repeat;z-index:5;pointer-events:none;}
+  .character-choice.required-pulse{animation:requiredCharacterPulse 1s ease-in-out infinite;}
+  @keyframes requiredCharacterPulse{50%{transform:translateY(-4px) scale(1.05);filter:drop-shadow(0 0 7px rgba(16,35,63,.65));}}
+  @media (prefers-reduced-motion:reduce){.character-choice.required-pulse{animation:none;filter:drop-shadow(0 0 7px rgba(16,35,63,.65));}}
   .character-card-slot{flex:0 0 82px;width:82px;height:122px;visibility:hidden;pointer-events:none;}
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
@@ -1203,6 +1206,12 @@ async function chooseCharacter(characterName, source){
     if (room.game.characterSelections[state.userId]) return;
     const character = (room.game.availableCharacters || []).find(item => item.name === characterName);
     if (!character || Object.values(room.game.characterSelections).some(item => item.name === characterName)) return;
+    const selectedNames = new Set(Object.values(room.game.characterSelections).map(item => item.name));
+    const remainingRequiredCount = (room.game.availableCharacters || [])
+      .filter(item => item.required && !selectedNames.has(item.name)).length;
+    const remainingPlayerCount = (room.game.playerOrder || []).length - Object.keys(room.game.characterSelections).length;
+    // 残り人数と必須カード数が同じなら、任意カードを選んで必須カードを残すことはできない。
+    if (remainingRequiredCount >= remainingPlayerCount && !character.required) return;
     room.hands ||= {};
     room.hands[state.userId] ||= { cards:[] };
     room.hands[state.userId].cards ||= [];
@@ -1250,11 +1259,15 @@ function renderCharacterPicker(){
   characterPickerRow.replaceChildren();
   if (game?.phase !== 'character-selection') return;
   const chosenNames = new Set(Object.values(selections).map(item => item.name));
-  (game.availableCharacters || []).filter(character => !chosenNames.has(character.name)).forEach(character => {
+  const remainingCharacters = (game.availableCharacters || []).filter(character => !chosenNames.has(character.name));
+  const remainingRequiredCount = remainingCharacters.filter(character => character.required).length;
+  const remainingPlayerCount = (game.playerOrder || []).length - Object.keys(selections).length;
+  const mustChooseRequired = remainingRequiredCount > 0 && remainingRequiredCount >= remainingPlayerCount;
+  remainingCharacters.forEach(character => {
     const choice = document.createElement('button');
     choice.type = 'button';
     choice.className = 'character-choice';
-    choice.disabled = alreadyChose;
+    choice.disabled = alreadyChose || (mustChooseRequired && !character.required);
     choice.dataset.characterName = character.name;
     const choiceCard = createCharacterCardElement(characterCardData(character, state.userId));
     choice.appendChild(choiceCard);
@@ -1264,6 +1277,7 @@ function renderCharacterPicker(){
       requiredDot.className = 'required-character-dot';
       requiredDot.setAttribute('aria-label', '必須キャラクター');
       choice.appendChild(requiredDot);
+      choice.classList.toggle('required-pulse', mustChooseRequired);
     }
     choice.addEventListener('click', event => { event.stopPropagation(); chooseCharacter(character.name, choice); });
     characterPickerRow.appendChild(choice);
