@@ -201,7 +201,7 @@
     content:'';position:absolute;inset:1px;background:var(--character-panel);z-index:-1;
     clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);
   }
-  .character-card .character-special{top:17px;max-width:45px;padding-left:18px;font-size:6.3px;line-height:1.2;}
+  .character-card .character-special{top:17px;max-width:43px;padding:2.4px 4px 2.4px 18px;font-size:6px;line-height:1.2;}
   .character-card .character-effect{
     position:absolute;left:-4px;right:-4px;bottom:-4px;min-height:64px;padding:12px 5px 6px;
     box-sizing:border-box;background:var(--character-frame);isolation:isolate;
@@ -664,7 +664,7 @@ function createCharacterEffectRow(type, text){
   icon.className = 'character-effect-icon';
   icon.innerHTML = type === 'victory'
     ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 0c1.1 5.4 4.6 8.9 10 10-5.4 1.1-8.9 4.6-10 10C8.9 14.6 5.4 11.1 0 10 5.4 8.9 8.9 5.4 10 0Z"/></svg>'
-    : '<svg viewBox="0 0 20 20" aria-hidden="true"><g transform="rotate(35 10 10)"><rect x="7" y="7" width="2" height="11"/><path d="M3 7 8 2 16 7Z"/></g></svg>';
+    : '<svg viewBox="0 0 20 20" aria-hidden="true"><g transform="rotate(35 10 10)"><rect x="7" y="7" width="2" height="11"/><path d="M3 3Q10 3.5 17 6Q10 8.5 3 9Q5 6 3 3Z"/></g></svg>';
   const description = document.createElement('span');
   description.textContent = text;
   row.append(icon, description);
