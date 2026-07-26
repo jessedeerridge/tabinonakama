@@ -126,10 +126,10 @@
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .stage-dialog{position:fixed;inset:0;z-index:320;display:grid;place-items:center;background:rgba(0,0,0,.38);}
   .stage-dialog.hidden{display:none;}
-  .stage-panel{box-sizing:border-box;width:min(420px,calc(100vw - 32px));padding:18px;border-radius:14px;background:#fff;box-shadow:0 18px 40px rgba(0,0,0,.35);}
-  .stage-panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-weight:800;}
-  .stage-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;}
-  .stage-tab{min-height:44px;border:1px solid #111;border-radius:7px;background:#fff;font-size:15px;font-weight:800;cursor:pointer;}
+  .stage-panel{box-sizing:border-box;width:min(300px,calc(100vw - 32px));padding:12px;border-radius:14px;background:#fff;box-shadow:0 18px 40px rgba(0,0,0,.35);}
+  .stage-panel-header{display:flex;align-items:center;justify-content:flex-end;margin-bottom:6px;}
+  .stage-grid{display:grid;grid-template-columns:repeat(4,36px);justify-content:center;gap:10px;}
+  .stage-tab{width:36px;height:36px;padding:0;border:1px solid #111;border-radius:50%;background:#fff;font-size:12px;font-weight:800;cursor:pointer;}
   .stage-tab:hover,.stage-tab:focus-visible{background:#111;color:#fff;}
   .center-lower-card-area.hidden{display:none;}
   .center-lower-card-area{
@@ -145,6 +145,9 @@
   #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
   .ringcircle{position:absolute;left:-51px;top:20px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);}
   .ringcircle.on{background-image:url('ringcircleon.jpg');}
+  .excluded-card-slot{position:absolute;left:-52px;top:50px;width:54px;height:81px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;}
+  .excluded-card-slot.hidden{display:none;}
+  .excluded-card-slot>.my-card{transform:scale(.66);transform-origin:top left;}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
@@ -218,6 +221,10 @@
   .character-effect-row.victory .character-effect-icon{width:5.76px;height:5.76px;}
   .character-effect-row.special .character-effect-icon svg{fill:none;stroke:currentColor;stroke-width:.9;stroke-linejoin:round;}
   .character-effect-row.special .character-effect-icon path{fill:currentColor;stroke:none;}
+  .card-zoom-backdrop{position:fixed;inset:0;z-index:1100;display:grid;place-items:center;background:rgba(0,0,0,.32);cursor:default;}
+  .card-zoom-backdrop.hidden{display:none;}
+  .card-zoom-frame{position:relative;flex:none;pointer-events:none;}
+  .card-zoom-frame>.my-card{position:absolute;inset:0;transform:scale(var(--zoom-scale));transform-origin:center;}
   @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-card{width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
@@ -363,6 +370,7 @@
       </div>
       <div id="winningconditionsquare" class="center-lower-card">
         <div id="ringcircle" class="ringcircle"></div>
+        <div id="excludedCardSlot" class="excluded-card-slot hidden"></div>
         <div id="winningconditionInfo" class="winningcondition-half left"></div>
         <div id="winningconditionGoal" class="winningcondition-half right"></div>
       </div>
@@ -424,7 +432,7 @@
   </div>
   <div class="start-pop-main">
     「スタート」で全プレイヤーにカードを配布。<br>
-    「リセット」で人数選択へ戻します（内容は後で）。
+    「リセット」で人数選択へ戻します。
   </div>
   <div class="start-pop-actions">
     <button id="btnResetRoom" class="btn ghost">リセット</button>
@@ -433,14 +441,17 @@
 </div>
 
 <!-- ステージ選択 -->
-<div id="stageDialog" class="stage-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="stageDialogTitle">
+<div id="stageDialog" class="stage-dialog hidden" role="dialog" aria-modal="true" aria-label="ステージ選択">
   <div class="stage-panel">
     <div class="stage-panel-header">
-      <span id="stageDialogTitle">ステージを選択</span>
       <button id="btnStageClose" class="btn ghost" type="button">×</button>
     </div>
     <div id="stageGrid" class="stage-grid"></div>
   </div>
+</div>
+
+<div id="cardZoomBackdrop" class="card-zoom-backdrop hidden" aria-hidden="true">
+  <div id="cardZoomFrame" class="card-zoom-frame"></div>
 </div>
 
 <script type="module">
@@ -514,12 +525,15 @@ const btnResetRoom = document.getElementById('btnResetRoom');
 const stageDialog = document.getElementById('stageDialog');
 const stageGrid = document.getElementById('stageGrid');
 const btnStageClose = document.getElementById('btnStageClose');
+const cardZoomBackdrop = document.getElementById('cardZoomBackdrop');
+const cardZoomFrame = document.getElementById('cardZoomFrame');
 const centerLowerCardArea = document.getElementById('centerLowerCardArea');
 const arasujisquareBar = document.getElementById('arasujisquareBar');
 const arasujisquareStory = document.getElementById('arasujisquareStory');
 const winningconditionInfo = document.getElementById('winningconditionInfo');
 const winningconditionGoal = document.getElementById('winningconditionGoal');
 const ringcircle = document.getElementById('ringcircle');
+const excludedCardSlot = document.getElementById('excludedCardSlot');
 
 const STAGES = Array.from({ length: 17 }, (_, index) => ({
   number: index + 1,
@@ -636,9 +650,11 @@ function createCardElement(cardData){
 
 function createCharacterCardElement(cardData){
   const card = document.createElement('div');
-  card.className = 'my-card character-card';
+  card.className = 'my-card character-card zoomable-character';
   card.style.backgroundImage = `url("${encodeURIComponent(cardData.name)}.jpg")`;
   card.setAttribute('aria-label', `キャラクター ${cardData.name}`);
+  card.setAttribute('role', 'button');
+  card.tabIndex = 0;
   if (cardData.id) card.dataset.cardId = cardData.id;
 
   const name = document.createElement('span');
@@ -655,8 +671,45 @@ function createCharacterCardElement(cardData){
     createCharacterEffectRow('special', cardData.effect || '特殊説明')
   );
   card.append(name, special, effect);
+  card.addEventListener('click', event => {
+    event.stopPropagation();
+    openCardZoom(card);
+  });
+  card.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    event.stopPropagation();
+    openCardZoom(card);
+  });
   return card;
 }
+
+function openCardZoom(sourceCard){
+  // 親要素側で縮小されている公開カードも、カード本来の縦横比を基準に拡大する。
+  const width = sourceCard.offsetWidth;
+  const height = sourceCard.offsetHeight;
+  if (!width || !height) return;
+
+  const scale = Math.min((window.innerWidth - 48) / width, (window.innerHeight - 48) / height, 3.5);
+  const enlargedCard = sourceCard.cloneNode(true);
+  enlargedCard.classList.remove('zoomable-character');
+  enlargedCard.removeAttribute('role');
+  enlargedCard.removeAttribute('tabindex');
+  cardZoomFrame.replaceChildren(enlargedCard);
+  cardZoomFrame.style.width = `${width}px`;
+  cardZoomFrame.style.height = `${height}px`;
+  cardZoomFrame.style.setProperty('--zoom-scale', scale);
+  cardZoomBackdrop.classList.remove('hidden');
+  cardZoomBackdrop.setAttribute('aria-hidden', 'false');
+}
+
+function closeCardZoom(){
+  cardZoomBackdrop.classList.add('hidden');
+  cardZoomBackdrop.setAttribute('aria-hidden', 'true');
+  cardZoomFrame.replaceChildren();
+}
+
+cardZoomBackdrop.addEventListener('click', closeCardZoom);
 
 function createCharacterEffectRow(type, text){
   const row = document.createElement('div');
@@ -799,6 +852,13 @@ function renderStageInformation(){
   fitSingleLineText(arasujisquareBar, 11, 5);
   arasujisquareStory.textContent = stage.story;
   ringcircle.classList.toggle('on', state.game?.ringCircleOn === true);
+  excludedCardSlot.replaceChildren();
+  const excludedCard = state.game?.excludedCard;
+  excludedCardSlot.classList.toggle('hidden', !excludedCard);
+  if (excludedCard) {
+    excludedCardSlot.style.setProperty('--excluded-tilt', `${state.game.excludedCardTilt || 0}deg`);
+    excludedCardSlot.appendChild(createCardElement(excludedCard));
+  }
 
   winningconditionInfo.replaceChildren();
   const info = document.createElement('div');
@@ -1557,6 +1617,10 @@ async function dealInitialHands(stageNumber){
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
+  // 指輪1はゲーム進行に必要なため残し、それ以外から1枚を表向きで除外する。
+  const excludedIndex = deck.findIndex(card => !(card.color === 'yellow' && card.number === 1));
+  const excludedCard = { ...deck.splice(excludedIndex, 1)[0], id: `excluded-${Date.now()}` };
+  const excludedCardTilt = Math.floor(Math.random() * 3) - 1;
   let deckIndex = 0;
   // 8人でも同じ枚数を受け取れるよう、山札の範囲内で最大5枚配る。
   const cardsPerPlayer = Math.min(5, Math.floor(deck.length / seatedPlayers.length));
@@ -1600,7 +1664,10 @@ async function dealInitialHands(stageNumber){
   const starter = frodoPlayer;
   await update(ref(db, `rooms/${state.roomCode}`), {
     hands,
-    game: { playerOrder, turnPlayerId: starter, trickNumber: 1, stageNumber, ringCircleOn: false }
+    game: {
+      playerOrder, turnPlayerId: starter, trickNumber: 1, stageNumber,
+      ringCircleOn: false, excludedCard, excludedCardTilt
+    }
   });
 }
 
