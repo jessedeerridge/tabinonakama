@@ -195,6 +195,14 @@
     border-color:var(--character-frame);background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #fff9e9;
   }
+  .character-card.character-gold{
+    --character-frame:#b78719;--character-panel:#fff4c7;
+    box-shadow:0 4px 12px rgba(0,0,0,.2),inset 0 0 0 2px #ffe98a;
+  }
+  .character-card.character-silver{
+    --character-frame:#8b929b;--character-panel:#f1f5f9;
+    box-shadow:0 4px 12px rgba(0,0,0,.2),inset 0 0 0 2px #e2e8f0;
+  }
   .character-card .character-label{
     position:absolute;right:-4px;top:1px;width:max-content;min-width:0;max-width:64.8px;padding:2.7px 4.5px 2.7px 18px;
     box-sizing:border-box;background:var(--character-frame);color:#3f3021;font-size:9px;font-weight:900;isolation:isolate;
@@ -548,7 +556,7 @@ Object.assign(STAGES[0], {
   chapterLabel: '第一章',
   title: '待ちに待った誕生祝い',
   story: '袋小路屋敷のビルボ・バギンズ氏が近々、自身の111歳の誕生日を祝う、いつになく華やかなパーティを行うと発表してから、ホビット村はその噂と期待で持ちきりだ。',
-  characters: ['フロド、ビルボ、', 'ガンダルフ、ピピン'],
+  characters: ['フロド*、ビルボ*、', 'ガンダルフ、ピピン'],
   winCondition: '短い',
   goal: '「選んだキャラクターの目的をすべて達成」'
 });
@@ -651,6 +659,8 @@ function createCardElement(cardData){
 function createCharacterCardElement(cardData){
   const card = document.createElement('div');
   card.className = 'my-card character-card zoomable-character';
+  const isGoldCharacter = ['フロド', 'ビルボ'].includes(cardData.name);
+  card.classList.add(isGoldCharacter ? 'character-gold' : 'character-silver');
   card.style.backgroundImage = `url("${encodeURIComponent(cardData.name)}.jpg")`;
   card.setAttribute('aria-label', `キャラクター ${cardData.name}`);
   card.setAttribute('role', 'button');
@@ -1642,17 +1652,27 @@ async function dealInitialHands(stageNumber){
   }
 
   const stage = STAGES.find(item => item.number === Number(stageNumber));
-  const characterNames = (stage?.characters || [])
+  const stageCharacters = (stage?.characters || [])
     .flatMap(line => line.split(/[、,]/))
     .map(name => name.trim())
-    .filter(name => name && name !== 'xxx' && name !== 'フロド');
-  for (let i = characterNames.length - 1; i > 0; i--) {
+    .filter(name => name && name !== 'xxx')
+    .map(label => ({ name: label.replace(/\*+$/, ''), required: /\*+$/.test(label) }));
+  const requiredCharacterNames = stageCharacters.filter(character => character.required).map(character => character.name);
+  const optionalCharacterNames = stageCharacters.filter(character => !character.required).map(character => character.name);
+  for (let i = optionalCharacterNames.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [characterNames[i], characterNames[j]] = [characterNames[j], characterNames[i]];
+    [optionalCharacterNames[i], optionalCharacterNames[j]] = [optionalCharacterNames[j], optionalCharacterNames[i]];
   }
+  // 「*」付きは先に割り当て、残りの枠だけをランダムなキャラクターで埋める。
+  const selectedCharacterNames = [...requiredCharacterNames];
+  optionalCharacterNames.forEach(name => {
+    if (selectedCharacterNames.length < playerOrder.length && !selectedCharacterNames.includes(name)) selectedCharacterNames.push(name);
+  });
+  const frodoIndex = selectedCharacterNames.indexOf('フロド');
+  if (frodoIndex >= 0) selectedCharacterNames.splice(frodoIndex, 1);
   const otherPlayers = playerOrder.filter(id => id !== frodoPlayer);
   otherPlayers.forEach((playerId, index) => {
-    const name = characterNames[index % characterNames.length] || '旅の仲間';
+    const name = selectedCharacterNames[index] || '旅の仲間';
     hands[playerId].cards.unshift({ kind:'character', name, specialName:'特殊名', victory:'', effect:'特殊説明', id:`${playerId}-character-${Date.now()}` });
   });
   hands[frodoPlayer].cards.unshift({
