@@ -133,13 +133,13 @@
   .stage-tab:hover,.stage-tab:focus-visible{background:#111;color:#fff;}
   .character-selection{position:fixed;left:0;right:0;top:50%;z-index:315;transform:translateY(-50%);pointer-events:none;text-align:center;}
   .character-selection.hidden{display:none;}
-  .character-selection-title{display:inline-block;margin-bottom:10px;padding:5px 12px;border-radius:4px;background:#111;color:#fff;font-size:14px;font-weight:900;}
+  .character-selection-title{display:inline-block;margin-bottom:10px;padding:6px 14px;border-radius:999px;background:#111;color:#fff;font-size:14px;font-weight:900;}
   .character-choice-row{display:flex;justify-content:center;gap:8px;overflow-x:auto;padding:5px 8px 12px;scrollbar-width:thin;pointer-events:auto;}
-  .character-choice{position:relative;flex:0 0 clamp(64px,calc((100vw - 56px)/4),102px);width:clamp(64px,calc((100vw - 56px)/4),102px);aspect-ratio:82/122;padding:0;border:0;border-radius:13px;background:transparent;cursor:pointer;}
+  .character-choice{position:relative;flex:0 0 clamp(64px,calc((100vw - 56px)/4),102px);width:clamp(64px,calc((100vw - 56px)/4),102px);aspect-ratio:82/122;padding:0;border:0;border-radius:13px;background:transparent;appearance:none;opacity:1;filter:none;cursor:pointer;}
   .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale,1));transform-origin:top left;pointer-events:none;}
-  .character-choice:disabled{cursor:default;}
+  .character-choice:disabled{opacity:1;filter:none;cursor:default;}
   .character-choice:focus-visible{outline:2px solid #111;outline-offset:2px;}
-  .character-flight{position:fixed;z-index:1200;margin:0;pointer-events:none;transform-origin:top left;transition:left .65s cubic-bezier(.2,.75,.25,1),top .65s cubic-bezier(.2,.75,.25,1),transform .65s cubic-bezier(.2,.75,.25,1);}
+  .character-flight{position:fixed;z-index:1200;margin:0;pointer-events:none;transform-origin:top left;transition:left 1.2s cubic-bezier(.2,.75,.25,1),top 1.2s cubic-bezier(.2,.75,.25,1),transform 1.2s cubic-bezier(.2,.75,.25,1);}
   [data-character-player].character-awaiting-flight{visibility:hidden;}
   .center-lower-card-area.hidden{display:none;}
   .center-lower-card-area{
@@ -853,7 +853,7 @@ function animateCharacterChoice(name, playerId, sourceRect){
     flight.addEventListener('transitionend', event => {
       if (event.propertyName === 'transform') completeFlight();
     });
-    setTimeout(completeFlight, 750);
+    setTimeout(completeFlight, 1350);
   }));
 }
 
