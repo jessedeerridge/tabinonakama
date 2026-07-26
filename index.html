@@ -874,6 +874,8 @@ function scheduleTrickClear(){
         cards: pending.cards,
         winningCardId: pending.winningCardId
       });
+      // 黄カードの効果はプレイ時ではなく、獲得位置への移動が完了した時に有効にする。
+      if (pending.cards.some(card => card?.color === 'yellow')) game.ringCircleOn = true;
       delete game.trick;
       delete game.pendingCapture;
       return game;
@@ -992,7 +994,6 @@ async function playCard(cardIndex, expectedCard){
     }
     hand.splice(cardIndex, 1);
     room.hands[state.userId].cards = hand;
-    if (card.color === 'yellow') room.game.ringCircleOn = true;
     room.game.trick ||= {};
     room.game.trick[state.userId] = { card, order: existing.length, tilt: Math.floor(Math.random()*5)-2 };
     const order = room.game.playerOrder;
@@ -1455,8 +1456,10 @@ function renderPlayerCircle(players){
     capturedTricks.forEach((capturedTrick, trickIndex) => {
       const bundle = document.createElement('div');
       bundle.className = 'capture-trick';
-      // 他プレイヤーはキャラクターの右隣から、38px幅のカードを3pxずつ重ねて並べる。
-      bundle.style.left = `${isMe ? trickIndex * 44 : (trickIndex + 1) * 35}px`;
+      // 他プレイヤーの獲得が4つ以上なら、固定したキャラクターは数に含めず、左を後ろにして5pxずつ重ねる。
+      const otherCaptureStep = capturedTricks.length >= 4 ? 33 : 35;
+      bundle.style.left = `${isMe ? trickIndex * 44 : 35 + trickIndex * otherCaptureStep}px`;
+      if (!isMe) bundle.style.zIndex = String(trickIndex + 1);
       const cards = capturedTrick.cards || [];
       const yellows = cards.filter(card => card.color === 'yellow');
       const winner = cards.find(card => card.id === capturedTrick.winningCardId);
