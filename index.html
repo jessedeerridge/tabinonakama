@@ -126,7 +126,7 @@
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .stage-dialog{position:fixed;inset:0;z-index:320;display:grid;place-items:center;background:rgba(0,0,0,.38);}
   .stage-dialog.hidden{display:none;}
-  .stage-panel{box-sizing:border-box;width:max-content;max-width:calc(100vw - 32px);padding:0 0 12px;border-radius:14px;background:#fff;box-shadow:0 18px 40px rgba(0,0,0,.35);overflow:hidden;}
+  .stage-panel{box-sizing:border-box;width:max-content;max-width:calc(100vw - 32px);padding:8px;border-radius:14px;background:#fff;box-shadow:0 18px 40px rgba(0,0,0,.35);overflow:hidden;}
   .stage-grid{display:grid;grid-template-columns:repeat(4,36px);justify-content:center;gap:10px;}
   .stage-tab{width:36px;height:36px;padding:0;border:1px solid #111;border-radius:50%;background:#fff;font-size:12px;font-weight:800;cursor:pointer;}
   .stage-tab:hover,.stage-tab:focus-visible{background:#111;color:#fff;}
@@ -240,7 +240,7 @@
   .character-choice:not(:disabled):hover{transform:translateY(-5px);}
   .character-picker.locked .character-choice{cursor:default;}
   .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
-  .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:20px;height:20px;border-radius:50%;background:#d5a313;box-shadow:0 0 0 2px #fff8e8;z-index:5;pointer-events:none;}
+  .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;border-radius:50%;background:#d5a313;box-shadow:0 0 0 2px #fff8e8;z-index:5;pointer-events:none;}
   .character-card-slot{flex:0 0 82px;width:82px;height:122px;visibility:hidden;pointer-events:none;}
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
@@ -622,19 +622,18 @@ const cardNameFitObserver = new ResizeObserver(entries => {
   });
 });
 
-// キャラクター名が名前欄に収まらない場合だけ、元の9pxから必要な分だけ縮小する。
-const characterNameFitObserver = new ResizeObserver(entries => {
-  entries.forEach(({ target }) => {
-    target.style.fontSize = '9px';
-    const styles = getComputedStyle(target);
-    const availableWidth = target.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
-    const range = document.createRange();
-    range.selectNodeContents(target);
-    const textWidth = range.getBoundingClientRect().width;
-    if (!availableWidth || textWidth <= availableWidth) return;
-    target.style.fontSize = `${Math.max(4, 9 * availableWidth / textWidth)}px`;
+// 名前欄自体は動かさず、通常の9pxではみ出すキャラクター名だけを縮小する。
+function fitCharacterName(target){
+  requestAnimationFrame(() => {
+    target.style.fontSize = '';
+    if (target.scrollWidth <= target.clientWidth) return;
+    const fieldWidth = target.clientWidth;
+    const textWidth = target.scrollWidth;
+    // 文字を縮めても max-content の欄まで縮んで位置がずれないよう、先に幅を固定する。
+    target.style.width = `${fieldWidth}px`;
+    target.style.fontSize = `${Math.max(4, 9 * fieldWidth / textWidth)}px`;
   });
-});
+}
 
 function createCardElement(cardData){
   if (cardData.kind === 'character') return createCharacterCardElement(cardData);
@@ -699,7 +698,7 @@ function createCharacterCardElement(cardData){
   const name = document.createElement('span');
   name.className = 'character-label';
   name.textContent = cardData.name;
-  characterNameFitObserver.observe(name);
+  fitCharacterName(name);
   const special = document.createElement('span');
   special.className = 'character-label character-special';
   appendWrappedCharacterName(special, cardData.specialName || '特殊名');
