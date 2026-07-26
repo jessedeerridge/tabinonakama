@@ -126,8 +126,7 @@
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .stage-dialog{position:fixed;inset:0;z-index:320;display:grid;place-items:center;background:rgba(0,0,0,.38);}
   .stage-dialog.hidden{display:none;}
-  .stage-panel{box-sizing:border-box;width:min(300px,calc(100vw - 32px));padding:12px;border-radius:14px;background:#fff;box-shadow:0 18px 40px rgba(0,0,0,.35);}
-  .stage-panel-header{display:flex;align-items:center;justify-content:flex-end;margin-bottom:6px;}
+  .stage-panel{box-sizing:border-box;width:max-content;max-width:calc(100vw - 32px);padding:8px;border-radius:14px;background:#fff;box-shadow:0 18px 40px rgba(0,0,0,.35);overflow:hidden;}
   .stage-grid{display:grid;grid-template-columns:repeat(4,36px);justify-content:center;gap:10px;}
   .stage-tab{width:36px;height:36px;padding:0;border:1px solid #111;border-radius:50%;background:#fff;font-size:12px;font-weight:800;cursor:pointer;}
   .stage-tab:hover,.stage-tab:focus-visible{background:#111;color:#fff;}
@@ -196,12 +195,12 @@
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #fff9e9;
   }
   .character-card.character-gold{
-    --character-frame:#b78719;--character-panel:#fff4c7;
-    box-shadow:0 4px 12px rgba(0,0,0,.2),inset 0 0 0 2px #ffe98a;
+    --character-frame:#d5a313;
+    border-color:#d5a313;box-shadow:0 4px 12px rgba(91,63,0,.28),inset 0 0 0 2px #ffe477;
   }
   .character-card.character-silver{
-    --character-frame:#8b929b;--character-panel:#f1f5f9;
-    box-shadow:0 4px 12px rgba(0,0,0,.2),inset 0 0 0 2px #e2e8f0;
+    --character-frame:#aeb8c5;
+    border-color:#aeb8c5;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;
   }
   .character-card .character-label{
     position:absolute;right:-4px;top:1px;width:max-content;min-width:0;max-width:64.8px;padding:2.7px 4.5px 2.7px 18px;
@@ -233,7 +232,22 @@
   .card-zoom-backdrop.hidden{display:none;}
   .card-zoom-frame{position:relative;flex:none;pointer-events:none;}
   .card-zoom-frame>.my-card{position:absolute;inset:0;transform:scale(var(--zoom-scale));transform-origin:center;}
-  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-card{width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
+  .character-picker{position:fixed;inset:60px 0 0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;pointer-events:none;}
+  .character-picker.hidden{display:none;}
+  .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
+  .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
+  .character-choice{position:relative;flex:0 1 104px;width:min(104px,calc((100vw - 54px)/4));aspect-ratio:82/122;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transition:transform .15s ease;}
+  .character-choice:not(:disabled):hover{transform:translateY(-5px);}
+  .character-choice:disabled{filter:brightness(.55) saturate(.7);}
+  .character-picker.locked .character-choice{cursor:default;}
+  .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
+  .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;box-sizing:border-box;border:2px solid #10233f;border-radius:50%;background:transparent url('definitechara.jpg') center/cover no-repeat;z-index:5;pointer-events:none;}
+  .character-choice.required-raised{transform:translateY(-5px);}
+  .character-card-slot{flex:0 0 82px;width:82px;height:122px;visibility:hidden;pointer-events:none;}
+  @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
+  .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
+  .character-flight>.my-card{position:absolute;left:0;top:0;transform:scale(var(--flight-scale));transform-origin:top left;}
+  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
@@ -451,9 +465,6 @@
 <!-- ステージ選択 -->
 <div id="stageDialog" class="stage-dialog hidden" role="dialog" aria-modal="true" aria-label="ステージ選択">
   <div class="stage-panel">
-    <div class="stage-panel-header">
-      <button id="btnStageClose" class="btn ghost" type="button">×</button>
-    </div>
     <div id="stageGrid" class="stage-grid"></div>
   </div>
 </div>
@@ -461,6 +472,11 @@
 <div id="cardZoomBackdrop" class="card-zoom-backdrop hidden" aria-hidden="true">
   <div id="cardZoomFrame" class="card-zoom-frame"></div>
 </div>
+
+<section id="characterPicker" class="character-picker hidden" aria-live="polite">
+  <h2 class="character-picker-title">カードを選んでください。</h2>
+  <div id="characterPickerRow" class="character-picker-row"></div>
+</section>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
@@ -532,7 +548,6 @@ const btnGameStart = document.getElementById('btnGameStart');
 const btnResetRoom = document.getElementById('btnResetRoom');
 const stageDialog = document.getElementById('stageDialog');
 const stageGrid = document.getElementById('stageGrid');
-const btnStageClose = document.getElementById('btnStageClose');
 const cardZoomBackdrop = document.getElementById('cardZoomBackdrop');
 const cardZoomFrame = document.getElementById('cardZoomFrame');
 const centerLowerCardArea = document.getElementById('centerLowerCardArea');
@@ -542,6 +557,8 @@ const winningconditionInfo = document.getElementById('winningconditionInfo');
 const winningconditionGoal = document.getElementById('winningconditionGoal');
 const ringcircle = document.getElementById('ringcircle');
 const excludedCardSlot = document.getElementById('excludedCardSlot');
+const characterPicker = document.getElementById('characterPicker');
+const characterPickerRow = document.getElementById('characterPickerRow');
 
 const STAGES = Array.from({ length: 17 }, (_, index) => ({
   number: index + 1,
@@ -607,6 +624,19 @@ const cardNameFitObserver = new ResizeObserver(entries => {
   });
 });
 
+// 名前欄自体は動かさず、通常の9pxではみ出すキャラクター名だけを縮小する。
+function fitCharacterName(target){
+  requestAnimationFrame(() => {
+    target.style.fontSize = '';
+    if (target.scrollWidth <= target.clientWidth) return;
+    const fieldWidth = target.clientWidth;
+    const textWidth = target.scrollWidth;
+    // 文字を縮めても max-content の欄まで縮んで位置がずれないよう、先に幅を固定する。
+    target.style.width = `${fieldWidth}px`;
+    target.style.fontSize = `${Math.max(4, 9 * fieldWidth / textWidth)}px`;
+  });
+}
+
 function createCardElement(cardData){
   if (cardData.kind === 'character') return createCharacterCardElement(cardData);
   const card = document.createElement('div');
@@ -670,6 +700,7 @@ function createCharacterCardElement(cardData){
   const name = document.createElement('span');
   name.className = 'character-label';
   name.textContent = cardData.name;
+  fitCharacterName(name);
   const special = document.createElement('span');
   special.className = 'character-label character-special';
   appendWrappedCharacterName(special, cardData.specialName || '特殊名');
@@ -797,6 +828,9 @@ let trickClearTimer = null;
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
+const seenCharacterSelections = new Set();
+const characterSelectionSources = new Map();
+const characterAnimationUntil = new Map();
 
 function generateRoomCode(length = 5){
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -910,6 +944,7 @@ function subscribeRoom(){
   onValue(roomRef, snap => {
     state.room = snap.val() || {};
     state.game = state.room.game || null;
+    state.hands = state.room.hands || {};
     const waiting = (!state.isHost && !state.room.maxPlayers);
     hostSelectingPop.classList.toggle('hidden', !waiting);
     renderHands();
@@ -975,7 +1010,11 @@ function renderMyHand(){
   const handData = state.hands[myId];
   if (!handData || !Array.isArray(handData.cards)) return;
 
-  const cardCount = handData.cards.length;
+  const character = handData.cards.find(card => card?.kind === 'character');
+  const characterIsWaiting = Boolean(character) && Date.now() < (characterAnimationUntil.get(myId) || 0);
+  // 選択開始時からキャラクター用の先頭枠を確保し、選択・到着時に数字カードを動かさない。
+  const reserveCharacterSlot = state.game?.phase === 'character-selection' || characterIsWaiting;
+  const cardCount = handData.cards.length + (!character && reserveCharacterSlot ? 1 : 0);
   const columnCount = cardCount === 9 ? 5 : cardCount >= 7 ? 4 : Math.max(cardCount, 1);
   myHandEl.style.setProperty('--hand-columns', columnCount);
 
@@ -987,12 +1026,19 @@ function renderMyHand(){
       ? cardData
       : { color: 'gray', name: '山', number: cardData },
     cardIndex
-  })).sort((left, right) => {
+  })).filter(({ normalized }) => normalized.kind !== 'character' || !characterIsWaiting).sort((left, right) => {
     if (left.normalized.kind === 'character') return right.normalized.kind === 'character' ? 0 : -1;
     if (right.normalized.kind === 'character') return 1;
     const typeDifference = (colorOrder[left.normalized.color] ?? 3) - (colorOrder[right.normalized.color] ?? 3);
     return typeDifference || (Number(left.normalized.number) || 0) - (Number(right.normalized.number) || 0);
   });
+
+  if (reserveCharacterSlot && (!character || characterIsWaiting)) {
+    const characterSlot = document.createElement('div');
+    characterSlot.className = 'character-card-slot';
+    characterSlot.setAttribute('aria-hidden', 'true');
+    myHandEl.appendChild(characterSlot);
+  }
 
   displayedCards.forEach(({ normalized, cardIndex }) => {
     const card = createCardElement(normalized);
@@ -1093,8 +1139,149 @@ async function playCard(cardIndex, expectedCard){
   });
 }
 function renderHands(){
+  renderCharacterPicker();
   renderMyHand();
   if (latestPlayers.length) renderPlayerCircle(latestPlayers);
+}
+
+function characterCardData(character, playerId){
+  return {
+    kind:'character', name:character.name, required:character.required === true,
+    specialName:character.name === 'フロド' ? '指輪所持者' : '特殊名',
+    victory:character.name === 'フロド' ? '指輪を2枚以上獲得する。' : '',
+    effect:character.name === 'フロド'
+      ? '黄1を所持している。黄1は交換できない。スタートプレイヤーになる。'
+      : '特殊説明',
+    id:`${playerId}-character-${character.name}`
+  };
+}
+
+function animateCharacterSelection(playerId, character, sourceRect){
+  const isMe = playerId === state.userId;
+  // 自分は手札の先頭枠、他プレイヤーは公開キャラクター専用の獲得カード枠を着地点にする。
+  const target = isMe
+    ? (myHandEl.firstElementChild || myHandEl)
+    : playerCircle.querySelector(`.capture-circle[data-player-id="${CSS.escape(playerId)}"]`);
+  const targetRect = target?.getBoundingClientRect();
+  if (!sourceRect || !targetRect) return;
+  const flight = document.createElement('div');
+  flight.className = 'character-flight';
+  flight.style.left = `${sourceRect.left}px`;
+  flight.style.top = `${sourceRect.top}px`;
+  flight.style.width = `${sourceRect.width}px`;
+  flight.style.height = `${sourceRect.height}px`;
+  const flightCard = createCharacterCardElement(characterCardData(character, playerId));
+  flight.appendChild(flightCard);
+  document.body.appendChild(flight);
+  const baseWidth = flightCard.offsetWidth || 82;
+  const destinationWidth = isMe ? targetRect.width : 38;
+  const destinationHeight = isMe ? targetRect.height : 56;
+  const destinationLeft = targetRect.left;
+  const destinationTop = targetRect.top;
+  flight.style.setProperty('--flight-scale', sourceRect.width / baseWidth);
+  const animation = flight.animate([
+    { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, width:`${sourceRect.width}px`, height:`${sourceRect.height}px`, opacity:1 },
+    { left:`${destinationLeft}px`, top:`${destinationTop}px`, width:`${destinationWidth}px`, height:`${destinationHeight}px`, opacity:1 }
+  ], { duration:650, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' });
+  flight.animate([
+    { '--flight-scale':String(sourceRect.width / baseWidth) },
+    { '--flight-scale':String(destinationWidth / baseWidth) }
+  ], { duration:650, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' });
+  characterAnimationUntil.set(playerId, Date.now() + 650);
+  animation.finished.finally(() => {
+    flight.remove();
+    characterAnimationUntil.delete(playerId);
+    renderMyHand();
+    if (latestPlayers.length) renderPlayerCircle(latestPlayers);
+  });
+}
+
+async function chooseCharacter(characterName, source){
+  if (!state.roomCode || state.game?.phase !== 'character-selection') return;
+  characterSelectionSources.set(characterName, source.getBoundingClientRect());
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    if (!room?.game || room.game.phase !== 'character-selection') return;
+    room.game.characterSelections ||= {};
+    if (room.game.characterSelections[state.userId]) return;
+    const character = (room.game.availableCharacters || []).find(item => item.name === characterName);
+    if (!character || Object.values(room.game.characterSelections).some(item => item.name === characterName)) return;
+    const selectedNames = new Set(Object.values(room.game.characterSelections).map(item => item.name));
+    const remainingRequiredCount = (room.game.availableCharacters || [])
+      .filter(item => item.required && !selectedNames.has(item.name)).length;
+    const remainingPlayerCount = (room.game.playerOrder || []).length - Object.keys(room.game.characterSelections).length;
+    // 残り人数と必須カード数が同じなら、任意カードを選んで必須カードを残すことはできない。
+    if (remainingRequiredCount >= remainingPlayerCount && !character.required) return;
+    room.hands ||= {};
+    room.hands[state.userId] ||= { cards:[] };
+    room.hands[state.userId].cards ||= [];
+    room.hands[state.userId].cards.unshift(characterCardData(character, state.userId));
+    room.game.characterSelections[state.userId] = { ...character, selectedAt:Date.now() };
+    if (characterName === 'フロド') {
+      const currentHolder = Object.keys(room.hands).find(id => room.hands[id].cards.some(card => card.color === 'yellow' && card.number === 1));
+      if (currentHolder && currentHolder !== state.userId) {
+        const yellowIndex = room.hands[currentHolder].cards.findIndex(card => card.color === 'yellow' && card.number === 1);
+        const replacementIndex = room.hands[state.userId].cards.findIndex(card => card.kind !== 'character');
+        const replacement = room.hands[state.userId].cards[replacementIndex];
+        room.hands[state.userId].cards[replacementIndex] = room.hands[currentHolder].cards[yellowIndex];
+        room.hands[currentHolder].cards[yellowIndex] = replacement;
+      }
+      room.game.turnPlayerId = state.userId;
+    }
+    const chosenCount = Object.keys(room.game.characterSelections).length;
+    if (chosenCount >= room.game.playerOrder.length) {
+      room.game.phase = 'playing';
+      room.game.turnPlayerId ||= room.game.playerOrder[0];
+    }
+    return room;
+  });
+}
+
+function renderCharacterPicker(){
+  const game = state.game;
+  const selections = game?.characterSelections || {};
+  const oldRects = new Map();
+  characterPickerRow.querySelectorAll('.character-choice').forEach(choice => oldRects.set(choice.dataset.characterName, choice.getBoundingClientRect()));
+  Object.entries(selections).forEach(([playerId, character]) => {
+    const key = `${game.startedAt || game.stageNumber}:${playerId}:${character.name}`;
+    if (seenCharacterSelections.has(key)) return;
+    seenCharacterSelections.add(key);
+    const sourceRect = characterSelectionSources.get(character.name) || oldRects.get(character.name);
+    if (sourceRect) {
+      characterAnimationUntil.set(playerId, Date.now() + 650);
+      requestAnimationFrame(() => animateCharacterSelection(playerId, character, sourceRect));
+    }
+  });
+  const alreadyChose = Boolean(selections[state.userId]);
+  // 選択済みの本人にも、全員の選択が終わるまでは残りの候補を表示し続ける。
+  characterPicker.classList.toggle('hidden', game?.phase !== 'character-selection');
+  characterPicker.classList.toggle('locked', alreadyChose);
+  characterPickerRow.replaceChildren();
+  if (game?.phase !== 'character-selection') return;
+  const chosenNames = new Set(Object.values(selections).map(item => item.name));
+  const remainingCharacters = (game.availableCharacters || []).filter(character => !chosenNames.has(character.name));
+  const remainingRequiredCount = remainingCharacters.filter(character => character.required).length;
+  const remainingPlayerCount = (game.playerOrder || []).length - Object.keys(selections).length;
+  const mustChooseRequired = remainingRequiredCount > 0 && remainingRequiredCount >= remainingPlayerCount;
+  remainingCharacters.forEach(character => {
+    const choice = document.createElement('button');
+    choice.type = 'button';
+    choice.className = 'character-choice';
+    choice.disabled = alreadyChose || (mustChooseRequired && !character.required);
+    choice.dataset.characterName = character.name;
+    const choiceCard = createCharacterCardElement(characterCardData(character, state.userId));
+    choice.appendChild(choiceCard);
+    if (character.required) {
+      // 必須マークはカード内部ではなく、選択肢の右下に独立した要素として重ねる。
+      const requiredDot = document.createElement('span');
+      requiredDot.className = 'required-character-dot';
+      requiredDot.setAttribute('aria-label', '必須キャラクター');
+      choice.appendChild(requiredDot);
+      choice.classList.toggle('required-raised', mustChooseRequired);
+    }
+    choice.addEventListener('click', event => { event.stopPropagation(); chooseCharacter(character.name, choice); });
+    characterPickerRow.appendChild(choice);
+    choice.style.setProperty('--choice-scale', choice.getBoundingClientRect().width / (choiceCard.offsetWidth || 82));
+  });
 }
 
 let entranceRooms = [];
@@ -1234,7 +1421,6 @@ async function enterRoom(roomCode, userName){
   subscribeRoom();
   subscribeHostState();
   subscribePlayers();
-  subscribeHands();
 
   syncSeatUI();
 }
@@ -1409,6 +1595,7 @@ function renderPlayerCircle(players){
 
     const tag = document.createElement('div');
     tag.className = 'player-tag' + (p.id === state.userId ? ' me' : '');
+    tag.dataset.playerId = p.id;
     tag.textContent = p.name;
     tag.style.left = `${x}%`;
     tag.style.top = `${y}%`;
@@ -1499,10 +1686,11 @@ function renderPlayerCircle(players){
 
     const capture = document.createElement('div');
     capture.className = 'capture-circle';
+    capture.dataset.playerId = p.id;
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
-    // 他プレイヤーの獲得カード全体を、ネームタグの左上から5px離れた左上へ置く。
+    // 公開キャラクターをネームタグの左上から離し、着地時に窮屈に見えない余白を作る。
     const captureX = isMe ? playX + 13 : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
     const captureY = isMe ? playY + 11 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
@@ -1511,7 +1699,7 @@ function renderPlayerCircle(players){
     // 他プレイヤーの公開キャラクターを獲得カード列の先頭に置く。
     if (!isMe) {
       const character = handData?.cards?.find(card => card?.kind === 'character');
-      if (character) {
+      if (character && Date.now() >= (characterAnimationUntil.get(p.id) || 0)) {
         const characterBundle = document.createElement('div');
         characterBundle.className = 'capture-trick character-capture';
         const characterHolder = document.createElement('div');
@@ -1657,35 +1845,12 @@ async function dealInitialHands(stageNumber){
     .map(name => name.trim())
     .filter(name => name && name !== 'xxx')
     .map(label => ({ name: label.replace(/\*+$/, ''), required: /\*+$/.test(label) }));
-  const requiredCharacterNames = stageCharacters.filter(character => character.required).map(character => character.name);
-  const optionalCharacterNames = stageCharacters.filter(character => !character.required).map(character => character.name);
-  for (let i = optionalCharacterNames.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [optionalCharacterNames[i], optionalCharacterNames[j]] = [optionalCharacterNames[j], optionalCharacterNames[i]];
-  }
-  // 「*」付きは先に割り当て、残りの枠だけをランダムなキャラクターで埋める。
-  const selectedCharacterNames = [...requiredCharacterNames];
-  optionalCharacterNames.forEach(name => {
-    if (selectedCharacterNames.length < playerOrder.length && !selectedCharacterNames.includes(name)) selectedCharacterNames.push(name);
-  });
-  const frodoIndex = selectedCharacterNames.indexOf('フロド');
-  if (frodoIndex >= 0) selectedCharacterNames.splice(frodoIndex, 1);
-  const otherPlayers = playerOrder.filter(id => id !== frodoPlayer);
-  otherPlayers.forEach((playerId, index) => {
-    const name = selectedCharacterNames[index] || '旅の仲間';
-    hands[playerId].cards.unshift({ kind:'character', name, specialName:'特殊名', victory:'', effect:'特殊説明', id:`${playerId}-character-${Date.now()}` });
-  });
-  hands[frodoPlayer].cards.unshift({
-    kind:'character', name:'フロド', specialName:'指輪所持者',
-    victory:'指輪を2枚以上獲得する。',
-    effect:'黄1を所持している。黄1は交換できない。スタートプレイヤーになる。',
-    id:`${frodoPlayer}-frodo-${Date.now()}`
-  });
-  const starter = frodoPlayer;
   await update(ref(db, `rooms/${state.roomCode}`), {
     hands,
     game: {
-      playerOrder, turnPlayerId: starter, trickNumber: 1, stageNumber,
+      playerOrder, turnPlayerId: null, trickNumber: 1, stageNumber, startedAt:Date.now(),
+      phase: 'character-selection', availableCharacters: stageCharacters,
+      characterSelections: {},
       ringCircleOn: false, excludedCard, excludedCardTilt
     }
   });
@@ -1722,7 +1887,6 @@ btnGameStart.addEventListener('click', () => {
   startPop.classList.add('hidden');
   openStageDialog();
 });
-btnStageClose.addEventListener('click', () => stageDialog.classList.add('hidden'));
 stageDialog.addEventListener('click', event => {
   if (event.target === stageDialog) stageDialog.classList.add('hidden');
 });
