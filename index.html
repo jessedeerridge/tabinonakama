@@ -131,15 +131,16 @@
   .stage-grid{display:grid;grid-template-columns:repeat(4,36px);justify-content:center;gap:10px;}
   .stage-tab{width:36px;height:36px;padding:0;border:1px solid #111;border-radius:50%;background:#fff;font-size:12px;font-weight:800;cursor:pointer;}
   .stage-tab:hover,.stage-tab:focus-visible{background:#111;color:#fff;}
-  .character-selection{position:fixed;left:12px;right:12px;top:70px;z-index:315;padding:12px 10px 14px;border-radius:16px;background:rgba(255,255,255,.96);box-shadow:0 16px 38px rgba(0,0,0,.28);text-align:center;}
+  .character-selection{position:fixed;left:0;right:0;top:70px;z-index:315;pointer-events:none;}
   .character-selection.hidden{display:none;}
-  .character-selection-title{margin-bottom:10px;font-size:14px;font-weight:900;}
-  .character-choice-row{display:flex;justify-content:center;gap:14px;overflow-x:auto;padding:5px 8px 12px;scrollbar-width:thin;}
-  .character-choice{position:relative;flex:0 0 111px;width:111px;height:165px;padding:0;border:0;border-radius:13px;background:transparent;cursor:pointer;transition:opacity .2s,filter .2s;}
-  .character-choice>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(1.35);transform-origin:top left;pointer-events:none;}
-  .character-choice:disabled{cursor:default;opacity:.25;filter:grayscale(.7);}
+  .character-selection-title{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
+  .character-choice-row{display:flex;justify-content:center;gap:8px;overflow-x:auto;padding:5px 8px 12px;scrollbar-width:thin;pointer-events:auto;}
+  .character-choice{position:relative;flex:0 0 clamp(64px,calc((100vw - 56px)/4),102px);width:clamp(64px,calc((100vw - 56px)/4),102px);aspect-ratio:82/122;padding:0;border:0;border-radius:13px;background:transparent;cursor:pointer;}
+  .character-choice>.my-card{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+  .character-choice:disabled{cursor:default;}
   .character-choice:not(:disabled):hover,.character-choice:not(:disabled):focus-visible{outline:3px solid #f59e0b;outline-offset:3px;}
   .character-flight{position:fixed;z-index:1200;margin:0;pointer-events:none;transform-origin:top left;transition:left .65s cubic-bezier(.2,.75,.25,1),top .65s cubic-bezier(.2,.75,.25,1),transform .65s cubic-bezier(.2,.75,.25,1),opacity .15s .58s;}
+  [data-character-player].character-awaiting-flight{visibility:hidden;}
   .center-lower-card-area.hidden{display:none;}
   .center-lower-card-area{
     position:fixed;left:50%;top:calc(68% - 75px);transform:translate(-50%,-50%);
@@ -741,11 +742,11 @@ function characterCardData(name, playerId = ''){
 function renderCharacterSelection(){
   const game = state.game;
   const selecting = game?.phase === 'characterSelection';
-  characterSelection.classList.toggle('hidden', !selecting);
+  const myChoice = game?.characterAssignments?.[state.userId];
+  characterSelection.classList.toggle('hidden', !selecting || Boolean(myChoice));
   if (!selecting) return;
 
   const assignments = game.characterAssignments || {};
-  const myChoice = assignments[state.userId];
   const isPlayer = game.playerOrder?.includes(state.userId);
   characterSelectionTitle.textContent = !isPlayer
     ? 'プレイヤーがキャラクターを選択中です'
@@ -753,13 +754,13 @@ function renderCharacterSelection(){
     ? `「${myChoice}」を選択しました — ほかのプレイヤーを待っています`
     : 'キャラクターを選んでください';
   characterChoiceRow.replaceChildren();
-  (game.characterOptions || []).forEach(name => {
+  (game.characterOptions || []).filter(name => !Object.values(assignments).includes(name)).forEach(name => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'character-choice';
     button.dataset.characterName = name;
     button.setAttribute('aria-label', `${name}を選択`);
-    button.disabled = !isPlayer || Boolean(myChoice) || Object.values(assignments).includes(name);
+    button.disabled = !isPlayer || Boolean(myChoice);
     button.appendChild(createCardElement(characterCardData(name)));
     button.addEventListener('click', () => chooseCharacter(name));
     characterChoiceRow.appendChild(button);
@@ -804,21 +805,33 @@ async function chooseCharacter(name){
 function animateCharacterChoice(name, playerId, sourceRect){
   requestAnimationFrame(() => requestAnimationFrame(() => {
     const target = document.querySelector(`[data-character-player="${CSS.escape(playerId)}"]`);
-    if (!target || !sourceRect) return;
+    if (!target || !sourceRect) {
+      characterPlayersAwaitingFlight.delete(playerId);
+      target?.classList.remove('character-awaiting-flight');
+      return;
+    }
     const targetRect = target.getBoundingClientRect();
     const flight = createCardElement(characterCardData(name));
     flight.classList.add('character-flight');
     flight.style.left = `${sourceRect.left}px`;
     flight.style.top = `${sourceRect.top}px`;
-    flight.style.transform = `scale(${sourceRect.width / Math.max(flight.offsetWidth || 82, 82)})`;
+    flight.style.transition = 'none';
     document.body.appendChild(flight);
+    const flightWidth = Math.max(flight.offsetWidth, 1);
+    flight.style.transform = `scale(${sourceRect.width / flightWidth})`;
     // レイアウトを確定してから、選択列から各プレイヤーの公開カード位置へ移動する。
+    flight.getBoundingClientRect();
+    flight.style.removeProperty('transition');
     flight.getBoundingClientRect();
     flight.style.left = `${targetRect.left}px`;
     flight.style.top = `${targetRect.top}px`;
-    flight.style.transform = `scale(${targetRect.width / Math.max(flight.offsetWidth, 82)})`;
+    flight.style.transform = `scale(${targetRect.width / flightWidth})`;
     flight.style.opacity = '0';
-    setTimeout(() => flight.remove(), 750);
+    setTimeout(() => {
+      flight.remove();
+      characterPlayersAwaitingFlight.delete(playerId);
+      target.classList.remove('character-awaiting-flight');
+    }, 700);
   }));
 }
 
@@ -898,6 +911,7 @@ let trickClearTimer = null;
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
+const characterPlayersAwaitingFlight = new Set();
 
 function generateRoomCode(length = 5){
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -1014,7 +1028,13 @@ function subscribeRoom(){
     characterChoiceRow.querySelectorAll('.character-choice').forEach(choice => {
       choiceRects[choice.dataset.characterName] = choice.getBoundingClientRect();
     });
-    state.room = snap.val() || {};
+    const nextRoom = snap.val() || {};
+    const nextAssignments = nextRoom.game?.characterAssignments || {};
+    const arrivingPlayers = Object.entries(nextAssignments)
+      .filter(([playerId, name]) => !previousAssignments[playerId] && choiceRects[name])
+      .map(([playerId]) => playerId);
+    arrivingPlayers.forEach(playerId => characterPlayersAwaitingFlight.add(playerId));
+    state.room = nextRoom;
     state.game = state.room.game || null;
     state.hands = state.room.hands || {};
     const waiting = (!state.isHost && !state.room.maxPlayers);
@@ -1024,7 +1044,6 @@ function subscribeRoom(){
     renderStageInformation();
     scheduleTrickClear();
     syncSeatUI();
-    const nextAssignments = state.game?.characterAssignments || {};
     Object.entries(nextAssignments).forEach(([playerId, name]) => {
       if (!previousAssignments[playerId]) animateCharacterChoice(name, playerId, choiceRects[name]);
     });
@@ -1108,7 +1127,10 @@ function renderMyHand(){
 
   displayedCards.forEach(({ normalized, cardIndex }) => {
     const card = createCardElement(normalized);
-    if (normalized.kind === 'character') card.dataset.characterPlayer = myId;
+    if (normalized.kind === 'character') {
+      card.dataset.characterPlayer = myId;
+      card.classList.toggle('character-awaiting-flight', characterPlayersAwaitingFlight.has(myId));
+    }
     const canPlay = normalized.kind !== 'character' && state.game?.phase === 'playing' && !state.game.pendingCapture && state.game.turnPlayerId === myId && canFollowSuit(normalized);
     if (canPlay) {
       hasPlayableCards = true;
@@ -1631,6 +1653,7 @@ function renderPlayerCircle(players){
         characterHolder.className = 'capture-card';
         characterHolder.style.setProperty('--stack-rotate', '0deg');
         characterHolder.dataset.characterPlayer = p.id;
+        characterHolder.classList.toggle('character-awaiting-flight', characterPlayersAwaitingFlight.has(p.id));
         characterHolder.appendChild(createCardElement(character));
         characterBundle.appendChild(characterHolder);
         capture.appendChild(characterBundle);
