@@ -1327,9 +1327,9 @@ function renderPlayerCircle(players){
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
-    // 他プレイヤーの獲得カードは、全席共通でネームタグの左上を開始位置にする。
-    const captureX = isMe ? playX + 13 : x + (19 - tag.offsetWidth / 2) / circleSize * 100;
-    const captureY = isMe ? playY + 11 : y + (28 - tag.offsetHeight / 2) / circleHeight * 100;
+    // 他プレイヤーの獲得カードは、全席共通でネームタグの左上からさらに10px左上へ離す。
+    const captureX = isMe ? playX + 13 : x + (9 - tag.offsetWidth / 2) / circleSize * 100;
+    const captureY = isMe ? playY + 11 : y + (18 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
