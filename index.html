@@ -186,7 +186,24 @@
   .my-card.yellow-one .card-badge::before{background:#111;}
   .my-card.yellow-one .card-number{color:var(--card-color);}
   .my-card.yellow-one .card-mark{height:18px;margin-top:-1px;}
-  .my-card.yellow-one .card-name{left:3px;right:3px;padding:0 7px;box-sizing:border-box;font-size:7px;letter-spacing:-.06em;white-space:nowrap;overflow:hidden;}
+  .my-card.yellow-one .card-name{left:3px;right:3px;padding:0 7px;box-sizing:border-box;font-size:9px;letter-spacing:-.06em;white-space:nowrap;overflow:hidden;}
+  .character-card{
+    --character-frame:#73583a;--character-panel:#fff8e8;
+    border-color:var(--character-frame);background:linear-gradient(145deg,#f8edcf,#d8c094);
+    box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #fff9e9;
+  }
+  .character-card .character-label{
+    position:absolute;right:0;top:7px;min-width:58px;max-width:72px;padding:3px 5px 3px 12px;
+    box-sizing:border-box;background:var(--character-frame);color:#fff;font-size:10px;font-weight:900;
+    line-height:1.1;text-align:right;clip-path:polygon(10px 50%,0 0,100% 0,100% 100%,0 100%);
+  }
+  .character-card .character-special{top:30px;background:var(--character-panel);color:#3f3021;font-size:7px;}
+  .character-card .character-effect{
+    position:absolute;left:3px;right:3px;bottom:3px;min-height:38px;padding:12px 5px 4px;
+    box-sizing:border-box;background:var(--character-panel);border:2px solid var(--character-frame);
+    font-size:7px;line-height:1.25;text-align:left;
+    clip-path:polygon(12px 8px,22px 0,calc(100% - 22px) 0,calc(100% - 12px) 8px,100% 8px,100% 100%,0 100%,0 8px);
+  }
   @media (max-width:520px){.my-hand{gap:6px}.my-card{width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
@@ -541,7 +558,7 @@ const CARD_DECK = CARD_TYPES.flatMap(type =>
 // 長い特殊カード名を、カード幅に合わせて一行に収める。
 const cardNameFitObserver = new ResizeObserver(entries => {
   entries.forEach(({ target }) => {
-    target.style.fontSize = '7px';
+    target.style.fontSize = '9px';
     const styles = getComputedStyle(target);
     const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
     const availableWidth = target.clientWidth - horizontalPadding;
@@ -549,12 +566,13 @@ const cardNameFitObserver = new ResizeObserver(entries => {
     range.selectNodeContents(target);
     const textWidth = range.getBoundingClientRect().width;
     if (!availableWidth || textWidth <= availableWidth) return;
-    const fittedSize = Math.max(2.5, 7 * availableWidth / textWidth);
+    const fittedSize = Math.max(4, 9 * availableWidth / textWidth);
     target.style.fontSize = `${fittedSize}px`;
   });
 });
 
 function createCardElement(cardData){
+  if (cardData.kind === 'character') return createCharacterCardElement(cardData);
   const card = document.createElement('div');
   card.className = `my-card card-${cardData.color}`;
   const isYellowOne = cardData.color === 'yellow' && cardData.number === 1;
@@ -599,6 +617,25 @@ function createCardElement(cardData){
 
   // 左右とも数字とマークは同じ通常向きで表示する。
   card.append(createBadge('left'), createBadge('right'), name);
+  return card;
+}
+
+function createCharacterCardElement(cardData){
+  const card = document.createElement('div');
+  card.className = 'my-card character-card';
+  card.setAttribute('aria-label', `キャラクター ${cardData.name}`);
+  if (cardData.id) card.dataset.cardId = cardData.id;
+
+  const name = document.createElement('span');
+  name.className = 'character-label';
+  name.textContent = cardData.name;
+  const special = document.createElement('span');
+  special.className = 'character-label character-special';
+  special.textContent = cardData.specialName || '特殊名';
+  const effect = document.createElement('div');
+  effect.className = 'character-effect';
+  effect.textContent = cardData.effect || '効果説明';
+  card.append(name, special, effect);
   return card;
 }
 
@@ -826,7 +863,7 @@ function renderMyHand(){
       ? cardData
       : { color: 'gray', name: '山', number: cardData };
     const card = createCardElement(normalized);
-    const canPlay = state.game && !state.game.pendingCapture && state.game.turnPlayerId === myId && canFollowSuit(normalized);
+    const canPlay = normalized.kind !== 'character' && state.game && !state.game.pendingCapture && state.game.turnPlayerId === myId && canFollowSuit(normalized);
     if (canPlay) {
       hasPlayableCards = true;
       card.classList.add('playable');
@@ -842,7 +879,7 @@ function canFollowSuit(card){
   const plays = Object.values(trick);
   if (!plays.length) return card.color !== 'yellow' || state.game?.ringCircleOn === true;
   const leadColor = plays.sort((a,b) => a.order-b.order)[0].card.color;
-  const cards = state.hands[state.userId]?.cards || [];
+  const cards = (state.hands[state.userId]?.cards || []).filter(card => card.kind !== 'character');
   return card.color === leadColor || !cards.some(c => c.color === leadColor);
 }
 
@@ -883,7 +920,7 @@ async function playCard(cardIndex, expectedCard){
     if (!room?.game || room.game.pendingCapture || room.game.turnPlayerId !== state.userId) return;
     const hand = room.hands?.[state.userId]?.cards;
     const card = hand?.[cardIndex];
-    if (!card || card.id !== expectedCard.id) return;
+    if (!card || card.kind === 'character' || card.id !== expectedCard.id) return;
     const existing = Object.values(room.game.trick || {}).sort((a,b)=>a.order-b.order);
     if (!existing.length && card.color === 'yellow' && room.game.ringCircleOn !== true) return;
     if (existing.length) {
@@ -914,7 +951,7 @@ async function playCard(cardIndex, expectedCard){
       };
       room.game.turnPlayerId = winnerId;
       room.game.trickNumber = (room.game.trickNumber || 1) + 1;
-      if (order.every(id => !(room.hands[id]?.cards || []).length)) room.game.finished = true;
+      if (order.every(id => !(room.hands[id]?.cards || []).some(card => card.kind !== 'character'))) room.game.finished = true;
     } else {
       const currentIndex = order.indexOf(state.userId);
       room.game.turnPlayerId = order[(currentIndex + 1) % order.length];
@@ -1446,7 +1483,35 @@ async function dealInitialHands(stageNumber){
     hands[t.playerId] = { cards: cards.map((card, index) => ({ ...card, id: `${t.playerId}-${index}-${Date.now()}` })) };
   }
   const playerOrder = seatedPlayers.map(t => t.playerId);
-  const starter = playerOrder[Math.floor(Math.random() * playerOrder.length)];
+  // 黄1の所持者をフロド兼すたぴーにする。黄1が余り札に入った場合は、
+  // ランダムな手札の数字カードと交換して必ず誰かへ配る。
+  let frodoPlayer = playerOrder.find(id => hands[id].cards.some(card => card.color === 'yellow' && card.number === 1));
+  if (!frodoPlayer) {
+    frodoPlayer = playerOrder[Math.floor(Math.random() * playerOrder.length)];
+    const yellowOneIndex = deck.findIndex(card => card.color === 'yellow' && card.number === 1);
+    const yellowOne = { ...deck[yellowOneIndex], id: `${frodoPlayer}-yellow-1-${Date.now()}` };
+    hands[frodoPlayer].cards[Math.floor(Math.random() * hands[frodoPlayer].cards.length)] = yellowOne;
+  }
+
+  const stage = STAGES.find(item => item.number === Number(stageNumber));
+  const characterNames = (stage?.characters || [])
+    .flatMap(line => line.split(/[、,]/))
+    .map(name => name.trim())
+    .filter(name => name && name !== 'xxx' && name !== 'フロド');
+  for (let i = characterNames.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [characterNames[i], characterNames[j]] = [characterNames[j], characterNames[i]];
+  }
+  const otherPlayers = playerOrder.filter(id => id !== frodoPlayer);
+  otherPlayers.forEach((playerId, index) => {
+    const name = characterNames[index % characterNames.length] || '旅の仲間';
+    hands[playerId].cards.unshift({ kind:'character', name, specialName:'特殊名', effect:'効果説明', id:`${playerId}-character-${Date.now()}` });
+  });
+  hands[frodoPlayer].cards.unshift({
+    kind:'character', name:'フロド', specialName:'指輪所持者',
+    effect:'黄1を持つ。必ずすたぴーになる。', id:`${frodoPlayer}-frodo-${Date.now()}`
+  });
+  const starter = frodoPlayer;
   await update(ref(db, `rooms/${state.roomCode}`), {
     hands,
     game: { playerOrder, turnPlayerId: starter, trickNumber: 1, stageNumber, ringCircleOn: false }
