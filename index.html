@@ -131,6 +131,16 @@
   .stage-grid{display:grid;grid-template-columns:repeat(4,36px);justify-content:center;gap:10px;}
   .stage-tab{width:36px;height:36px;padding:0;border:1px solid #111;border-radius:50%;background:#fff;font-size:12px;font-weight:800;cursor:pointer;}
   .stage-tab:hover,.stage-tab:focus-visible{background:#111;color:#fff;}
+  .character-selection{position:fixed;left:0;right:0;top:50%;z-index:315;transform:translateY(-50%);pointer-events:none;text-align:center;}
+  .character-selection.hidden{display:none;}
+  .character-selection-title{display:inline-block;margin-bottom:10px;padding:6px 14px;border-radius:999px;background:#111;color:#fff;font-size:14px;font-weight:900;}
+  .character-choice-row{display:flex;justify-content:center;gap:8px;overflow-x:auto;padding:5px 8px 12px;scrollbar-width:thin;pointer-events:auto;}
+  .character-choice{position:relative;flex:0 0 clamp(64px,calc((100vw - 56px)/4),102px);width:clamp(64px,calc((100vw - 56px)/4),102px);aspect-ratio:82/122;padding:0;border:0;border-radius:13px;background:transparent;appearance:none;opacity:1;filter:none;cursor:pointer;}
+  .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale,1));transform-origin:top left;pointer-events:none;}
+  .character-choice:disabled{opacity:1;filter:none;cursor:default;}
+  .character-choice:focus-visible{outline:2px solid #111;outline-offset:2px;}
+  .character-flight{position:fixed;z-index:1200;margin:0;pointer-events:none;transform-origin:top left;transition:left 1.2s cubic-bezier(.2,.75,.25,1),top 1.2s cubic-bezier(.2,.75,.25,1),transform 1.2s cubic-bezier(.2,.75,.25,1);}
+  [data-character-player].character-awaiting-flight{visibility:hidden;}
   .center-lower-card-area.hidden{display:none;}
   .center-lower-card-area{
     position:fixed;left:50%;top:calc(68% - 75px);transform:translate(-50%,-50%);
@@ -215,6 +225,7 @@
     content:'';position:absolute;inset:1px;background:var(--character-panel);z-index:-1;
     clip-path:polygon(0 10px,30% 6px,70% 6px,100% 10px,100% 100%,0 100%);
   }
+  .character-star-dot{position:absolute;right:4px;bottom:4px;width:8px;height:8px;border:1px solid #111;border-radius:50%;background:#fff;box-sizing:border-box;z-index:5;}
   .character-effect-row{display:grid;grid-template-columns:6.6px 1fr;gap:.3px;align-items:start;}
   .character-effect-icon{display:block;width:6.48px;height:6.48px;color:#111;}
   .character-effect-icon svg{display:block;width:100%;height:100%;fill:currentColor;}
@@ -225,7 +236,7 @@
   .card-zoom-backdrop.hidden{display:none;}
   .card-zoom-frame{position:relative;flex:none;pointer-events:none;}
   .card-zoom-frame>.my-card{position:absolute;inset:0;transform:scale(var(--zoom-scale));transform-origin:center;}
-  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-card{width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
+  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-card{width:68px;height:104px}.character-choice{aspect-ratio:68/104}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
@@ -383,6 +394,11 @@
   </div>
 </main>
 
+<section id="characterSelection" class="character-selection hidden" aria-live="polite">
+  <div id="characterSelectionTitle" class="character-selection-title">キャラクターを選んでください</div>
+  <div id="characterChoiceRow" class="character-choice-row"></div>
+</section>
+
 <!-- ★ 参加者：ホスト人数選択中ポップ -->
 <div id="hostSelectingPop" class="host-selecting-pop hidden">ホストが人数を選択中</div>
 
@@ -534,6 +550,9 @@ const winningconditionInfo = document.getElementById('winningconditionInfo');
 const winningconditionGoal = document.getElementById('winningconditionGoal');
 const ringcircle = document.getElementById('ringcircle');
 const excludedCardSlot = document.getElementById('excludedCardSlot');
+const characterSelection = document.getElementById('characterSelection');
+const characterSelectionTitle = document.getElementById('characterSelectionTitle');
+const characterChoiceRow = document.getElementById('characterChoiceRow');
 
 const STAGES = Array.from({ length: 17 }, (_, index) => ({
   number: index + 1,
@@ -596,6 +615,15 @@ const cardNameFitObserver = new ResizeObserver(entries => {
     if (!availableWidth || textWidth <= availableWidth) return;
     const fittedSize = Math.max(4, 9 * availableWidth / textWidth);
     target.style.fontSize = `${fittedSize}px`;
+  });
+});
+
+// カード本体は元サイズのまま保ち、外側だけを同比率で拡縮する。
+const characterChoiceResizeObserver = new ResizeObserver(entries => {
+  entries.forEach(({ target }) => {
+    const card = target.querySelector('.my-card');
+    if (!card?.offsetWidth) return;
+    target.style.setProperty('--choice-scale', target.clientWidth / card.offsetWidth);
   });
 });
 
@@ -671,6 +699,12 @@ function createCharacterCardElement(cardData){
     createCharacterEffectRow('special', cardData.effect || '特殊説明')
   );
   card.append(name, special, effect);
+  if (cardData.star === true || String(cardData.name || '').includes('*')) {
+    const starDot = document.createElement('span');
+    starDot.className = 'character-star-dot';
+    starDot.setAttribute('aria-label', 'スター付き');
+    card.appendChild(starDot);
+  }
   card.addEventListener('click', event => {
     event.stopPropagation();
     openCardZoom(card);
@@ -710,6 +744,118 @@ function closeCardZoom(){
 }
 
 cardZoomBackdrop.addEventListener('click', closeCardZoom);
+
+function characterCardData(name, playerId = ''){
+  const hasStar = /[*＊]$/.test(name);
+  const characterName = name.replace(/[*＊]$/, '');
+  const isFrodo = characterName === 'フロド';
+  return {
+    kind:'character', name:characterName, star:hasStar, specialName:isFrodo ? '指輪所持者' : '特殊名',
+    victory:isFrodo ? '指輪を2枚以上獲得する。' : '',
+    effect:isFrodo ? '黄1を所持している。黄1は交換できない。スタートプレイヤーになる。' : '特殊説明',
+    id:playerId ? `${playerId}-character-${Date.now()}` : `choice-${name}`
+  };
+}
+
+function renderCharacterSelection(){
+  const game = state.game;
+  const selecting = game?.phase === 'characterSelection';
+  const myChoice = game?.characterAssignments?.[state.userId];
+  characterSelection.classList.toggle('hidden', !selecting || Boolean(myChoice));
+  if (!selecting) return;
+
+  const assignments = game.characterAssignments || {};
+  const isPlayer = game.playerOrder?.includes(state.userId);
+  characterSelectionTitle.textContent = 'カードを選んでください。';
+  characterChoiceRow.replaceChildren();
+  (game.characterOptions || []).filter(name => !Object.values(assignments).includes(name)).forEach(name => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'character-choice';
+    button.dataset.characterName = name;
+    button.setAttribute('aria-label', `${name}を選択`);
+    button.disabled = !isPlayer || Boolean(myChoice);
+    button.appendChild(createCardElement(characterCardData(name)));
+    button.addEventListener('click', () => chooseCharacter(name));
+    characterChoiceRow.appendChild(button);
+    characterChoiceResizeObserver.observe(button);
+  });
+}
+
+async function chooseCharacter(name){
+  if (!state.roomCode || state.game?.phase !== 'characterSelection') return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    if (!room?.game || room.game.phase !== 'characterSelection') return;
+    const game = room.game;
+    game.characterAssignments ||= {};
+    if (game.characterAssignments[state.userId]) return;
+    if (!(game.characterOptions || []).includes(name)) return;
+    if (Object.values(game.characterAssignments).includes(name)) return;
+    if (!room.hands?.[state.userId]?.cards) return;
+
+    game.characterAssignments[state.userId] = name;
+    room.hands[state.userId].cards.unshift(characterCardData(name, state.userId));
+    const allSelected = game.playerOrder.every(playerId => game.characterAssignments[playerId]);
+    if (allSelected) {
+      const frodoPlayer = game.playerOrder.find(playerId => game.characterAssignments[playerId]?.replace(/[*＊]$/, '') === 'フロド');
+      if (frodoPlayer) {
+        const yellowHolder = game.playerOrder.find(playerId =>
+          room.hands[playerId].cards.some(card => card.color === 'yellow' && card.number === 1)
+        );
+        if (yellowHolder && yellowHolder !== frodoPlayer) {
+          const yellowIndex = room.hands[yellowHolder].cards.findIndex(card => card.color === 'yellow' && card.number === 1);
+          const frodoSwapIndex = room.hands[frodoPlayer].cards.findIndex(card => card.kind !== 'character');
+          const swappedCard = room.hands[frodoPlayer].cards[frodoSwapIndex];
+          room.hands[frodoPlayer].cards[frodoSwapIndex] = room.hands[yellowHolder].cards[yellowIndex];
+          room.hands[yellowHolder].cards[yellowIndex] = swappedCard;
+        }
+      }
+      game.turnPlayerId = frodoPlayer || game.playerOrder[0];
+      game.phase = 'playing';
+    }
+    return room;
+  });
+}
+
+function animateCharacterChoice(name, playerId, sourceRect){
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const target = document.querySelector(`[data-character-player="${CSS.escape(playerId)}"]`);
+    if (!target || !sourceRect) {
+      characterPlayersAwaitingFlight.delete(playerId);
+      target?.classList.remove('character-awaiting-flight');
+      return;
+    }
+    const targetRect = target.getBoundingClientRect();
+    const flight = createCardElement(characterCardData(name));
+    flight.classList.add('character-flight');
+    flight.style.left = `${sourceRect.left}px`;
+    flight.style.top = `${sourceRect.top}px`;
+    flight.style.transition = 'none';
+    document.body.appendChild(flight);
+    const flightWidth = Math.max(flight.offsetWidth, 1);
+    flight.style.transform = `scale(${sourceRect.width / flightWidth})`;
+    // レイアウトを確定してから、選択列から各プレイヤーの公開カード位置へ移動する。
+    flight.getBoundingClientRect();
+    flight.style.removeProperty('transition');
+    flight.getBoundingClientRect();
+    flight.style.left = `${targetRect.left}px`;
+    flight.style.top = `${targetRect.top}px`;
+    flight.style.transform = `scale(${targetRect.width / flightWidth})`;
+    let completed = false;
+    const completeFlight = () => {
+      if (completed) return;
+      completed = true;
+      // 到着カードを同じフレームで表示してから飛行カードを外し、ちらつきを防ぐ。
+      target.classList.remove('character-awaiting-flight');
+      flight.remove();
+      characterPlayersAwaitingFlight.delete(playerId);
+    };
+    flight.addEventListener('transitionend', event => {
+      if (event.propertyName === 'transform') completeFlight();
+    });
+    setTimeout(completeFlight, 1350);
+  }));
+}
 
 function createCharacterEffectRow(type, text){
   const row = document.createElement('div');
@@ -787,6 +933,7 @@ let trickClearTimer = null;
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
+const characterPlayersAwaitingFlight = new Set();
 
 function generateRoomCode(length = 5){
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -898,14 +1045,30 @@ function renderStageInformation(){
 function subscribeRoom(){
   const roomRef = ref(db, `rooms/${state.roomCode}`);
   onValue(roomRef, snap => {
-    state.room = snap.val() || {};
+    const previousAssignments = state.game?.characterAssignments || {};
+    const choiceRects = {};
+    characterChoiceRow.querySelectorAll('.character-choice').forEach(choice => {
+      choiceRects[choice.dataset.characterName] = choice.getBoundingClientRect();
+    });
+    const nextRoom = snap.val() || {};
+    const nextAssignments = nextRoom.game?.characterAssignments || {};
+    const arrivingPlayers = Object.entries(nextAssignments)
+      .filter(([playerId, name]) => !previousAssignments[playerId] && choiceRects[name])
+      .map(([playerId]) => playerId);
+    arrivingPlayers.forEach(playerId => characterPlayersAwaitingFlight.add(playerId));
+    state.room = nextRoom;
     state.game = state.room.game || null;
+    state.hands = state.room.hands || {};
     const waiting = (!state.isHost && !state.room.maxPlayers);
     hostSelectingPop.classList.toggle('hidden', !waiting);
     renderHands();
+    renderCharacterSelection();
     renderStageInformation();
     scheduleTrickClear();
     syncSeatUI();
+    Object.entries(nextAssignments).forEach(([playerId, name]) => {
+      if (!previousAssignments[playerId]) animateCharacterChoice(name, playerId, choiceRects[name]);
+    });
   });
 }
 
@@ -986,7 +1149,11 @@ function renderMyHand(){
 
   displayedCards.forEach(({ normalized, cardIndex }) => {
     const card = createCardElement(normalized);
-    const canPlay = normalized.kind !== 'character' && state.game && !state.game.pendingCapture && state.game.turnPlayerId === myId && canFollowSuit(normalized);
+    if (normalized.kind === 'character') {
+      card.dataset.characterPlayer = myId;
+      card.classList.toggle('character-awaiting-flight', characterPlayersAwaitingFlight.has(myId));
+    }
+    const canPlay = normalized.kind !== 'character' && state.game?.phase === 'playing' && !state.game.pendingCapture && state.game.turnPlayerId === myId && canFollowSuit(normalized);
     if (canPlay) {
       hasPlayableCards = true;
       card.classList.add('playable');
@@ -1507,6 +1674,8 @@ function renderPlayerCircle(players){
         const characterHolder = document.createElement('div');
         characterHolder.className = 'capture-card';
         characterHolder.style.setProperty('--stack-rotate', '0deg');
+        characterHolder.dataset.characterPlayer = p.id;
+        characterHolder.classList.toggle('character-awaiting-flight', characterPlayersAwaitingFlight.has(p.id));
         characterHolder.appendChild(createCardElement(character));
         characterBundle.appendChild(characterHolder);
         capture.appendChild(characterBundle);
@@ -1561,6 +1730,9 @@ function renderPlayerCircle(players){
   if (state.game?.finished) {
     const scores = players.map(p => `${p.name} ${state.game.tricksWon?.[p.id] || 0}`).join(' / ');
     gameStatus.textContent = `ゲーム終了　獲得トリック: ${scores}`;
+  } else if (state.game?.phase === 'characterSelection') {
+    const selectedCount = Object.keys(state.game.characterAssignments || {}).length;
+    gameStatus.textContent = `キャラクター選択中 ${selectedCount}/${state.game.playerOrder?.length || 0}`;
   } else gameStatus.textContent = '';
 }
 
@@ -1645,27 +1817,14 @@ async function dealInitialHands(stageNumber){
   const characterNames = (stage?.characters || [])
     .flatMap(line => line.split(/[、,]/))
     .map(name => name.trim())
-    .filter(name => name && name !== 'xxx' && name !== 'フロド');
-  for (let i = characterNames.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [characterNames[i], characterNames[j]] = [characterNames[j], characterNames[i]];
-  }
-  const otherPlayers = playerOrder.filter(id => id !== frodoPlayer);
-  otherPlayers.forEach((playerId, index) => {
-    const name = characterNames[index % characterNames.length] || '旅の仲間';
-    hands[playerId].cards.unshift({ kind:'character', name, specialName:'特殊名', victory:'', effect:'特殊説明', id:`${playerId}-character-${Date.now()}` });
-  });
-  hands[frodoPlayer].cards.unshift({
-    kind:'character', name:'フロド', specialName:'指輪所持者',
-    victory:'指輪を2枚以上獲得する。',
-    effect:'黄1を所持している。黄1は交換できない。スタートプレイヤーになる。',
-    id:`${frodoPlayer}-frodo-${Date.now()}`
-  });
-  const starter = frodoPlayer;
+    .filter(name => name && name !== 'xxx');
+  while (characterNames.length < playerOrder.length) characterNames.push(`旅の仲間${characterNames.length + 1}`);
+  const characterOptions = [...new Set(characterNames)].slice(0, Math.max(playerOrder.length, characterNames.length));
   await update(ref(db, `rooms/${state.roomCode}`), {
     hands,
     game: {
-      playerOrder, turnPlayerId: starter, trickNumber: 1, stageNumber,
+      playerOrder, trickNumber: 1, stageNumber, phase:'characterSelection', characterOptions,
+      characterAssignments:{},
       ringCircleOn: false, excludedCard, excludedCardTilt
     }
   });
