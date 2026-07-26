@@ -92,7 +92,8 @@
   .my-hand-wrapper{margin-top:23px;text-align:center;}
   .my-hand-title{display:none;}
   .my-hand{display:flex;width:calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px);box-sizing:border-box;justify-content:center;gap:10px;margin:6px auto 0;min-height:132px;flex-wrap:wrap;padding:0 12px;}
-  .my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--overlap-index,0) * -5px);z-index:calc(2 + var(--card-stack-index,0));}
+  /* 通常の10px間隔を12px戻し、隣り合う数字カード同士だけを2px重ねる。 */
+  .my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--overlap-index,0) * -12px);z-index:calc(2 + var(--card-stack-index,0));}
   .my-card{
     --card-color:#9ca3af;--detail-color:var(--card-color);--panel-fill:#fffdf3;
     position:relative;width:82px;height:122px;border-radius:10px;
@@ -253,7 +254,7 @@
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
   .character-flight>.my-card{position:absolute;left:0;top:0;transform:scale(var(--flight-scale));transform-origin:top left;}
-  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--overlap-index,0) * -4px)}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
+  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--overlap-index,0) * -8px)}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
