@@ -140,7 +140,8 @@
     background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;flex:0 0 auto;
   }
   #arasujisquare{width:112px;height:160px;background-image:url('arasujisquare.jpg');}
-  #winningconditionsquare{width:160px;height:112px;background-image:url('winningconditionsquare.jpg');}
+  #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
+  #winningconditionsquare::before{content:'';position:absolute;left:-51px;top:50%;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:transparent;transform:translateY(-50%);}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
@@ -1207,7 +1208,7 @@ function renderPlayerCircle(players){
     const isMe = player.id === state.userId;
     const isTopPlayer = Math.sin(angle) < -.85;
     const playRadius = isMe ? 30 : (isTopPlayer ? 17 : 24);
-    const otherPlayerLift = isMe ? 0 : 60 / Math.max(1, playerCircle.clientHeight) * 100;
+    const otherPlayerLift = isMe ? 0 : 80 / Math.max(1, playerCircle.clientHeight) * 100;
     return {
       angle, isMe,
       x: 50 + radius * Math.cos(angle),
@@ -1308,7 +1309,7 @@ function renderPlayerCircle(players){
     let captureY = isMe ? playY + 11 : 50 + captureRadius * Math.sin(angle);
     const circleSize = Math.max(1, playerCircle.clientWidth);
     // 他プレイヤーの獲得束はネームタグから少し上へ離す。
-    if (!isMe) captureY -= 62 / circleSize * 100;
+    if (!isMe) captureY -= 82 / circleSize * 100;
     // 右半分では、左側プレイヤーの「ネームタグ→獲得位置」と同じ距離だけ
     // ネームタグから左へ離し、左右で余白を対称にする。
     if (!isMe && Math.cos(angle) > .05) {
