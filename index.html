@@ -1055,7 +1055,10 @@ function renderPlayerCircle(players){
   if (!players.length) return;
 
   const n = players.length;
-  const radius = 45;
+  const tagRadius = 45;
+  // 横方向をより大きく広げ、縦方向は現在の距離を維持する。
+  const opponentHorizontalScale = 1.25;
+  const opponentVerticalScale = 1.12;
   const step = (2 * Math.PI) / n;
   const anchorAngle = Math.PI / 2;
   const meIndex = players.findIndex(p => p.id === state.userId);
@@ -1064,13 +1067,17 @@ function renderPlayerCircle(players){
     const angle = anchorAngle + step * k;
     const isMe = player.id === state.userId;
     const isTopPlayer = Math.sin(angle) < -.85;
-    const playRadius = isMe ? 30 : (isTopPlayer ? 17 : 24);
+    const playerTagRadiusX = isMe ? tagRadius : tagRadius * opponentHorizontalScale;
+    const playerTagRadiusY = isMe ? tagRadius : tagRadius * opponentVerticalScale;
+    const basePlayRadius = isTopPlayer ? 17 : 24;
+    const playRadiusX = isMe ? 30 : basePlayRadius * opponentHorizontalScale;
+    const playRadiusY = isMe ? 30 : basePlayRadius * opponentVerticalScale;
     return {
       angle, isMe,
-      x: 50 + radius * Math.cos(angle),
-      y: 50 + radius * Math.sin(angle),
-      playX: 50 + playRadius * Math.cos(angle),
-      playY: 50 + playRadius * Math.sin(angle)
+      x: 50 + playerTagRadiusX * Math.cos(angle),
+      y: 50 + playerTagRadiusY * Math.sin(angle),
+      playX: 50 + playRadiusX * Math.cos(angle),
+      playY: 50 + playRadiusY * Math.sin(angle)
     };
   };
   const winnerIndex = players.findIndex(p => p.id === state.game?.pendingCapture?.winnerId);
@@ -1160,18 +1167,29 @@ function renderPlayerCircle(players){
     const capture = document.createElement('div');
     capture.className = 'capture-circle';
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
-    const captureRadius = isMe ? null : 63;
-    let captureX = isMe ? playX + 13 : 50 + captureRadius * Math.cos(angle);
-    let captureY = isMe ? playY + 11 : 50 + captureRadius * Math.sin(angle);
+    const captureRadiusX = isMe ? null : 63 * opponentHorizontalScale;
+    const captureRadiusY = isMe ? null : 63 * opponentVerticalScale;
+    let captureX = isMe ? playX + 13 : 50 + captureRadiusX * Math.cos(angle);
+    let captureY = isMe ? playY + 11 : 50 + captureRadiusY * Math.sin(angle);
     const circleSize = Math.max(1, playerCircle.clientWidth);
     // 他プレイヤーの獲得束はネームタグから少し上へ離す。
     if (!isMe) captureY -= 2 / circleSize * 100;
     // 右半分では、左側プレイヤーの「ネームタグ→獲得位置」と同じ距離だけ
     // ネームタグから左へ離し、左右で余白を対称にする。
     if (!isMe && Math.cos(angle) > .05) {
-      const tagToCaptureDistance = (captureRadius - radius) * Math.abs(Math.cos(angle));
+      const tagToCaptureDistance = (captureRadiusX - tagRadius * opponentHorizontalScale) * Math.abs(Math.cos(angle));
       captureX = x - tagToCaptureDistance;
     }
+    // 獲得束は常に右方向へ伸びるため、束全体が左右にはみ出さない位置に収める。
+    const widestYellowOffset = capturedTricks.reduce((widest, trick) => {
+      const yellowCount = (trick.cards || []).filter(card => card.color === 'yellow').length;
+      return Math.max(widest, Math.max(0, yellowCount - 1) * 4);
+    }, 0);
+    const captureContentWidth = Math.max(38, Math.max(0, capturedTricks.length - 1) * 44 + 38 + widestYellowOffset);
+    const captureHalfWidth = 19;
+    const minCaptureX = captureHalfWidth / circleSize * 100;
+    const maxCaptureX = (circleSize - captureContentWidth + captureHalfWidth) / circleSize * 100;
+    captureX = Math.min(Math.max(captureX, minCaptureX), Math.max(minCaptureX, maxCaptureX));
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
