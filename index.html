@@ -123,8 +123,8 @@
   @keyframes captureArrive{from{transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .center-lower-card-area{
-    position:fixed;left:50%;top:calc(68% - 15px);transform:translate(-50%,-50%);
-    width:calc(100vw - 12px);display:flex;align-items:center;justify-content:space-between;
+    position:fixed;left:50%;top:calc(68% - 75px);transform:translate(-50%,-50%);
+    width:calc(100vw - 32px);display:flex;align-items:center;justify-content:space-between;
     z-index:2;pointer-events:none;
   }
   .center-lower-card{
@@ -134,7 +134,7 @@
   #arasujisqure{width:112px;height:160px;}
   #winningconition-square{width:160px;height:112px;}
   @media (max-width:520px){
-    .center-lower-card-area{width:calc(100vw - 8px);}
+    .center-lower-card-area{width:calc(100vw - 24px);}
     #arasujisqure{width:90px;height:128px;}
     #winningconition-square{width:128px;height:90px;}
   }
