@@ -1054,7 +1054,9 @@ function renderMyHand(){
   // 選択開始時からキャラクター用の先頭枠を確保し、選択・到着時に数字カードを動かさない。
   const reserveCharacterSlot = state.game?.phase === 'character-selection' || characterIsWaiting;
   const cardCount = handData.cards.length + (!character && reserveCharacterSlot ? 1 : 0);
-  const columnCount = cardCount === 9 ? 5 : cardCount >= 7 ? 4 : Math.max(cardCount, 1);
+  const numberCardCount = handData.cards.filter(card => card?.kind !== 'character').length;
+  // 数字カードが7枚以上なら、1段目を「キャラクター+数字6枚」に固定して残りを2段目へ送る。
+  const columnCount = numberCardCount >= 7 ? 7 : Math.max(cardCount, 1);
   myHandEl.style.setProperty('--hand-columns', columnCount);
 
   let hasPlayableCards = false;
