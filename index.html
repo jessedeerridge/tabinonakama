@@ -92,8 +92,8 @@
   .my-hand-wrapper{margin-top:23px;text-align:center;}
   .my-hand-title{display:none;}
   .my-hand{display:flex;width:calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px);box-sizing:border-box;justify-content:center;gap:10px;margin:6px auto 0;min-height:132px;flex-wrap:wrap;padding:0 12px;}
-  /* 通常の10px間隔を12px戻し、隣り合う数字カード同士だけを2px重ねる。 */
-  .my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--overlap-index,0) * -12px);z-index:calc(2 + var(--card-stack-index,0));}
+  /* 通常の10px間隔を13px戻して3px重ね、上段はキャラクターから少し離す。 */
+  .my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--row-offset,0px) + var(--overlap-offset,0px));z-index:calc(2 + var(--card-stack-index,0));}
   .my-card{
     --card-color:#9ca3af;--detail-color:var(--card-color);--panel-fill:#fffdf3;
     position:relative;width:82px;height:122px;border-radius:10px;
@@ -236,9 +236,8 @@
   .card-zoom-item{position:absolute;width:var(--zoom-card-width);height:var(--zoom-card-height);transform:translate(-50%,-50%);}
   .card-zoom-card{position:relative;width:var(--zoom-card-width);height:calc(122px * var(--zoom-scale));}
   .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(var(--zoom-scale));transform-origin:top left;}
-  .character-picker{position:fixed;inset:60px 0 0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;pointer-events:none;}
+  .character-picker{position:fixed;inset:60px 0 0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;pointer-events:none;transform:translateY(-34px);}
   .character-picker.hidden{display:none;}
-  .character-picker.many-choices{transform:translateY(-34px);}
   .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
   .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
   .character-picker-row.two-rows{display:grid;grid-template-columns:repeat(var(--choice-columns),minmax(0,104px));justify-content:center;row-gap:clamp(8px,2vh,14px);}
@@ -254,7 +253,7 @@
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
   .character-flight>.my-card{position:absolute;left:0;top:0;transform:scale(var(--flight-scale));transform-origin:top left;}
-  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--overlap-index,0) * -8px)}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
+  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--row-offset,0px) + var(--mobile-overlap-offset,0px))}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
@@ -1092,7 +1091,9 @@ function renderMyHand(){
     const card = createCardElement(normalized);
     if (normalized.kind !== 'character') {
       const rowIndex = numberCardCount >= 7 ? displayedNumberIndex % 6 : displayedNumberIndex;
-      card.style.setProperty('--overlap-index', rowIndex);
+      card.style.setProperty('--overlap-offset', `${rowIndex * -13}px`);
+      card.style.setProperty('--mobile-overlap-offset', `${rowIndex * -9}px`);
+      card.style.setProperty('--row-offset', displayedNumberIndex < 6 ? '8px' : '0px');
       card.style.setProperty('--card-stack-index', displayedNumberIndex);
       displayedNumberIndex += 1;
     }
@@ -1313,7 +1314,6 @@ function renderCharacterPicker(){
   // 選択済みの本人にも、全員の選択が終わるまでは残りの候補を表示し続ける。
   characterPicker.classList.toggle('hidden', game?.phase !== 'character-selection');
   characterPicker.classList.toggle('locked', alreadyChose);
-  characterPicker.classList.remove('many-choices');
   characterPickerRow.classList.remove('two-rows');
   characterPickerRow.style.removeProperty('--choice-columns');
   characterPickerRow.replaceChildren();
@@ -1323,7 +1323,6 @@ function renderCharacterPicker(){
   const remainingRequiredCount = remainingCharacters.filter(character => character.required).length;
   const remainingPlayerCount = (game.playerOrder || []).length - Object.keys(selections).length;
   const mustChooseRequired = remainingRequiredCount > 0 && remainingRequiredCount >= remainingPlayerCount;
-  if (remainingCharacters.length >= 4) characterPicker.classList.add('many-choices');
   if (remainingCharacters.length >= 5) {
     characterPickerRow.classList.add('two-rows');
     characterPickerRow.style.setProperty('--choice-columns', Math.ceil(remainingCharacters.length / 2));
