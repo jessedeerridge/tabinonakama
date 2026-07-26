@@ -238,7 +238,8 @@
   .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
   .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
   .character-choice{position:relative;flex:0 1 104px;width:min(104px,calc((100vw - 54px)/4));aspect-ratio:82/122;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transition:transform .15s ease;}
-  .character-choice:hover{transform:translateY(-5px);}
+  .character-choice:not(:disabled):hover{transform:translateY(-5px);}
+  .character-picker.locked .character-choice{cursor:default;}
   .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
   .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:20px;height:20px;border-radius:50%;background:#d5a313;box-shadow:0 0 0 2px #fff8e8;z-index:5;pointer-events:none;}
   .character-card-slot{flex:0 0 82px;width:82px;height:122px;visibility:hidden;pointer-events:none;}
@@ -1234,14 +1235,17 @@ function renderCharacterPicker(){
     }
   });
   const alreadyChose = Boolean(selections[state.userId]);
-  characterPicker.classList.toggle('hidden', game?.phase !== 'character-selection' || alreadyChose);
+  // 選択済みの本人にも、全員の選択が終わるまでは残りの候補を表示し続ける。
+  characterPicker.classList.toggle('hidden', game?.phase !== 'character-selection');
+  characterPicker.classList.toggle('locked', alreadyChose);
   characterPickerRow.replaceChildren();
-  if (game?.phase !== 'character-selection' || alreadyChose) return;
+  if (game?.phase !== 'character-selection') return;
   const chosenNames = new Set(Object.values(selections).map(item => item.name));
   (game.availableCharacters || []).filter(character => !chosenNames.has(character.name)).forEach(character => {
     const choice = document.createElement('button');
     choice.type = 'button';
     choice.className = 'character-choice';
+    choice.disabled = alreadyChose;
     choice.dataset.characterName = character.name;
     const choiceCard = createCharacterCardElement(characterCardData(character, state.userId));
     choice.appendChild(choiceCard);
@@ -1664,9 +1668,9 @@ function renderPlayerCircle(players){
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
-    // 他プレイヤーの獲得カード全体を、ネームタグの左上から5px離れた左上へ置く。
-    const captureX = isMe ? playX + 13 : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
-    const captureY = isMe ? playY + 11 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
+    // 公開キャラクターをネームタグの左上から離し、着地時に窮屈に見えない余白を作る。
+    const captureX = isMe ? playX + 13 : x + (-32 - tag.offsetWidth / 2) / circleSize * 100;
+    const captureY = isMe ? playY + 11 : y + (-39 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
