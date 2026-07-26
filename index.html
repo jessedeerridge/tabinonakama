@@ -94,6 +94,7 @@
   .my-hand{display:flex;width:calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px);box-sizing:border-box;justify-content:center;gap:10px;margin:6px auto 0;min-height:132px;flex-wrap:wrap;padding:0 12px;}
   /* 通常の10px間隔を13px戻して3px重ね、上段はキャラクターから少し離す。 */
   .my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--row-offset,0px) + var(--overlap-offset,0px));z-index:calc(2 + var(--card-stack-index,0));}
+  .my-hand.overlapping-cards>.character-card,.my-hand.overlapping-cards>.character-card-slot{left:18px;}
   .my-card{
     --card-color:#9ca3af;--detail-color:var(--card-color);--panel-fill:#fffdf3;
     position:relative;width:82px;height:122px;border-radius:10px;
@@ -236,7 +237,7 @@
   .card-zoom-item{position:absolute;width:var(--zoom-card-width);height:var(--zoom-card-height);transform:translate(-50%,-50%);}
   .card-zoom-card{position:relative;width:var(--zoom-card-width);height:calc(122px * var(--zoom-scale));}
   .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(var(--zoom-scale));transform-origin:top left;}
-  .character-picker{position:fixed;inset:60px 0 0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;pointer-events:none;transform:translateY(-34px);}
+  .character-picker{position:fixed;inset:60px 0 0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding-top:clamp(120px,calc(50vh - 160px),260px);box-sizing:border-box;pointer-events:none;}
   .character-picker.hidden{display:none;}
   .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
   .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
@@ -249,7 +250,7 @@
   .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
   .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;box-sizing:border-box;border:2px solid #10233f;border-radius:50%;background:transparent url('definitechara.jpg') center/cover no-repeat;z-index:5;pointer-events:none;}
   .character-choice.required-raised{transform:translateY(-5px);}
-  .character-card-slot{flex:0 0 82px;width:82px;height:122px;visibility:hidden;pointer-events:none;}
+  .character-card-slot{position:relative;flex:0 0 82px;width:82px;height:122px;visibility:hidden;pointer-events:none;}
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
   .character-flight>.my-card{position:absolute;left:0;top:0;transform:scale(var(--flight-scale));transform-origin:top left;}
@@ -1093,7 +1094,7 @@ function renderMyHand(){
       const rowIndex = numberCardCount >= 7 ? displayedNumberIndex % 6 : displayedNumberIndex;
       card.style.setProperty('--overlap-offset', `${rowIndex * -13}px`);
       card.style.setProperty('--mobile-overlap-offset', `${rowIndex * -9}px`);
-      card.style.setProperty('--row-offset', displayedNumberIndex < 6 ? '8px' : '0px');
+      card.style.setProperty('--row-offset', displayedNumberIndex < 6 ? '18px' : '0px');
       card.style.setProperty('--card-stack-index', displayedNumberIndex);
       displayedNumberIndex += 1;
     }
