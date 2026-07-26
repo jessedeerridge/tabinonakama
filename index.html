@@ -196,11 +196,11 @@
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #fff9e9;
   }
   .character-card.character-gold{
-    --character-frame:#d5a313;--character-panel:#fff0a6;
+    --character-frame:#d5a313;
     border-color:#d5a313;box-shadow:0 4px 12px rgba(91,63,0,.28),inset 0 0 0 2px #ffe477;
   }
   .character-card.character-silver{
-    --character-frame:#aeb8c5;--character-panel:#f4f7fb;
+    --character-frame:#aeb8c5;
     border-color:#aeb8c5;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;
   }
   .character-card .character-label{
@@ -240,7 +240,7 @@
   .character-choice{position:relative;flex:0 1 104px;width:min(104px,calc((100vw - 54px)/4));aspect-ratio:82/122;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transition:transform .15s ease;}
   .character-choice:hover{transform:translateY(-5px);}
   .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
-  .required-character-dot{position:absolute;right:-9px;bottom:-9px;width:16px;height:16px;border-radius:50%;background:#d5a313;box-shadow:0 0 0 2px #fff0a6;z-index:5;pointer-events:none;}
+  .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:20px;height:20px;border-radius:50%;background:#d5a313;box-shadow:0 0 0 2px #fff8e8;z-index:5;pointer-events:none;}
   .character-card-slot{flex:0 0 82px;width:82px;height:122px;visibility:hidden;pointer-events:none;}
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
