@@ -92,6 +92,7 @@
   .my-hand-wrapper{margin-top:23px;text-align:center;}
   .my-hand-title{display:none;}
   .my-hand{display:flex;width:calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px);box-sizing:border-box;justify-content:center;gap:10px;margin:6px auto 0;min-height:132px;flex-wrap:wrap;padding:0 12px;}
+  .my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--overlap-index,0) * -5px);z-index:calc(2 + var(--card-stack-index,0));}
   .my-card{
     --card-color:#9ca3af;--detail-color:var(--card-color);--panel-fill:#fffdf3;
     position:relative;width:82px;height:122px;border-radius:10px;
@@ -252,7 +253,7 @@
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
   .character-flight>.my-card{position:absolute;left:0;top:0;transform:scale(var(--flight-scale));transform-origin:top left;}
-  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
+  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--overlap-index,0) * -4px)}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
@@ -1046,7 +1047,7 @@ function subscribeHands(){
 
 function renderMyHand(){
   myHandEl.innerHTML = '';
-  myHandEl.classList.remove('has-playable-cards');
+  myHandEl.classList.remove('has-playable-cards', 'overlapping-cards');
   myHandEl.style.removeProperty('--hand-columns');
   const myId = state.userId;
   const handData = state.hands[myId];
@@ -1058,6 +1059,7 @@ function renderMyHand(){
   const reserveCharacterSlot = state.game?.phase === 'character-selection' || characterIsWaiting;
   const cardCount = handData.cards.length + (!character && reserveCharacterSlot ? 1 : 0);
   const numberCardCount = handData.cards.filter(card => card?.kind !== 'character').length;
+  myHandEl.classList.toggle('overlapping-cards', numberCardCount >= 6);
   // 数字カードが7枚以上なら、1段目を「キャラクター+数字6枚」に固定して残りを2段目へ送る。
   const columnCount = numberCardCount >= 7 ? 7 : Math.max(cardCount, 1);
   myHandEl.style.setProperty('--hand-columns', columnCount);
@@ -1084,8 +1086,15 @@ function renderMyHand(){
     myHandEl.appendChild(characterSlot);
   }
 
+  let displayedNumberIndex = 0;
   displayedCards.forEach(({ normalized, cardIndex }) => {
     const card = createCardElement(normalized);
+    if (normalized.kind !== 'character') {
+      const rowIndex = numberCardCount >= 7 ? displayedNumberIndex % 6 : displayedNumberIndex;
+      card.style.setProperty('--overlap-index', rowIndex);
+      card.style.setProperty('--card-stack-index', displayedNumberIndex);
+      displayedNumberIndex += 1;
+    }
     const canPlay = normalized.kind !== 'character' && state.game && !state.game.pendingCapture && state.game.turnPlayerId === myId && canFollowSuit(normalized);
     if (canPlay) {
       hasPlayableCards = true;
@@ -1313,8 +1322,8 @@ function renderCharacterPicker(){
   const remainingRequiredCount = remainingCharacters.filter(character => character.required).length;
   const remainingPlayerCount = (game.playerOrder || []).length - Object.keys(selections).length;
   const mustChooseRequired = remainingRequiredCount > 0 && remainingRequiredCount >= remainingPlayerCount;
-  if (remainingCharacters.length >= 4) {
-    characterPicker.classList.add('many-choices');
+  if (remainingCharacters.length >= 4) characterPicker.classList.add('many-choices');
+  if (remainingCharacters.length >= 5) {
     characterPickerRow.classList.add('two-rows');
     characterPickerRow.style.setProperty('--choice-columns', Math.ceil(remainingCharacters.length / 2));
   }
