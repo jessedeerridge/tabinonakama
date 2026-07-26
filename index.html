@@ -1358,11 +1358,13 @@ function renderPlayerCircle(players){
       const miniHand = document.createElement('div');
       miniHand.className = 'mini-hand';
 
-      const count = handData.cards.length;
+      // キャラクターカードは獲得カード置き場で公開するため、手札の裏面には含めない。
+      const hiddenCards = handData.cards.filter(card => card?.kind !== 'character');
+      const count = hiddenCards.length;
       const spread = 70;
       const base = (count > 1) ? (-spread/2) : 0;
 
-      handData.cards.forEach((v, idx2) => {
+      hiddenCards.forEach((v, idx2) => {
         const card = document.createElement('div');
         card.className = 'mini-card';
         card.textContent = '';
@@ -1435,10 +1437,25 @@ function renderPlayerCircle(players){
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
+    // 他プレイヤーの公開キャラクターを獲得カード列の先頭に置く。
+    if (!isMe) {
+      const character = handData?.cards?.find(card => card?.kind === 'character');
+      if (character) {
+        const characterBundle = document.createElement('div');
+        characterBundle.className = 'capture-trick character-capture';
+        const characterHolder = document.createElement('div');
+        characterHolder.className = 'capture-card';
+        characterHolder.style.setProperty('--stack-rotate', '0deg');
+        characterHolder.appendChild(createCardElement(character));
+        characterBundle.appendChild(characterHolder);
+        capture.appendChild(characterBundle);
+      }
+    }
     capturedTricks.forEach((capturedTrick, trickIndex) => {
       const bundle = document.createElement('div');
       bundle.className = 'capture-trick';
-      bundle.style.left = `${(isMe ? trickIndex : -trickIndex) * 44}px`;
+      // 他プレイヤーはキャラクターの次から並べ、38px幅のカードを3pxずつ重ねる。
+      bundle.style.left = `${isMe ? trickIndex * 44 : -(trickIndex + 1) * 35}px`;
       const cards = capturedTrick.cards || [];
       const yellows = cards.filter(card => card.color === 'yellow');
       const winner = cards.find(card => card.id === capturedTrick.winningCardId);
