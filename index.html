@@ -193,17 +193,17 @@
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #fff9e9;
   }
   .character-card .character-label{
-    position:absolute;right:-4px;top:1px;min-width:58px;max-width:72px;padding:3px 5px 3px 18px;
+    position:absolute;right:-4px;top:1px;width:max-content;min-width:0;max-width:72px;padding:3px 5px 3px 20px;
     box-sizing:border-box;background:var(--character-frame);color:#3f3021;font-size:10px;font-weight:900;isolation:isolate;
-    line-height:1.1;text-align:right;clip-path:polygon(5px 50%,16px 0,100% 0,100% 100%,16px 100%);
+    line-height:1.1;text-align:right;white-space:nowrap;clip-path:polygon(7px 50%,18px 0,100% 0,100% 100%,18px 100%);
   }
   .character-card .character-label::before{
     content:'';position:absolute;inset:1px;background:var(--character-panel);z-index:-1;
-    clip-path:polygon(5px 50%,16px 0,100% 0,100% 100%,16px 100%);
+    clip-path:polygon(7px 50%,18px 0,100% 0,100% 100%,18px 100%);
   }
-  .character-card .character-special{top:19px;min-width:0;width:43px;padding-left:18px;font-size:7px;line-height:1.2;}
+  .character-card .character-special{top:19px;max-width:50px;padding-left:20px;font-size:7px;line-height:1.2;}
   .character-card .character-effect{
-    position:absolute;left:-4px;right:-4px;bottom:-4px;min-height:42px;padding:12px 8px 6px;
+    position:absolute;left:-4px;right:-4px;bottom:-4px;min-height:50px;padding:12px 8px 6px;
     box-sizing:border-box;background:var(--character-frame);isolation:isolate;
     font-size:7px;line-height:1.25;text-align:left;
     clip-path:polygon(0 10px,30% 0,70% 0,100% 10px,100% 100%,0 100%);
@@ -647,14 +647,19 @@ function createCharacterCardElement(cardData){
   return card;
 }
 
-// 特殊名は追加カードでも読みやすいよう、3文字（残りが4文字なら2文字）ごとに改行する。
+// 3文字までは一行、それ以上も読みやすい位置で分け、必ず二行以内にする。
 function appendWrappedCharacterName(element, value){
   const characters = Array.from(value);
-  while (characters.length) {
-    const chunkSize = characters.length === 4 ? 2 : Math.min(3, characters.length);
-    element.append(document.createTextNode(characters.splice(0, chunkSize).join('')));
-    if (characters.length) element.append(document.createElement('br'));
+  if (characters.length <= 3) {
+    element.textContent = value;
+    return;
   }
+  const firstLineLength = Math.ceil(characters.length / 2);
+  element.append(
+    document.createTextNode(characters.slice(0, firstLineLength).join('')),
+    document.createElement('br'),
+    document.createTextNode(characters.slice(firstLineLength).join(''))
+  );
 }
 
 function renderHelpList(){
