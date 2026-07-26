@@ -233,6 +233,17 @@
   .card-zoom-backdrop.hidden{display:none;}
   .card-zoom-frame{position:relative;flex:none;pointer-events:none;}
   .card-zoom-frame>.my-card{position:absolute;inset:0;transform:scale(var(--zoom-scale));transform-origin:center;}
+  .character-picker{position:fixed;inset:60px 0 0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;pointer-events:none;}
+  .character-picker.hidden{display:none;}
+  .character-picker-title{margin:0;padding:7px 13px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
+  .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
+  .character-choice{position:relative;flex:0 1 104px;width:min(104px,calc((100vw - 54px)/4));aspect-ratio:82/122;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transition:transform .15s ease;}
+  .character-choice:hover{transform:translateY(-5px);}
+  .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
+  .required-character-dot{position:absolute;right:5px;bottom:5px;width:10px;height:10px;border-radius:50%;background:var(--character-frame);box-shadow:0 0 0 2px var(--character-panel);z-index:5;}
+  @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
+  .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
+  .character-flight>.my-card{position:absolute;left:0;top:0;transform:scale(var(--flight-scale));transform-origin:top left;}
   @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-card{width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
@@ -462,6 +473,11 @@
   <div id="cardZoomFrame" class="card-zoom-frame"></div>
 </div>
 
+<section id="characterPicker" class="character-picker hidden" aria-live="polite">
+  <h2 class="character-picker-title">カードを選んでください。</h2>
+  <div id="characterPickerRow" class="character-picker-row"></div>
+</section>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
@@ -542,6 +558,8 @@ const winningconditionInfo = document.getElementById('winningconditionInfo');
 const winningconditionGoal = document.getElementById('winningconditionGoal');
 const ringcircle = document.getElementById('ringcircle');
 const excludedCardSlot = document.getElementById('excludedCardSlot');
+const characterPicker = document.getElementById('characterPicker');
+const characterPickerRow = document.getElementById('characterPickerRow');
 
 const STAGES = Array.from({ length: 17 }, (_, index) => ({
   number: index + 1,
@@ -681,6 +699,12 @@ function createCharacterCardElement(cardData){
     createCharacterEffectRow('special', cardData.effect || '特殊説明')
   );
   card.append(name, special, effect);
+  if (cardData.required) {
+    const requiredDot = document.createElement('span');
+    requiredDot.className = 'required-character-dot';
+    requiredDot.setAttribute('aria-label', '必須キャラクター');
+    card.appendChild(requiredDot);
+  }
   card.addEventListener('click', event => {
     event.stopPropagation();
     openCardZoom(card);
@@ -797,6 +821,9 @@ let trickClearTimer = null;
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
+const seenCharacterSelections = new Set();
+const characterSelectionSources = new Map();
+const characterAnimationUntil = new Map();
 
 function generateRoomCode(length = 5){
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -910,6 +937,7 @@ function subscribeRoom(){
   onValue(roomRef, snap => {
     state.room = snap.val() || {};
     state.game = state.room.game || null;
+    state.hands = state.room.hands || {};
     const waiting = (!state.isHost && !state.room.maxPlayers);
     hostSelectingPop.classList.toggle('hidden', !waiting);
     renderHands();
@@ -987,7 +1015,7 @@ function renderMyHand(){
       ? cardData
       : { color: 'gray', name: '山', number: cardData },
     cardIndex
-  })).sort((left, right) => {
+  })).filter(({ normalized }) => normalized.kind !== 'character' || Date.now() >= (characterAnimationUntil.get(myId) || 0)).sort((left, right) => {
     if (left.normalized.kind === 'character') return right.normalized.kind === 'character' ? 0 : -1;
     if (right.normalized.kind === 'character') return 1;
     const typeDifference = (colorOrder[left.normalized.color] ?? 3) - (colorOrder[right.normalized.color] ?? 3);
@@ -1093,8 +1121,121 @@ async function playCard(cardIndex, expectedCard){
   });
 }
 function renderHands(){
+  renderCharacterPicker();
   renderMyHand();
   if (latestPlayers.length) renderPlayerCircle(latestPlayers);
+}
+
+function characterCardData(character, playerId){
+  return {
+    kind:'character', name:character.name, required:character.required === true,
+    specialName:character.name === 'フロド' ? '指輪所持者' : '特殊名',
+    victory:character.name === 'フロド' ? '指輪を2枚以上獲得する。' : '',
+    effect:character.name === 'フロド'
+      ? '黄1を所持している。黄1は交換できない。スタートプレイヤーになる。'
+      : '特殊説明',
+    id:`${playerId}-character-${character.name}`
+  };
+}
+
+function animateCharacterSelection(playerId, character, sourceRect){
+  const isMe = playerId === state.userId;
+  const target = isMe ? myHandEl : playerCircle.querySelector(`[data-player-id="${CSS.escape(playerId)}"]`);
+  const targetRect = target?.getBoundingClientRect();
+  if (!sourceRect || !targetRect) return;
+  const flight = document.createElement('div');
+  flight.className = 'character-flight';
+  flight.style.left = `${sourceRect.left}px`;
+  flight.style.top = `${sourceRect.top}px`;
+  flight.style.width = `${sourceRect.width}px`;
+  flight.style.height = `${sourceRect.height}px`;
+  flight.style.setProperty('--flight-scale', sourceRect.width / 82);
+  flight.appendChild(createCharacterCardElement(characterCardData(character, playerId)));
+  document.body.appendChild(flight);
+  const destinationWidth = isMe ? (window.innerWidth <= 520 ? 68 : 82) : 38;
+  const destinationHeight = destinationWidth * 122 / 82;
+  const destinationLeft = isMe ? targetRect.left + targetRect.width / 2 - destinationWidth / 2 : targetRect.left - destinationWidth - 6;
+  const destinationTop = isMe ? targetRect.top : targetRect.top - destinationHeight - 5;
+  const animation = flight.animate([
+    { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, width:`${sourceRect.width}px`, height:`${sourceRect.height}px`, opacity:1 },
+    { left:`${destinationLeft}px`, top:`${destinationTop}px`, width:`${destinationWidth}px`, height:`${destinationHeight}px`, opacity:1 }
+  ], { duration:650, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' });
+  flight.animate([
+    { '--flight-scale':String(sourceRect.width / 82) },
+    { '--flight-scale':String(destinationWidth / 82) }
+  ], { duration:650, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' });
+  characterAnimationUntil.set(playerId, Date.now() + 650);
+  animation.finished.finally(() => {
+    flight.remove();
+    characterAnimationUntil.delete(playerId);
+    if (latestPlayers.length) renderPlayerCircle(latestPlayers);
+  });
+}
+
+async function chooseCharacter(characterName, source){
+  if (!state.roomCode || state.game?.phase !== 'character-selection') return;
+  characterSelectionSources.set(characterName, source.getBoundingClientRect());
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    if (!room?.game || room.game.phase !== 'character-selection') return;
+    room.game.characterSelections ||= {};
+    if (room.game.characterSelections[state.userId]) return;
+    const character = (room.game.availableCharacters || []).find(item => item.name === characterName);
+    if (!character || Object.values(room.game.characterSelections).some(item => item.name === characterName)) return;
+    room.hands ||= {};
+    room.hands[state.userId] ||= { cards:[] };
+    room.hands[state.userId].cards ||= [];
+    room.hands[state.userId].cards.unshift(characterCardData(character, state.userId));
+    room.game.characterSelections[state.userId] = { ...character, selectedAt:Date.now() };
+    if (characterName === 'フロド') {
+      const currentHolder = Object.keys(room.hands).find(id => room.hands[id].cards.some(card => card.color === 'yellow' && card.number === 1));
+      if (currentHolder && currentHolder !== state.userId) {
+        const yellowIndex = room.hands[currentHolder].cards.findIndex(card => card.color === 'yellow' && card.number === 1);
+        const replacementIndex = room.hands[state.userId].cards.findIndex(card => card.kind !== 'character');
+        const replacement = room.hands[state.userId].cards[replacementIndex];
+        room.hands[state.userId].cards[replacementIndex] = room.hands[currentHolder].cards[yellowIndex];
+        room.hands[currentHolder].cards[yellowIndex] = replacement;
+      }
+      room.game.turnPlayerId = state.userId;
+    }
+    const chosenCount = Object.keys(room.game.characterSelections).length;
+    if (chosenCount >= room.game.playerOrder.length) {
+      room.game.phase = 'playing';
+      room.game.turnPlayerId ||= room.game.playerOrder[0];
+    }
+    return room;
+  });
+}
+
+function renderCharacterPicker(){
+  const game = state.game;
+  const selections = game?.characterSelections || {};
+  const oldRects = new Map();
+  characterPickerRow.querySelectorAll('.character-choice').forEach(choice => oldRects.set(choice.dataset.characterName, choice.getBoundingClientRect()));
+  Object.entries(selections).forEach(([playerId, character]) => {
+    const key = `${game.startedAt || game.stageNumber}:${playerId}:${character.name}`;
+    if (seenCharacterSelections.has(key)) return;
+    seenCharacterSelections.add(key);
+    const sourceRect = characterSelectionSources.get(character.name) || oldRects.get(character.name);
+    if (sourceRect) {
+      characterAnimationUntil.set(playerId, Date.now() + 650);
+      requestAnimationFrame(() => animateCharacterSelection(playerId, character, sourceRect));
+    }
+  });
+  const alreadyChose = Boolean(selections[state.userId]);
+  characterPicker.classList.toggle('hidden', game?.phase !== 'character-selection' || alreadyChose);
+  characterPickerRow.replaceChildren();
+  if (game?.phase !== 'character-selection' || alreadyChose) return;
+  const chosenNames = new Set(Object.values(selections).map(item => item.name));
+  (game.availableCharacters || []).filter(character => !chosenNames.has(character.name)).forEach(character => {
+    const choice = document.createElement('button');
+    choice.type = 'button';
+    choice.className = 'character-choice';
+    choice.dataset.characterName = character.name;
+    choice.appendChild(createCharacterCardElement(characterCardData(character, state.userId)));
+    choice.addEventListener('click', event => { event.stopPropagation(); chooseCharacter(character.name, choice); });
+    characterPickerRow.appendChild(choice);
+    choice.style.setProperty('--choice-scale', choice.getBoundingClientRect().width / 82);
+  });
 }
 
 let entranceRooms = [];
@@ -1234,7 +1375,6 @@ async function enterRoom(roomCode, userName){
   subscribeRoom();
   subscribeHostState();
   subscribePlayers();
-  subscribeHands();
 
   syncSeatUI();
 }
@@ -1409,6 +1549,7 @@ function renderPlayerCircle(players){
 
     const tag = document.createElement('div');
     tag.className = 'player-tag' + (p.id === state.userId ? ' me' : '');
+    tag.dataset.playerId = p.id;
     tag.textContent = p.name;
     tag.style.left = `${x}%`;
     tag.style.top = `${y}%`;
@@ -1511,7 +1652,7 @@ function renderPlayerCircle(players){
     // 他プレイヤーの公開キャラクターを獲得カード列の先頭に置く。
     if (!isMe) {
       const character = handData?.cards?.find(card => card?.kind === 'character');
-      if (character) {
+      if (character && Date.now() >= (characterAnimationUntil.get(p.id) || 0)) {
         const characterBundle = document.createElement('div');
         characterBundle.className = 'capture-trick character-capture';
         const characterHolder = document.createElement('div');
@@ -1657,35 +1798,12 @@ async function dealInitialHands(stageNumber){
     .map(name => name.trim())
     .filter(name => name && name !== 'xxx')
     .map(label => ({ name: label.replace(/\*+$/, ''), required: /\*+$/.test(label) }));
-  const requiredCharacterNames = stageCharacters.filter(character => character.required).map(character => character.name);
-  const optionalCharacterNames = stageCharacters.filter(character => !character.required).map(character => character.name);
-  for (let i = optionalCharacterNames.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [optionalCharacterNames[i], optionalCharacterNames[j]] = [optionalCharacterNames[j], optionalCharacterNames[i]];
-  }
-  // 「*」付きは先に割り当て、残りの枠だけをランダムなキャラクターで埋める。
-  const selectedCharacterNames = [...requiredCharacterNames];
-  optionalCharacterNames.forEach(name => {
-    if (selectedCharacterNames.length < playerOrder.length && !selectedCharacterNames.includes(name)) selectedCharacterNames.push(name);
-  });
-  const frodoIndex = selectedCharacterNames.indexOf('フロド');
-  if (frodoIndex >= 0) selectedCharacterNames.splice(frodoIndex, 1);
-  const otherPlayers = playerOrder.filter(id => id !== frodoPlayer);
-  otherPlayers.forEach((playerId, index) => {
-    const name = selectedCharacterNames[index] || '旅の仲間';
-    hands[playerId].cards.unshift({ kind:'character', name, specialName:'特殊名', victory:'', effect:'特殊説明', id:`${playerId}-character-${Date.now()}` });
-  });
-  hands[frodoPlayer].cards.unshift({
-    kind:'character', name:'フロド', specialName:'指輪所持者',
-    victory:'指輪を2枚以上獲得する。',
-    effect:'黄1を所持している。黄1は交換できない。スタートプレイヤーになる。',
-    id:`${frodoPlayer}-frodo-${Date.now()}`
-  });
-  const starter = frodoPlayer;
   await update(ref(db, `rooms/${state.roomCode}`), {
     hands,
     game: {
-      playerOrder, turnPlayerId: starter, trickNumber: 1, stageNumber,
+      playerOrder, turnPlayerId: null, trickNumber: 1, stageNumber, startedAt:Date.now(),
+      phase: 'character-selection', availableCharacters: stageCharacters,
+      characterSelections: {},
       ringCircleOn: false, excludedCard, excludedCardTilt
     }
   });
