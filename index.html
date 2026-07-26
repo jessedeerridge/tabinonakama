@@ -122,6 +122,14 @@
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   @keyframes captureArrive{from{transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
+  .stage-dialog{position:fixed;inset:0;z-index:320;display:grid;place-items:center;background:rgba(0,0,0,.38);}
+  .stage-dialog.hidden{display:none;}
+  .stage-panel{box-sizing:border-box;width:min(420px,calc(100vw - 32px));padding:18px;border-radius:14px;background:#fff;box-shadow:0 18px 40px rgba(0,0,0,.35);}
+  .stage-panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-weight:800;}
+  .stage-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;}
+  .stage-tab{min-height:44px;border:1px solid #111;border-radius:7px;background:#fff;font-size:15px;font-weight:800;cursor:pointer;}
+  .stage-tab:hover,.stage-tab:focus-visible{background:#111;color:#fff;}
+  .center-lower-card-area.hidden{display:none;}
   .center-lower-card-area{
     position:fixed;left:50%;top:calc(68% - 75px);transform:translate(-50%,-50%);
     width:calc(100vw - 32px);display:flex;align-items:center;justify-content:space-between;
@@ -139,6 +147,11 @@
   .winningcondition-half{top:50%;width:42%;height:78%;transform:translateY(-50%);}
   .winningcondition-half.left{left:8%;}
   .winningcondition-half.right{right:8%;}
+  .arasujisquare-bar{display:grid;place-items:center;font-size:12px;font-weight:900;}
+  .arasujisquare-center{display:flex;align-items:center;padding:5px;font-size:8px;font-weight:400;line-height:1.45;}
+  .winningcondition-half{display:flex;align-items:center;padding:4px;font-size:8px;line-height:1.45;text-align:left;}
+  .winningcondition-content{width:100%;}
+  .winningcondition-content strong{font-weight:900;}
   @media (max-width:520px){
     .center-lower-card-area{width:calc(100vw - 24px);}
     #arasujisquare{width:90px;height:128px;}
@@ -306,14 +319,14 @@
     <div id="gameStatus" class="game-status"></div>
     <div id="playerCircle" class="player-circle"></div>
 
-    <div class="center-lower-card-area" aria-hidden="true">
+    <div id="centerLowerCardArea" class="center-lower-card-area hidden">
       <div id="arasujisquare" class="center-lower-card">
-        <div class="arasujisquare-bar"></div>
-        <div class="arasujisquare-center"></div>
+        <div id="arasujisquareBar" class="arasujisquare-bar"></div>
+        <div id="arasujisquareStory" class="arasujisquare-center"></div>
       </div>
       <div id="winningconditionsquare" class="center-lower-card">
-        <div class="winningcondition-half left"></div>
-        <div class="winningcondition-half right"></div>
+        <div id="winningconditionInfo" class="winningcondition-half left"></div>
+        <div id="winningconditionGoal" class="winningcondition-half right"></div>
       </div>
     </div>
 
@@ -378,6 +391,17 @@
   <div class="start-pop-actions">
     <button id="btnResetRoom" class="btn ghost">リセット</button>
     <button id="btnGameStart" class="btn primary">スタート</button>
+  </div>
+</div>
+
+<!-- ステージ選択 -->
+<div id="stageDialog" class="stage-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="stageDialogTitle">
+  <div class="stage-panel">
+    <div class="stage-panel-header">
+      <span id="stageDialogTitle">ステージを選択</span>
+      <button id="btnStageClose" class="btn ghost" type="button">×</button>
+    </div>
+    <div id="stageGrid" class="stage-grid"></div>
   </div>
 </div>
 
@@ -449,6 +473,28 @@ const startPop = document.getElementById('startPop');
 const btnStartPopClose = document.getElementById('btnStartPopClose');
 const btnGameStart = document.getElementById('btnGameStart');
 const btnResetRoom = document.getElementById('btnResetRoom');
+const stageDialog = document.getElementById('stageDialog');
+const stageGrid = document.getElementById('stageGrid');
+const btnStageClose = document.getElementById('btnStageClose');
+const centerLowerCardArea = document.getElementById('centerLowerCardArea');
+const arasujisquareBar = document.getElementById('arasujisquareBar');
+const arasujisquareStory = document.getElementById('arasujisquareStory');
+const winningconditionInfo = document.getElementById('winningconditionInfo');
+const winningconditionGoal = document.getElementById('winningconditionGoal');
+
+const STAGES = Array.from({ length: 17 }, (_, index) => ({
+  number: index + 1,
+  chapterLabel: `第${index + 1}章`,
+  title: '',
+  story: '',
+  characters: []
+}));
+Object.assign(STAGES[0], {
+  chapterLabel: '第一章',
+  title: '待ちに待った誕生祝い',
+  story: '袋小路屋敷のビルボ・バギンズ氏が近々、自身の111歳の誕生日を祝う、いつになく華やかなパーティを行うと発表してから、ホビット村はその噂と期待で持ちきりだ。',
+  characters: ['フロド、ビルボ、', 'ガンダルフ、ピピン']
+});
 
 /* ★ 追加：ヘルプUI参照 */
 const helpBtn = document.getElementById('helpBtn');
@@ -635,6 +681,41 @@ function updateHostUI(){
   helpBtn.classList.add('visible');
 }
 
+function renderStageInformation(){
+  const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
+  centerLowerCardArea.classList.toggle('hidden', !stage);
+  if (!stage) return;
+
+  arasujisquareBar.textContent = stage.chapterLabel;
+  arasujisquareStory.textContent = stage.story;
+
+  winningconditionInfo.replaceChildren();
+  const info = document.createElement('div');
+  info.className = 'winningcondition-content';
+  const heading = document.createElement('strong');
+  heading.textContent = `${stage.chapterLabel}：`;
+  const title = document.createElement('strong');
+  title.textContent = stage.title;
+  const characterHeading = document.createElement('strong');
+  characterHeading.textContent = 'キャラクター：';
+  info.append(heading, document.createElement('br'), title, document.createElement('br'), document.createElement('br'), characterHeading, document.createElement('br'));
+  stage.characters.forEach((characterLine, index) => {
+    info.append(document.createTextNode(characterLine));
+    if (index < stage.characters.length - 1) info.append(document.createElement('br'));
+  });
+  winningconditionInfo.append(info);
+
+  winningconditionGoal.replaceChildren();
+  const goal = document.createElement('div');
+  goal.className = 'winningcondition-content';
+  const goalHeading = document.createElement('strong');
+  goalHeading.textContent = '勝利条件：短い';
+  const goalText = document.createElement('span');
+  goalText.append('「選んだキャラクター', document.createElement('br'), 'の目的をすべて達成」');
+  goal.append(goalHeading, document.createElement('br'), goalText);
+  winningconditionGoal.append(goal);
+}
+
 function subscribeRoom(){
   const roomRef = ref(db, `rooms/${state.roomCode}`);
   onValue(roomRef, snap => {
@@ -643,6 +724,7 @@ function subscribeRoom(){
     const waiting = (!state.isHost && !state.room.maxPlayers);
     hostSelectingPop.classList.toggle('hidden', !waiting);
     renderHands();
+    renderStageInformation();
     scheduleTrickClear();
     syncSeatUI();
   });
@@ -1297,7 +1379,7 @@ btnKickYes.addEventListener('click', async (e) => {
   seatPop.classList.add('hidden');
 });
 
-async function dealInitialHands(){
+async function dealInitialHands(stageNumber){
   if (!state.roomCode) return;
 
   const tablesSnap = await get(ref(db, `rooms/${state.roomCode}/tables`));
@@ -1322,7 +1404,7 @@ async function dealInitialHands(){
   const starter = playerOrder[Math.floor(Math.random() * playerOrder.length)];
   await update(ref(db, `rooms/${state.roomCode}`), {
     hands,
-    game: { playerOrder, turnPlayerId: starter, trickNumber: 1 }
+    game: { playerOrder, turnPlayerId: starter, trickNumber: 1, stageNumber }
   });
 }
 
@@ -1334,10 +1416,32 @@ btnStartPopClose.addEventListener('click', () => {
   startPop.classList.add('hidden');
 });
 
-btnGameStart.addEventListener('click', async () => {
+function openStageDialog(){
+  stageGrid.replaceChildren();
+  STAGES.forEach(stage => {
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'stage-tab';
+    tab.textContent = `#${stage.number}`;
+    tab.addEventListener('click', async () => {
+      if (!state.isHost) return;
+      tab.disabled = true;
+      await dealInitialHands(stage.number);
+      stageDialog.classList.add('hidden');
+    });
+    stageGrid.append(tab);
+  });
+  stageDialog.classList.remove('hidden');
+}
+
+btnGameStart.addEventListener('click', () => {
   if (!state.isHost) return;
-  await dealInitialHands();
   startPop.classList.add('hidden');
+  openStageDialog();
+});
+btnStageClose.addEventListener('click', () => stageDialog.classList.add('hidden'));
+stageDialog.addEventListener('click', event => {
+  if (event.target === stageDialog) stageDialog.classList.add('hidden');
 });
 
 btnResetRoom.addEventListener('click', async () => {
