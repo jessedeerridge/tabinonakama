@@ -89,9 +89,9 @@
   }
 
   /* 自分の手札表示（大きめ横並び） */
-  .my-hand-wrapper{margin-top:28px;text-align:center;}
+  .my-hand-wrapper{margin-top:23px;text-align:center;}
   .my-hand-title{display:none;}
-  .my-hand{display:flex;justify-content:center;gap:10px;margin-top:6px;min-height:132px;flex-wrap:wrap;padding:0 12px;}
+  .my-hand{display:flex;width:calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px);box-sizing:border-box;justify-content:center;gap:10px;margin:6px auto 0;min-height:132px;flex-wrap:wrap;padding:0 12px;}
   .my-card{
     --card-color:#9ca3af;--detail-color:var(--card-color);--panel-fill:#fffdf3;
     position:relative;width:82px;height:122px;border-radius:10px;
@@ -218,7 +218,7 @@
   .character-effect-row.victory .character-effect-icon{width:5.76px;height:5.76px;}
   .character-effect-row.special .character-effect-icon svg{fill:none;stroke:currentColor;stroke-width:.9;stroke-linejoin:round;}
   .character-effect-row.special .character-effect-icon path{fill:currentColor;stroke:none;}
-  @media (max-width:520px){.my-hand{gap:6px}.my-card{width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
+  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-card{width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
@@ -899,9 +899,14 @@ function subscribeHands(){
 function renderMyHand(){
   myHandEl.innerHTML = '';
   myHandEl.classList.remove('has-playable-cards');
+  myHandEl.style.removeProperty('--hand-columns');
   const myId = state.userId;
   const handData = state.hands[myId];
   if (!handData || !Array.isArray(handData.cards)) return;
+
+  const cardCount = handData.cards.length;
+  const columnCount = cardCount === 9 ? 5 : cardCount >= 7 ? 4 : Math.max(cardCount, 1);
+  myHandEl.style.setProperty('--hand-columns', columnCount);
 
   let hasPlayableCards = false;
   handData.cards.forEach((cardData, cardIndex) => {
