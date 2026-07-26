@@ -236,11 +236,14 @@
   .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(var(--zoom-scale));transform-origin:top left;}
   .character-picker{position:fixed;inset:60px 0 0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;pointer-events:none;}
   .character-picker.hidden{display:none;}
+  .character-picker.many-choices{transform:translateY(-34px);}
   .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
   .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
+  .character-picker-row.two-rows{display:grid;grid-template-columns:repeat(var(--choice-columns),minmax(0,104px));justify-content:center;row-gap:clamp(8px,2vh,14px);}
   .character-choice{position:relative;flex:0 1 104px;width:min(104px,calc((100vw - 54px)/4));aspect-ratio:82/122;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transition:transform .15s ease;}
+  .character-picker-row.two-rows .character-choice{width:100%;}
   .character-choice:not(:disabled):hover{transform:translateY(-5px);}
-  .character-choice:disabled{filter:brightness(.55) saturate(.7);}
+  .character-choice.forced-unavailable{filter:brightness(.55) saturate(.7);}
   .character-picker.locked .character-choice{cursor:default;}
   .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
   .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;box-sizing:border-box;border:2px solid #10233f;border-radius:50%;background:transparent url('definitechara.jpg') center/cover no-repeat;z-index:5;pointer-events:none;}
@@ -1300,6 +1303,9 @@ function renderCharacterPicker(){
   // 選択済みの本人にも、全員の選択が終わるまでは残りの候補を表示し続ける。
   characterPicker.classList.toggle('hidden', game?.phase !== 'character-selection');
   characterPicker.classList.toggle('locked', alreadyChose);
+  characterPicker.classList.remove('many-choices');
+  characterPickerRow.classList.remove('two-rows');
+  characterPickerRow.style.removeProperty('--choice-columns');
   characterPickerRow.replaceChildren();
   if (game?.phase !== 'character-selection') return;
   const chosenNames = new Set(Object.values(selections).map(item => item.name));
@@ -1307,11 +1313,17 @@ function renderCharacterPicker(){
   const remainingRequiredCount = remainingCharacters.filter(character => character.required).length;
   const remainingPlayerCount = (game.playerOrder || []).length - Object.keys(selections).length;
   const mustChooseRequired = remainingRequiredCount > 0 && remainingRequiredCount >= remainingPlayerCount;
+  if (remainingCharacters.length >= 4) {
+    characterPicker.classList.add('many-choices');
+    characterPickerRow.classList.add('two-rows');
+    characterPickerRow.style.setProperty('--choice-columns', Math.ceil(remainingCharacters.length / 2));
+  }
   remainingCharacters.forEach(character => {
     const choice = document.createElement('button');
     choice.type = 'button';
     choice.className = 'character-choice';
     choice.disabled = alreadyChose || (mustChooseRequired && !character.required);
+    choice.classList.toggle('forced-unavailable', mustChooseRequired && !character.required);
     choice.dataset.characterName = character.name;
     const choiceCard = createCharacterCardElement(characterCardData(character, state.userId));
     choice.appendChild(choiceCard);
