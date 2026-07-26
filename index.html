@@ -141,7 +141,8 @@
   }
   #arasujisquare{width:112px;height:160px;background-image:url('arasujisquare.jpg');}
   #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
-  #winningconditionsquare::before{content:'';position:absolute;left:-51px;top:50%;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:transparent;transform:translateY(-50%);}
+  .ringcircle{position:absolute;left:-51px;top:44%;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);}
+  .ringcircle.on{background-image:url('ringcircleon.jpg');}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
@@ -328,6 +329,7 @@
         <div id="arasujisquareStory" class="arasujisquare-center"></div>
       </div>
       <div id="winningconditionsquare" class="center-lower-card">
+        <div id="ringcircle" class="ringcircle"></div>
         <div id="winningconditionInfo" class="winningcondition-half left"></div>
         <div id="winningconditionGoal" class="winningcondition-half right"></div>
       </div>
@@ -484,6 +486,7 @@ const arasujisquareBar = document.getElementById('arasujisquareBar');
 const arasujisquareStory = document.getElementById('arasujisquareStory');
 const winningconditionInfo = document.getElementById('winningconditionInfo');
 const winningconditionGoal = document.getElementById('winningconditionGoal');
+const ringcircle = document.getElementById('ringcircle');
 
 const STAGES = Array.from({ length: 17 }, (_, index) => ({
   number: index + 1,
@@ -708,6 +711,7 @@ function renderStageInformation(){
   arasujisquareBar.textContent = stage.chapterLabel;
   fitSingleLineText(arasujisquareBar, 11, 5);
   arasujisquareStory.textContent = stage.story;
+  ringcircle.classList.toggle('on', state.game?.ringCircleOn === true);
 
   winningconditionInfo.replaceChildren();
   const info = document.createElement('div');
@@ -834,7 +838,7 @@ function renderMyHand(){
 function canFollowSuit(card){
   const trick = state.game?.trick || {};
   const plays = Object.values(trick);
-  if (!plays.length) return true;
+  if (!plays.length) return card.color !== 'yellow' || state.game?.ringCircleOn === true;
   const leadColor = plays.sort((a,b) => a.order-b.order)[0].card.color;
   const cards = state.hands[state.userId]?.cards || [];
   return card.color === leadColor || !cards.some(c => c.color === leadColor);
@@ -876,12 +880,14 @@ async function playCard(cardIndex, expectedCard){
     const card = hand?.[cardIndex];
     if (!card || card.id !== expectedCard.id) return;
     const existing = Object.values(room.game.trick || {}).sort((a,b)=>a.order-b.order);
+    if (!existing.length && card.color === 'yellow' && room.game.ringCircleOn !== true) return;
     if (existing.length) {
       const lead = existing[0].card.color;
       if (card.color !== lead && hand.some(c => c.color === lead)) return;
     }
     hand.splice(cardIndex, 1);
     room.hands[state.userId].cards = hand;
+    if (card.color === 'yellow') room.game.ringCircleOn = true;
     room.game.trick ||= {};
     room.game.trick[state.userId] = { card, order: existing.length, tilt: Math.floor(Math.random()*5)-2 };
     const order = room.game.playerOrder;
@@ -1433,7 +1439,7 @@ async function dealInitialHands(stageNumber){
   const starter = playerOrder[Math.floor(Math.random() * playerOrder.length)];
   await update(ref(db, `rooms/${state.roomCode}`), {
     hands,
-    game: { playerOrder, turnPlayerId: starter, trickNumber: 1, stageNumber }
+    game: { playerOrder, turnPlayerId: starter, trickNumber: 1, stageNumber, ringCircleOn: false }
   });
 }
 
