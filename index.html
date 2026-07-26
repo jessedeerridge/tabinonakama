@@ -60,7 +60,7 @@
 
   /* ★ プレイヤー円配置用 */
   .player-circle{
-    position:relative;width:min(76vw,420px);height:min(76vw,420px);
+    position:relative;width:min(80vw,440px);height:min(80vw,440px);
     margin:8px auto 0;border-radius:50%;
     box-sizing:border-box;border:none;
   }
@@ -1163,9 +1163,8 @@ function renderPlayerCircle(players){
     const captureRadius = isMe ? null : 63;
     let captureX = isMe ? playX + 13 : 50 + captureRadius * Math.cos(angle);
     let captureY = isMe ? playY + 11 : 50 + captureRadius * Math.sin(angle);
-    const circleSize = Math.max(1, playerCircle.clientWidth);
-    // 他プレイヤーの獲得束はネームタグから少し上へ離す。
-    if (!isMe) captureY -= 2 / circleSize * 100;
+    // 他プレイヤーの獲得束はネームタグから円の大きさに比例して少し上へ離す。
+    if (!isMe) captureY -= 0.48;
     // 右半分では、左側プレイヤーの「ネームタグ→獲得位置」と同じ距離だけ
     // ネームタグから左へ離し、左右で余白を対称にする。
     if (!isMe && Math.cos(angle) > .05) {
