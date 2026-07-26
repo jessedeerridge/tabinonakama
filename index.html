@@ -122,6 +122,22 @@
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   @keyframes captureArrive{from{transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
+  .center-lower-card-area{
+    position:fixed;left:50%;top:68%;transform:translate(-50%,-50%);
+    display:flex;align-items:center;justify-content:center;gap:24px;
+    z-index:2;pointer-events:none;
+  }
+  .center-lower-card{
+    box-sizing:border-box;border:2px solid #111;border-radius:10px;
+    background:transparent;flex:0 0 auto;
+  }
+  #arasujisqure{width:112px;height:160px;}
+  #winningconition-square{width:160px;height:112px;}
+  @media (max-width:520px){
+    .center-lower-card-area{gap:16px;}
+    #arasujisqure{width:90px;height:128px;}
+    #winningconition-square{width:128px;height:90px;}
+  }
   .my-card.card-red{--card-color:#c94c47;}
   .my-card.card-green{--card-color:#559344;}
   .my-card.card-orange{--card-color:#d98236;}
@@ -283,6 +299,11 @@
 
     <div id="gameStatus" class="game-status"></div>
     <div id="playerCircle" class="player-circle"></div>
+
+    <div class="center-lower-card-area" aria-hidden="true">
+      <div id="arasujisqure" class="center-lower-card"></div>
+      <div id="winningconition-square" class="center-lower-card"></div>
+    </div>
 
     <div class="my-hand-wrapper">
       <div class="my-hand-title">自分のカード</div>
