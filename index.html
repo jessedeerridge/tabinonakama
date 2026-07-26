@@ -1327,16 +1327,16 @@ function renderPlayerCircle(players){
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
-    // 他プレイヤーの獲得カードは、全席共通でネームタグの左上からさらに10px左上へ離す。
-    const captureX = isMe ? playX + 13 : x + (9 - tag.offsetWidth / 2) / circleSize * 100;
-    const captureY = isMe ? playY + 11 : y + (18 - tag.offsetHeight / 2) / circleHeight * 100;
+    // 他プレイヤーの獲得カード全体を、ネームタグの左上から5px離れた左上へ置く。
+    const captureX = isMe ? playX + 13 : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
+    const captureY = isMe ? playY + 11 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
     capturedTricks.forEach((capturedTrick, trickIndex) => {
       const bundle = document.createElement('div');
       bundle.className = 'capture-trick';
-      bundle.style.left = `${trickIndex * 44}px`;
+      bundle.style.left = `${(isMe ? trickIndex : -trickIndex) * 44}px`;
       const cards = capturedTrick.cards || [];
       const yellows = cards.filter(card => card.color === 'yellow');
       const winner = cards.find(card => card.id === capturedTrick.winningCardId);
