@@ -193,16 +193,16 @@
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #fff9e9;
   }
   .character-card .character-label{
-    position:absolute;right:0;top:7px;min-width:58px;max-width:72px;padding:3px 5px 3px 12px;
+    position:absolute;right:-4px;top:5px;min-width:52px;max-width:68px;padding:3px 4px 3px 13px;
     box-sizing:border-box;background:var(--character-frame);color:#fff;font-size:10px;font-weight:900;
-    line-height:1.1;text-align:right;clip-path:polygon(10px 50%,0 0,100% 0,100% 100%,0 100%);
+    line-height:1.05;text-align:right;clip-path:polygon(0 50%,11px 0,100% 0,100% 100%,11px 100%);
   }
-  .character-card .character-special{top:30px;background:var(--character-panel);color:#3f3021;font-size:7px;}
+  .character-card .character-special{top:22px;min-width:0;width:38px;padding-left:12px;background:var(--character-panel);color:#3f3021;font-size:7px;line-height:1.15;}
   .character-card .character-effect{
-    position:absolute;left:3px;right:3px;bottom:3px;min-height:38px;padding:12px 5px 4px;
+    position:absolute;left:-4px;right:-4px;bottom:-4px;min-height:42px;padding:12px 8px 6px;
     box-sizing:border-box;background:var(--character-panel);border:2px solid var(--character-frame);
     font-size:7px;line-height:1.25;text-align:left;
-    clip-path:polygon(12px 8px,22px 0,calc(100% - 22px) 0,calc(100% - 12px) 8px,100% 8px,100% 100%,0 100%,0 8px);
+    clip-path:polygon(0 10px,30% 0,70% 0,100% 10px,100% 100%,0 100%);
   }
   @media (max-width:520px){.my-hand{gap:6px}.my-card{width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
@@ -631,12 +631,22 @@ function createCharacterCardElement(cardData){
   name.textContent = cardData.name;
   const special = document.createElement('span');
   special.className = 'character-label character-special';
-  special.textContent = cardData.specialName || '特殊名';
+  appendWrappedCharacterName(special, cardData.specialName || '特殊名');
   const effect = document.createElement('div');
   effect.className = 'character-effect';
   effect.textContent = cardData.effect || '効果説明';
   card.append(name, special, effect);
   return card;
+}
+
+// 特殊名は追加カードでも読みやすいよう、3文字（残りが4文字なら2文字）ごとに改行する。
+function appendWrappedCharacterName(element, value){
+  const characters = Array.from(value);
+  while (characters.length) {
+    const chunkSize = characters.length === 4 ? 2 : Math.min(3, characters.length);
+    element.append(document.createTextNode(characters.splice(0, chunkSize).join('')));
+    if (characters.length) element.append(document.createElement('br'));
+  }
 }
 
 function renderHelpList(){
