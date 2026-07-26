@@ -1321,7 +1321,8 @@ function renderPlayerCircle(players){
     const playRadius = isMe ? 30 : (isTopPlayer ? 17 : 24);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
     const otherPlayerLift = isMe ? 0 : 80 / circleHeight * 100;
-    const topPlayerDrop = !isMe && isTopPlayer ? 10 / circleHeight * 100 : 0;
+    // 12時位置のプレイヤーは、ネーム・手札・プレイ位置・獲得カードをまとめて15px下げる。
+    const topPlayerDrop = !isMe && isTopPlayer ? 25 / circleHeight * 100 : 0;
     return {
       angle, isMe,
       x: 50 + radius * Math.cos(angle),
@@ -1358,11 +1359,13 @@ function renderPlayerCircle(players){
       const miniHand = document.createElement('div');
       miniHand.className = 'mini-hand';
 
-      const count = handData.cards.length;
+      // キャラクターカードは獲得カード置き場で公開するため、手札の裏面には含めない。
+      const hiddenCards = handData.cards.filter(card => card?.kind !== 'character');
+      const count = hiddenCards.length;
       const spread = 70;
       const base = (count > 1) ? (-spread/2) : 0;
 
-      handData.cards.forEach((v, idx2) => {
+      hiddenCards.forEach((v, idx2) => {
         const card = document.createElement('div');
         card.className = 'mini-card';
         card.textContent = '';
@@ -1435,10 +1438,25 @@ function renderPlayerCircle(players){
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
+    // 他プレイヤーの公開キャラクターを獲得カード列の先頭に置く。
+    if (!isMe) {
+      const character = handData?.cards?.find(card => card?.kind === 'character');
+      if (character) {
+        const characterBundle = document.createElement('div');
+        characterBundle.className = 'capture-trick character-capture';
+        const characterHolder = document.createElement('div');
+        characterHolder.className = 'capture-card';
+        characterHolder.style.setProperty('--stack-rotate', '0deg');
+        characterHolder.appendChild(createCardElement(character));
+        characterBundle.appendChild(characterHolder);
+        capture.appendChild(characterBundle);
+      }
+    }
     capturedTricks.forEach((capturedTrick, trickIndex) => {
       const bundle = document.createElement('div');
       bundle.className = 'capture-trick';
-      bundle.style.left = `${(isMe ? trickIndex : -trickIndex) * 44}px`;
+      // 他プレイヤーはキャラクターの右隣から、38px幅のカードを3pxずつ重ねて並べる。
+      bundle.style.left = `${isMe ? trickIndex * 44 : (trickIndex + 1) * 35}px`;
       const cards = capturedTrick.cards || [];
       const yellows = cards.filter(card => card.color === 'yellow');
       const winner = cards.find(card => card.id === capturedTrick.winningCardId);
