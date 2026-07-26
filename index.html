@@ -238,12 +238,11 @@
   .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
   .character-choice{position:relative;flex:0 1 104px;width:min(104px,calc((100vw - 54px)/4));aspect-ratio:82/122;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transition:transform .15s ease;}
   .character-choice:not(:disabled):hover{transform:translateY(-5px);}
+  .character-choice:disabled{opacity:.5;}
   .character-picker.locked .character-choice{cursor:default;}
   .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
   .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;box-sizing:border-box;border:2px solid #10233f;border-radius:50%;background:transparent url('definitechara.jpg') center/cover no-repeat;z-index:5;pointer-events:none;}
-  .character-choice.required-pulse{animation:requiredCharacterPulse 1s ease-in-out infinite;}
-  @keyframes requiredCharacterPulse{50%{transform:translateY(-4px) scale(1.05);filter:drop-shadow(0 0 7px rgba(16,35,63,.65));}}
-  @media (prefers-reduced-motion:reduce){.character-choice.required-pulse{animation:none;filter:drop-shadow(0 0 7px rgba(16,35,63,.65));}}
+  .character-choice.required-raised{transform:translateY(-5px);}
   .character-card-slot{flex:0 0 82px;width:82px;height:122px;visibility:hidden;pointer-events:none;}
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
@@ -1277,7 +1276,7 @@ function renderCharacterPicker(){
       requiredDot.className = 'required-character-dot';
       requiredDot.setAttribute('aria-label', '必須キャラクター');
       choice.appendChild(requiredDot);
-      choice.classList.toggle('required-pulse', mustChooseRequired);
+      choice.classList.toggle('required-raised', mustChooseRequired);
     }
     choice.addEventListener('click', event => { event.stopPropagation(); chooseCharacter(character.name, choice); });
     characterPickerRow.appendChild(choice);
