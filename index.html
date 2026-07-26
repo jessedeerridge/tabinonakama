@@ -129,14 +129,14 @@
   }
   .center-lower-card{
     box-sizing:border-box;border:2px solid #111;border-radius:10px;
-    background:transparent;flex:0 0 auto;
+    background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;flex:0 0 auto;
   }
-  #arasujisqure{width:112px;height:160px;}
-  #winningconition-square{width:160px;height:112px;}
+  #arasujisquare{width:112px;height:160px;background-image:url('arasujisquare.jpg');}
+  #winningconditionsquare{width:160px;height:112px;background-image:url('winningconditionsquare.jpg');}
   @media (max-width:520px){
     .center-lower-card-area{width:calc(100vw - 24px);}
-    #arasujisqure{width:90px;height:128px;}
-    #winningconition-square{width:128px;height:90px;}
+    #arasujisquare{width:90px;height:128px;}
+    #winningconditionsquare{width:128px;height:90px;}
   }
   .my-card.card-red{--card-color:#c94c47;}
   .my-card.card-green{--card-color:#559344;}
@@ -301,8 +301,8 @@
     <div id="playerCircle" class="player-circle"></div>
 
     <div class="center-lower-card-area" aria-hidden="true">
-      <div id="arasujisqure" class="center-lower-card"></div>
-      <div id="winningconition-square" class="center-lower-card"></div>
+      <div id="arasujisquare" class="center-lower-card"></div>
+      <div id="winningconditionsquare" class="center-lower-card"></div>
     </div>
 
     <div class="my-hand-wrapper">
