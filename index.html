@@ -1221,7 +1221,7 @@ function renderPlayerCircle(players){
     const playRadius = isMe ? 30 : (isTopPlayer ? 17 : 24);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
     const otherPlayerLift = isMe ? 0 : 80 / circleHeight * 100;
-    const topPlayerDrop = !isMe && isTopPlayer ? 10 / circleHeight * 100 : 0;
+    const topPlayerDrop = !isMe && isTopPlayer ? 15 / circleHeight * 100 : 0;
     return {
       angle, isMe,
       x: 50 + radius * Math.cos(angle),
