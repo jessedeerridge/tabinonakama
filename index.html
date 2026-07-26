@@ -99,9 +99,11 @@
     box-sizing:border-box;overflow:hidden;color:#27231f;
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(0,0,0,.62);
   }
-  .my-card.playable{cursor:grab;touch-action:none;animation:cardPulse 1.05s ease-in-out infinite;animation-delay:var(--pulse-offset,0ms);}
-  .my-card.drag-source{visibility:hidden;animation:none;}
-  @keyframes cardPulse{50%{transform:scale(1.07)}}
+  @property --playable-card-scale{syntax:'<number>';inherits:true;initial-value:1;}
+  .my-hand.has-playable-cards{animation:playableCardsPulse 1.05s ease-in-out infinite;}
+  .my-card.playable{cursor:grab;touch-action:none;transform:scale(var(--playable-card-scale));}
+  .my-card.drag-source{visibility:hidden;}
+  @keyframes playableCardsPulse{50%{--playable-card-scale:1.07}}
   .drag-card{position:fixed;z-index:1000;pointer-events:none;transform:translate(-50%,-50%) scale(1.08);opacity:.94;}
   .play-circle{position:absolute;width:64px;height:88px;border:0;border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:4;}
   .play-circle.drop-hint::before{content:'';position:absolute;inset:0;border-radius:inherit;background:rgba(125,211,252,.22);opacity:0;transition:opacity .15s;}
@@ -138,6 +140,7 @@
   .card-mark svg{display:block;width:100%;height:100%;overflow:visible;}
   .card-name{position:absolute;left:7px;right:7px;bottom:4px;height:19px;background:var(--detail-color);clip-path:polygon(0 50%,10px 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,10px 100%);font:700 12px/19px system-ui,-apple-system,"Segoe UI",sans-serif;text-align:center;letter-spacing:.12em;z-index:3;}
   .card-name::before{content:'';position:absolute;inset:1px;background:var(--panel-fill);clip-path:polygon(0 50%,9px 0,calc(100% - 9px) 0,100% 50%,calc(100% - 9px) 100%,9px 100%);z-index:-1;}
+  .card-name-initial{color:var(--card-color);font-weight:900;-webkit-text-stroke:.8px #111;paint-order:stroke fill;}
   .my-card.yellow-one .card-badge{background:var(--card-color);}
   .my-card.yellow-one .card-badge::before{background:#111;}
   .my-card.yellow-one .card-number{color:var(--card-color);}
@@ -492,7 +495,15 @@ function createCardElement(cardData){
 
   const name = document.createElement('span');
   name.className = 'card-name';
-  name.textContent = isYellowOne ? 'このトリックに勝利してもよい' : cardData.name;
+  if (isYellowOne) {
+    name.textContent = 'このトリックに勝利してもよい';
+  } else {
+    const [initial = '', ...rest] = Array.from(cardData.name || '');
+    const initialElement = document.createElement('strong');
+    initialElement.className = 'card-name-initial';
+    initialElement.textContent = initial;
+    name.append(initialElement, rest.join(''));
+  }
   if (isYellowOne) cardNameFitObserver.observe(name);
 
   // 左右とも数字とマークは同じ通常向きで表示する。
@@ -654,11 +665,12 @@ function subscribeHands(){
 
 function renderMyHand(){
   myHandEl.innerHTML = '';
+  myHandEl.classList.remove('has-playable-cards');
   const myId = state.userId;
   const handData = state.hands[myId];
-  myHandEl.style.setProperty('--pulse-offset', `${-(Date.now() % 1050)}ms`);
   if (!handData || !Array.isArray(handData.cards)) return;
 
+  let hasPlayableCards = false;
   handData.cards.forEach((cardData, cardIndex) => {
     // 古いルームに残っている数字カードも表示を壊さない。
     const normalized = (typeof cardData === 'object' && cardData)
@@ -667,11 +679,13 @@ function renderMyHand(){
     const card = createCardElement(normalized);
     const canPlay = state.game && !state.game.pendingCapture && state.game.turnPlayerId === myId && canFollowSuit(normalized);
     if (canPlay) {
+      hasPlayableCards = true;
       card.classList.add('playable');
       card.addEventListener('pointerdown', event => beginCardDrag(event, normalized, cardIndex, card));
     }
     myHandEl.appendChild(card);
   });
+  myHandEl.classList.toggle('has-playable-cards', hasPlayableCards);
 }
 
 function canFollowSuit(card){
