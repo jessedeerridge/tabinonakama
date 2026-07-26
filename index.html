@@ -89,9 +89,9 @@
   }
 
   /* 自分の手札表示（大きめ横並び） */
-  .my-hand-wrapper{margin-top:28px;text-align:center;}
+  .my-hand-wrapper{margin-top:23px;text-align:center;}
   .my-hand-title{display:none;}
-  .my-hand{display:flex;justify-content:center;gap:10px;margin-top:6px;min-height:132px;flex-wrap:wrap;padding:0 12px;}
+  .my-hand{display:flex;width:calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px);box-sizing:border-box;justify-content:center;gap:10px;margin:6px auto 0;min-height:132px;flex-wrap:wrap;padding:0 12px;}
   .my-card{
     --card-color:#9ca3af;--detail-color:var(--card-color);--panel-fill:#fffdf3;
     position:relative;width:82px;height:122px;border-radius:10px;
@@ -189,7 +189,7 @@
   .my-card.yellow-one .card-name{left:3px;right:3px;padding:0 7px;box-sizing:border-box;font-size:9px;letter-spacing:-.06em;white-space:nowrap;overflow:hidden;}
   .character-card{
     --character-frame:#73583a;--character-panel:#fff8e8;
-    border-color:var(--character-frame);background:linear-gradient(145deg,#f8edcf,#d8c094);
+    border-color:var(--character-frame);background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #fff9e9;
   }
   .character-card .character-label{
@@ -218,7 +218,7 @@
   .character-effect-row.victory .character-effect-icon{width:5.76px;height:5.76px;}
   .character-effect-row.special .character-effect-icon svg{fill:none;stroke:currentColor;stroke-width:.9;stroke-linejoin:round;}
   .character-effect-row.special .character-effect-icon path{fill:currentColor;stroke:none;}
-  @media (max-width:520px){.my-hand{gap:6px}.my-card{width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
+  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-card{width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
@@ -637,6 +637,7 @@ function createCardElement(cardData){
 function createCharacterCardElement(cardData){
   const card = document.createElement('div');
   card.className = 'my-card character-card';
+  card.style.backgroundImage = `url("${encodeURIComponent(cardData.name)}.jpg")`;
   card.setAttribute('aria-label', `キャラクター ${cardData.name}`);
   if (cardData.id) card.dataset.cardId = cardData.id;
 
@@ -899,16 +900,31 @@ function subscribeHands(){
 function renderMyHand(){
   myHandEl.innerHTML = '';
   myHandEl.classList.remove('has-playable-cards');
+  myHandEl.style.removeProperty('--hand-columns');
   const myId = state.userId;
   const handData = state.hands[myId];
   if (!handData || !Array.isArray(handData.cards)) return;
 
+  const cardCount = handData.cards.length;
+  const columnCount = cardCount === 9 ? 5 : cardCount >= 7 ? 4 : Math.max(cardCount, 1);
+  myHandEl.style.setProperty('--hand-columns', columnCount);
+
   let hasPlayableCards = false;
-  handData.cards.forEach((cardData, cardIndex) => {
+  const colorOrder = { red: 0, green: 1, orange: 2, gray: 3, yellow: 4 };
+  const displayedCards = handData.cards.map((cardData, cardIndex) => ({
     // 古いルームに残っている数字カードも表示を壊さない。
-    const normalized = (typeof cardData === 'object' && cardData)
+    normalized: (typeof cardData === 'object' && cardData)
       ? cardData
-      : { color: 'gray', name: '山', number: cardData };
+      : { color: 'gray', name: '山', number: cardData },
+    cardIndex
+  })).sort((left, right) => {
+    if (left.normalized.kind === 'character') return right.normalized.kind === 'character' ? 0 : -1;
+    if (right.normalized.kind === 'character') return 1;
+    const typeDifference = (colorOrder[left.normalized.color] ?? 3) - (colorOrder[right.normalized.color] ?? 3);
+    return typeDifference || (Number(left.normalized.number) || 0) - (Number(right.normalized.number) || 0);
+  });
+
+  displayedCards.forEach(({ normalized, cardIndex }) => {
     const card = createCardElement(normalized);
     const canPlay = normalized.kind !== 'character' && state.game && !state.game.pendingCapture && state.game.turnPlayerId === myId && canFollowSuit(normalized);
     if (canPlay) {
