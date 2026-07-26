@@ -756,7 +756,7 @@ function openCardZoom(sourceCard){
   if (!playerCharacters.length) return;
 
   // 各カードを、それぞれのプレイヤーの手札位置で控えめに拡大する。
-  const scale = Math.min(1.35, Math.max(1.1, window.innerWidth / 420));
+  const scale = Math.min(1.5, Math.max(1.25, window.innerWidth / 380));
   const items = playerCharacters.map(({ player, card }) => {
     const item = document.createElement('div');
     item.className = 'card-zoom-item';
@@ -1151,7 +1151,10 @@ async function playCard(cardIndex, expectedCard){
     room.game.trick ||= {};
     room.game.trick[state.userId] = { card, order: existing.length, tilt: Math.floor(Math.random()*5)-2 };
     const order = room.game.playerOrder;
-    if (existing.length + 1 === order.length) {
+    // 配り切りで手札枚数に1枚差がある場合、カードが残っているプレイヤーだけで最後のトリックを行う。
+    const trickPlayers = order.filter(id => room.game.trick[id]
+      || (room.hands[id]?.cards || []).some(handCard => handCard.kind !== 'character'));
+    if (existing.length + 1 === trickPlayers.length) {
       const plays = [...existing, room.game.trick[state.userId]];
       const lead = plays[0].card.color;
       const winnerPlay = plays.filter(p=>p.card.color===lead).reduce((best,p)=>p.card.number>best.card.number?p:best);
@@ -1172,7 +1175,8 @@ async function playCard(cardIndex, expectedCard){
       if (order.every(id => !(room.hands[id]?.cards || []).some(card => card.kind !== 'character'))) room.game.finished = true;
     } else {
       const currentIndex = order.indexOf(state.userId);
-      room.game.turnPlayerId = order[(currentIndex + 1) % order.length];
+      room.game.turnPlayerId = Array.from({ length: order.length - 1 }, (_, offset) => order[(currentIndex + offset + 1) % order.length])
+        .find(id => !room.game.trick[id] && (room.hands[id]?.cards || []).some(handCard => handCard.kind !== 'character'));
     }
     return room;
   });
@@ -1848,6 +1852,7 @@ async function dealInitialHands(stageNumber){
   const tablesSnap = await get(ref(db, `rooms/${state.roomCode}/tables`));
   const tables = tablesSnap.val() || {};
   const seatedPlayers = Object.values(tables).filter(t => t && t.playerId);
+  if (!seatedPlayers.length) return;
   const hands = {};
   const deck = CARD_DECK.map(card => ({ ...card }));
   for (let i = deck.length - 1; i > 0; i--){
@@ -1858,26 +1863,14 @@ async function dealInitialHands(stageNumber){
   const excludedIndex = deck.findIndex(card => !(card.color === 'yellow' && card.number === 1));
   const excludedCard = { ...deck.splice(excludedIndex, 1)[0], id: `excluded-${Date.now()}` };
   const excludedCardTilt = Math.floor(Math.random() * 5) - 1;
-  let deckIndex = 0;
-  // 8人でも同じ枚数を受け取れるよう、山札の範囲内で最大5枚配る。
-  const cardsPerPlayer = Math.min(5, Math.floor(deck.length / seatedPlayers.length));
-
-  for (const t of seatedPlayers) {
-    const cards = deck.slice(deckIndex, deckIndex + cardsPerPlayer);
-    deckIndex += cards.length;
-    hands[t.playerId] = { cards: cards.map((card, index) => ({ ...card, id: `${t.playerId}-${index}-${Date.now()}` })) };
-  }
   const playerOrder = seatedPlayers.map(t => t.playerId);
-  // 黄1の所持者をフロド兼すたぴーにする。黄1が余り札に入った場合は、
-  // ランダムな手札の数字カードと交換して必ず誰かへ配る。
-  let frodoPlayer = playerOrder.find(id => hands[id].cards.some(card => card.color === 'yellow' && card.number === 1));
-  if (!frodoPlayer) {
-    frodoPlayer = playerOrder[Math.floor(Math.random() * playerOrder.length)];
-    const yellowOneIndex = deck.findIndex(card => card.color === 'yellow' && card.number === 1);
-    const yellowOne = { ...deck[yellowOneIndex], id: `${frodoPlayer}-yellow-1-${Date.now()}` };
-    hands[frodoPlayer].cards[Math.floor(Math.random() * hands[frodoPlayer].cards.length)] = yellowOne;
-  }
-
+  playerOrder.forEach(playerId => { hands[playerId] = { cards: [] }; });
+  // 1枚を除外した残りは、手札枚数の差が最大1枚になるよう順番にすべて配る。
+  const dealtAt = Date.now();
+  deck.forEach((card, index) => {
+    const playerId = playerOrder[index % playerOrder.length];
+    hands[playerId].cards.push({ ...card, id: `${playerId}-${hands[playerId].cards.length}-${dealtAt}` });
+  });
   const stage = STAGES.find(item => item.number === Number(stageNumber));
   const stageCharacters = (stage?.characters || [])
     .flatMap(line => line.split(/[、,]/))
