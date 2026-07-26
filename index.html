@@ -97,7 +97,7 @@
     position:relative;width:82px;height:122px;border-radius:10px;
     border:4px solid var(--card-color);background-color:#fff;background-position:center;background-size:cover;
     box-sizing:border-box;overflow:hidden;color:#27231f;
-    box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(255,255,255,.7);
+    box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(0,0,0,.62);
   }
   .my-card.playable{cursor:grab;touch-action:none;animation:cardPulse 1.05s ease-in-out infinite;animation-delay:var(--pulse-offset,0ms);}
   .my-card.drag-source{visibility:hidden;animation:none;}
@@ -138,6 +138,11 @@
   .card-mark svg{display:block;width:100%;height:100%;overflow:visible;}
   .card-name{position:absolute;left:7px;right:7px;bottom:4px;height:19px;background:var(--detail-color);clip-path:polygon(0 50%,10px 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,10px 100%);font:700 12px/19px system-ui,-apple-system,"Segoe UI",sans-serif;text-align:center;letter-spacing:.12em;z-index:3;}
   .card-name::before{content:'';position:absolute;inset:1px;background:var(--panel-fill);clip-path:polygon(0 50%,9px 0,calc(100% - 9px) 0,100% 50%,calc(100% - 9px) 100%,9px 100%);z-index:-1;}
+  .my-card.yellow-one .card-badge{background:#111;}
+  .my-card.yellow-one .card-badge::before{background:#111;}
+  .my-card.yellow-one .card-number{color:var(--card-color);}
+  .my-card.yellow-one .card-mark{height:18px;margin-top:-1px;}
+  .my-card.yellow-one .card-name{left:3px;right:3px;font-size:7px;letter-spacing:-.06em;white-space:nowrap;}
   @media (max-width:520px){.my-hand{gap:6px}.my-card{width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
@@ -442,6 +447,8 @@ const CARD_DECK = CARD_TYPES.flatMap(type =>
 function createCardElement(cardData){
   const card = document.createElement('div');
   card.className = `my-card card-${cardData.color}`;
+  const isYellowOne = cardData.color === 'yellow' && cardData.number === 1;
+  if (isYellowOne) card.classList.add('yellow-one');
   card.setAttribute('aria-label', `${cardData.name} ${cardData.number}`);
   if (cardData.id) card.dataset.cardId = cardData.id;
 
@@ -458,8 +465,8 @@ function createCardElement(cardData){
     const markSvg = {
       red: `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M1.5 10c2.3-4 5.1-6 8.5-6s6.2 2 8.5 6c-2.3 4-5.1 6-8.5 6s-6.2-2-8.5-6Z" fill="#9f2932"/><ellipse cx="10" cy="10" rx="1.8" ry="5" fill="#4d121a"/></svg>`,
       green: `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 11C7.7 8.3 8.1 4.6 10 1.5c1.9 3.1 2.3 6.8 0 9.5ZM9.5 11c-3.3 1.3-6.5-.2-8-3.2 3.5-.6 6.7.4 8 3.2ZM10.5 11c3.3 1.3 6.5-.2 8-3.2-3.5-.6-6.7.4-8 3.2Z" fill="currentColor"/></svg>`,
-      orange: `<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="currentColor"/><g stroke="#704321" stroke-width="1" opacity=".55"><path d="M5 5.2v9.6M7.5 3.2v13.6M10 2v16M12.5 3.2v13.6M15 5.2v9.6"/></g></svg>`,
-      yellow: `<svg viewBox="0 0 20 20" aria-hidden="true"><g transform="rotate(-28 10 10)"><ellipse cx="10" cy="11" rx="7" ry="4.2" fill="none" stroke="currentColor" stroke-width="2.8"/><path d="M4.1 9.1c1.4-1.5 3.5-2.3 5.9-2.3s4.5.8 5.9 2.3" fill="none" stroke="#fffdf3" stroke-width="1.2" opacity=".8"/><path d="m8.1 6.8.9-3h2l.9 3-1.9 1.4-1.9-1.4Z" fill="currentColor" stroke="currentColor" stroke-linejoin="round" stroke-width=".7"/></g></svg>`,
+      orange: `<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="currentColor"/><g stroke="#704321" stroke-width="1" opacity=".55"><path d="M5 5.2v9.6M7.5 3.2v13.6M10 2v16M12.5 3.2v13.6M15 5.2v9.6"/></g><circle cx="10" cy="10" r=".8" fill="#3f2818"/></svg>`,
+      yellow: `<svg viewBox="0 0 20 20" aria-hidden="true"><g transform="rotate(-28 10 8)"><ellipse cx="10" cy="8" rx="7" ry="4.2" fill="none" stroke="currentColor" stroke-width="2.8"/><path d="M4.1 6.1c1.4-1.5 3.5-2.3 5.9-2.3s4.5.8 5.9 2.3" fill="none" stroke="#fffdf3" stroke-width="1.2" opacity=".8"/></g>${isYellowOne ? '<path d="M10 13.1c.35 1.55 1.05 2.25 2.6 2.6-1.55.35-2.25 1.05-2.6 2.6-.35-1.55-1.05-2.25-2.6-2.6 1.55-.35 2.25-1.05 2.6-2.6Z" fill="currentColor"/>' : ''}</svg>`,
       gray: `<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m1 16 5.2-7 3.1 4.1L13 5l6 11H1Z" fill="currentColor"/><path d="m10.8 10 2.2-5 2.5 4.6-1.7-1-1.2 1.6Z" fill="#fff" opacity=".9"/></svg>`
     };
     mark.innerHTML = markSvg[cardData.color] || '';
@@ -469,7 +476,7 @@ function createCardElement(cardData){
 
   const name = document.createElement('span');
   name.className = 'card-name';
-  name.textContent = cardData.name;
+  name.textContent = isYellowOne ? 'このトリックに勝利してもよい' : cardData.name;
 
   // 左右とも数字とマークは同じ通常向きで表示する。
   card.append(createBadge('left'), createBadge('right'), name);
