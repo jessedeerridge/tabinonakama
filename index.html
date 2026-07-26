@@ -664,7 +664,7 @@ function createCharacterEffectRow(type, text){
   icon.className = 'character-effect-icon';
   icon.innerHTML = type === 'victory'
     ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 0c1.1 5.4 4.6 8.9 10 10-5.4 1.1-8.9 4.6-10 10C8.9 14.6 5.4 11.1 0 10 5.4 8.9 8.9 5.4 10 0Z"/></svg>'
-    : '<svg viewBox="0 0 20 20" aria-hidden="true"><g transform="rotate(-35 10 10)"><rect x="7" y="7" width="2" height="11"/><path d="M8 1 14 7 2 7Z"/></g></svg>';
+    : '<svg viewBox="0 0 20 20" aria-hidden="true"><g transform="rotate(35 10 10)"><rect x="7" y="7" width="2" height="11"/><path d="M3 7 8 2 16 7Z"/></g></svg>';
   const description = document.createElement('span');
   description.textContent = text;
   row.append(icon, description);
