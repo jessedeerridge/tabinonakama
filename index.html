@@ -1455,9 +1455,9 @@ function renderPlayerCircle(players){
     capturedTricks.forEach((capturedTrick, trickIndex) => {
       const bundle = document.createElement('div');
       bundle.className = 'capture-trick';
-      // 他プレイヤーの獲得が5つ以上なら、固定したキャラクターの右でサイドを1pxずつ見せて重ねる。
+      // 他プレイヤーの獲得が5つ以上なら、固定したキャラクターの右で25pxずつずらして重ねる。
       const compactCapturedTricks = !isMe && capturedTricks.length >= 5;
-      bundle.style.left = `${isMe ? trickIndex * 44 : compactCapturedTricks ? 35 + trickIndex : (trickIndex + 1) * 35}px`;
+      bundle.style.left = `${isMe ? trickIndex * 44 : compactCapturedTricks ? 35 + trickIndex * 25 : (trickIndex + 1) * 35}px`;
       if (!isMe) bundle.style.zIndex = String(trickIndex + 1);
       const cards = capturedTrick.cards || [];
       const yellows = cards.filter(card => card.color === 'yellow');
@@ -1473,6 +1473,7 @@ function renderPlayerCircle(players){
           : 0;
         const rotation = cardData.color === 'yellow' ? -2 + yellowIndex * 5 : -2;
         holder.style.left = cardData.color === 'yellow' ? `${yellowIndex * 4}px` : '0';
+        holder.style.top = cardData.color === 'yellow' ? `${yellowIndex * 28}px` : '0';
         holder.style.setProperty('--stack-rotate', `${rotation}deg`);
         holder.appendChild(createCardElement(cardData));
         const captureKey = `${p.id}:${trickIndex}`;
