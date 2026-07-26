@@ -29,7 +29,7 @@
     background-repeat:no-repeat;
   }
   main.prejoin{ background-image:url('tabinonakamaback.jpg'); }
-  main.joined{ background-image:url('maingazo.jpg'); }
+  main.joined{ background-image:url('tabibitomain.jpg'); }
 
   /* ★ 着席ポップ */
   .seat-pop{
@@ -1455,8 +1455,10 @@ function renderPlayerCircle(players){
     capturedTricks.forEach((capturedTrick, trickIndex) => {
       const bundle = document.createElement('div');
       bundle.className = 'capture-trick';
-      // 他プレイヤーはキャラクターの右隣から、38px幅のカードを3pxずつ重ねて並べる。
-      bundle.style.left = `${isMe ? trickIndex * 44 : (trickIndex + 1) * 35}px`;
+      // 他プレイヤーの獲得が4つ以上なら、固定したキャラクターの右でサイドを5pxずつ見せて重ねる。
+      const compactCapturedTricks = !isMe && capturedTricks.length >= 4;
+      bundle.style.left = `${isMe ? trickIndex * 44 : compactCapturedTricks ? 35 + trickIndex * 5 : (trickIndex + 1) * 35}px`;
+      if (!isMe) bundle.style.zIndex = String(trickIndex + 1);
       const cards = capturedTrick.cards || [];
       const yellows = cards.filter(card => card.color === 'yellow');
       const winner = cards.find(card => card.id === capturedTrick.winningCardId);
