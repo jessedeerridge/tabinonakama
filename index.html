@@ -1758,8 +1758,8 @@ function renderPlayerCircle(players){
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
     // 獲得カードは本人分もネームタグの左端を基準にし、カード列がタグの下へ入り込まないようにする。
-    const captureX = x + ((isMe ? -44 : -24) - tag.offsetWidth / 2) / circleSize * 100;
-    const captureY = isMe ? playY + 1 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
+    const captureX = x + ((isMe ? -64 : -24) - tag.offsetWidth / 2) / circleSize * 100;
+    const captureY = isMe ? playY + 6 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
