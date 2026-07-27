@@ -153,14 +153,15 @@
   .excluded-card-slot.gandalf-pick{pointer-events:auto;cursor:pointer;animation:excludedCardPulse 1.05s ease-in-out infinite;}
   @keyframes excludedCardPulse{50%{transform:rotate(var(--excluded-tilt,0deg)) scale(1.12)}}
   .lost-card-flight{position:fixed;z-index:1001;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
-  .yellow-one-decision{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:310;width:min(270px,calc(100vw - 32px));padding:10px 12px 25px;box-sizing:border-box;border-radius:13px;background:rgba(255,255,255,.96);box-shadow:0 18px 40px rgba(0,0,0,.35);text-align:center;}
+  .yellow-one-decision{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:310;width:min(230px,calc(100vw - 20px));padding:10px 6px 25px;box-sizing:border-box;border:1px solid #332a16;border-radius:13px;background:rgba(15,15,15,.97);color:#fff;box-shadow:0 18px 40px rgba(0,0,0,.42);text-align:center;}
   .yellow-one-decision.hidden{display:none;}
   .yellow-one-question{font-size:15px;font-weight:900;margin-bottom:8px;}
   .yellow-one-actions{display:flex;justify-content:center;gap:8px;}
   @property --hold-progress{syntax:'<number>';inherits:false;initial-value:0;}
   .hold-decision{position:relative;min-width:92px;overflow:hidden;user-select:none;touch-action:none;}
-  .hold-decision[data-yellow-decision="yes"]{background:#111;color:#fff;border-color:#111;}
-  .hold-decision::before{content:'';position:absolute;inset:0;background:#d3ad32;transform:scaleX(var(--hold-progress,0));transform-origin:left;z-index:0;}
+  .hold-decision[data-yellow-decision="yes"]{background:#d5a313;color:#111;border-color:#f1cf62;}
+  .hold-decision[data-yellow-decision="no"]{background:#161616;color:#fff;border-color:#b99126;}
+  .hold-decision::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,.24);transform:scaleX(var(--hold-progress,0));transform-origin:left;z-index:0;}
   .hold-decision>span{position:relative;z-index:1;}
   .yellow-one-note{position:absolute;right:10px;bottom:6px;font-size:10px;font-weight:700;}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
@@ -263,6 +264,8 @@
   .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
   .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;box-sizing:border-box;border:2px solid #10233f;border-radius:50%;background:transparent url('definitechara.jpg') center/cover no-repeat;z-index:5;pointer-events:none;}
   .character-choice.required-raised{transform:translateY(-5px);}
+  .character-choice.ring-required-pulse{animation:ringRequiredPulse 1.05s ease-in-out infinite;}
+  @keyframes ringRequiredPulse{50%{transform:translateY(-7px) scale(1.06)}}
   .character-card-slot{position:relative;flex:0 0 82px;width:82px;height:122px;visibility:hidden;pointer-events:none;}
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
@@ -1145,8 +1148,8 @@ yellowOneDecision.querySelectorAll('.hold-decision').forEach(button => {
     if (event.button !== undefined && event.button !== 0) return;
     event.preventDefault();
     button.setPointerCapture(event.pointerId);
-    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:3000, fill:'forwards' });
-    timer = setTimeout(() => { cancel(); decideYellowOne(button.dataset.yellowDecision === 'yes'); }, 3000);
+    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:2000, fill:'forwards' });
+    timer = setTimeout(() => { cancel(); decideYellowOne(button.dataset.yellowDecision === 'yes'); }, 2000);
   });
   button.addEventListener('pointerup', cancel);
   button.addEventListener('pointercancel', cancel);
@@ -1543,6 +1546,7 @@ function renderCharacterPicker(){
     // 選択できない場合も、フロドは暗くせず黄1との対応を見分けやすくする。
     choice.classList.toggle('forced-unavailable', unavailable && !hasYellowOne && character.name !== 'フロド');
     choice.dataset.characterName = character.name;
+    choice.classList.toggle('ring-required-pulse', hasYellowOne && character.name === 'フロド');
     const choiceCard = createCharacterCardElement(characterCardData(character, state.userId));
     choice.appendChild(choiceCard);
     if (character.required) {
