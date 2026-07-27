@@ -166,6 +166,17 @@
   .hold-decision::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,.24);transform:scaleX(var(--hold-progress,0));transform-origin:left;z-index:0;}
   .hold-decision>span{position:relative;z-index:1;}
   .yellow-one-note{position:absolute;right:10px;bottom:6px;font-size:10px;font-weight:700;}
+  .exchange-dialog{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:315;width:min(420px,calc(100vw - 24px));box-sizing:border-box;padding:16px 14px 30px;border:1px solid #bbb;border-radius:14px;background:#fff;color:#111;box-shadow:0 18px 40px rgba(0,0,0,.35);text-align:center;}
+  .exchange-dialog.hidden{display:none;}
+  .exchange-message{font-size:15px;font-weight:900;}
+  .exchange-targets{display:flex;justify-content:center;gap:8px;margin-top:12px;overflow-x:auto;}
+  .exchange-target{flex:0 0 auto;min-width:88px;background:#fff;color:#111;border-color:#777;}
+  .exchange-note{position:absolute;right:12px;bottom:8px;font-size:10px;font-weight:700;}
+  .my-hand.exchange-pickable{animation:none;}
+  .my-card.exchange-pick{cursor:pointer;touch-action:none;animation:exchangeCardPulse 1.05s ease-in-out infinite;}
+  @keyframes exchangeCardPulse{50%{transform:scale(1.07);filter:drop-shadow(0 0 7px #facc15)}}
+  .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:42px;height:42px;box-sizing:border-box;border:4px solid #facc15;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 4px rgba(250,204,21,.25);pointer-events:none;animation:exchangeHintPulse 1.05s ease-in-out infinite;z-index:40;}
+  @keyframes exchangeHintPulse{50%{transform:translate(-50%,-50%) scale(1.18);opacity:.65}}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
@@ -519,6 +530,12 @@
   <div class="yellow-one-note">＊長押しで決定。</div>
 </section>
 
+<section id="exchangeDialog" class="exchange-dialog hidden" aria-live="assertive">
+  <div id="exchangeMessage" class="exchange-message"></div>
+  <div id="exchangeTargets" class="exchange-targets"></div>
+  <div class="exchange-note">＊2秒クリックで決定。</div>
+</section>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
@@ -601,6 +618,9 @@ const excludedCardSlot = document.getElementById('excludedCardSlot');
 const characterPicker = document.getElementById('characterPicker');
 const characterPickerRow = document.getElementById('characterPickerRow');
 const yellowOneDecision = document.getElementById('yellowOneDecision');
+const exchangeDialog = document.getElementById('exchangeDialog');
+const exchangeMessage = document.getElementById('exchangeMessage');
+const exchangeTargets = document.getElementById('exchangeTargets');
 
 const STAGES = Array.from({ length: 17 }, (_, index) => ({
   number: index + 1,
@@ -1020,6 +1040,38 @@ function renderStageInformation(){
   winningconditionGoal.append(goal);
 }
 
+function exchangeCandidates(game, sourceId){
+  const characterName = game?.characterSelections?.[sourceId]?.name;
+  const allowedNames = characterName === 'ガンダルフ'
+    ? ['フロド']
+    : characterName === 'ピピン' ? ['フロド', 'サム', 'メリー'] : [];
+  return (game?.playerOrder || []).filter(playerId => playerId !== sourceId
+    && allowedNames.includes(game.characterSelections?.[playerId]?.name));
+}
+
+function beginNextExchange(game){
+  game.exchangeQueue ||= (game.playerOrder || [])
+    .filter(playerId => ['ガンダルフ', 'ピピン'].includes(game.characterSelections?.[playerId]?.name));
+  while (game.exchangeQueue.length) {
+    const sourceId = game.exchangeQueue.shift();
+    const candidates = exchangeCandidates(game, sourceId);
+    if (!candidates.length) continue;
+    game.pendingExchange = {
+      sourceId, candidates,
+      targetId:candidates.length === 1 ? candidates[0] : null,
+      selections:{}, requestedAt:Date.now()
+    };
+    game.phase = candidates.length === 1 ? 'exchange-card-selection' : 'exchange-target-selection';
+    game.turnPlayerId = null;
+    return;
+  }
+  delete game.exchangeQueue;
+  delete game.pendingExchange;
+  game.phase = 'playing';
+  game.turnPlayerId = game.startingPlayerId || game.playerOrder?.[0] || null;
+  delete game.startingPlayerId;
+}
+
 async function takeExcludedCardAsGandalf(){
   if (!state.roomCode || state.game?.phase !== 'gandalf-selection' || state.game?.gandalfPlayerId !== state.userId) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
@@ -1031,9 +1083,8 @@ async function takeExcludedCardAsGandalf(){
     room.hands[state.userId].cards.push(game.excludedCard);
     game.lostCardTransfer = { cardId:game.excludedCard.id, playerId:state.userId, movedAt:Date.now() };
     delete game.excludedCard;
-    game.phase = 'playing';
-    game.turnPlayerId = game.startingPlayerId || game.playerOrder?.[0] || null;
-    delete game.startingPlayerId;
+    // ロストカード取得など、交換以外の効果をすべて終えてから交換を始める。
+    beginNextExchange(game);
     return room;
   });
 }
@@ -1101,6 +1152,7 @@ function subscribeRoom(){
     renderHands();
     renderStageInformation();
     renderYellowOneDecision();
+    renderExchangeDialog();
     const transfer = state.game?.lostCardTransfer;
     if (transfer?.movedAt && transfer.movedAt !== previousTransferAt && excludedSourceRect) {
       requestAnimationFrame(() => {
@@ -1110,6 +1162,99 @@ function subscribeRoom(){
     }
     scheduleTrickClear();
     syncSeatUI();
+  });
+}
+
+function playerName(playerId){
+  return latestPlayers.find(player => player.id === playerId)?.name
+    || Object.values(state.room?.tables || {}).find(player => player?.playerId === playerId)?.playerName
+    || 'プレイヤー';
+}
+
+function attachTwoSecondHold(button, action){
+  let timer = null;
+  let animation = null;
+  const cancel = () => {
+    clearTimeout(timer); timer = null;
+    animation?.cancel(); animation = null;
+    button.style.setProperty('--hold-progress', 0);
+  };
+  button.addEventListener('click', event => event.preventDefault());
+  button.addEventListener('pointerdown', event => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    button.setPointerCapture(event.pointerId);
+    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:2000, fill:'forwards' });
+    timer = setTimeout(() => { cancel(); action(); }, 2000);
+  });
+  button.addEventListener('pointerup', cancel);
+  button.addEventListener('pointercancel', cancel);
+  button.addEventListener('lostpointercapture', cancel);
+}
+
+function renderExchangeDialog(){
+  const exchange = state.game?.pendingExchange;
+  const choosingTarget = state.game?.phase === 'exchange-target-selection' && exchange?.sourceId === state.userId;
+  const choosingCard = state.game?.phase === 'exchange-card-selection'
+    && exchange && !exchange.selections?.[state.userId]
+    && (exchange.sourceId === state.userId || exchange.targetId === state.userId);
+  exchangeDialog.classList.toggle('hidden', !choosingTarget && !choosingCard);
+  exchangeTargets.replaceChildren();
+  if (choosingTarget) {
+    exchangeMessage.textContent = '交換するプレイヤーを選んでください。';
+    exchangeDialog.querySelector('.exchange-note').classList.remove('hidden');
+    exchange.candidates.forEach(playerId => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn hold-decision exchange-target';
+      button.innerHTML = `<span></span>`;
+      button.firstElementChild.textContent = playerName(playerId);
+      attachTwoSecondHold(button, () => chooseExchangeTarget(playerId));
+      exchangeTargets.appendChild(button);
+    });
+  } else if (choosingCard) {
+    const otherId = exchange.sourceId === state.userId ? exchange.targetId : exchange.sourceId;
+    exchangeMessage.textContent = `${playerName(otherId)}にあげるカードを選んでください。`;
+    exchangeDialog.querySelector('.exchange-note').classList.add('hidden');
+  }
+}
+
+async function chooseExchangeTarget(targetId){
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    const exchange = game?.pendingExchange;
+    if (game?.phase !== 'exchange-target-selection' || exchange?.sourceId !== state.userId
+      || !exchange.candidates?.includes(targetId)) return;
+    exchange.targetId = targetId;
+    game.phase = 'exchange-card-selection';
+    return game;
+  });
+}
+
+async function chooseExchangeCard(cardId){
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const game = room?.game;
+    const exchange = game?.pendingExchange;
+    if (game?.phase !== 'exchange-card-selection' || !exchange?.targetId
+      || (exchange.sourceId !== state.userId && exchange.targetId !== state.userId)
+      || exchange.selections?.[state.userId]) return;
+    const card = (room.hands?.[state.userId]?.cards || []).find(item => item.id === cardId);
+    if (!card || card.kind === 'character' || (card.color === 'yellow' && card.number === 1)) return;
+    exchange.selections ||= {};
+    exchange.selections[state.userId] = cardId;
+    const sourceCardId = exchange.selections[exchange.sourceId];
+    const targetCardId = exchange.selections[exchange.targetId];
+    if (!sourceCardId || !targetCardId) return room;
+    const sourceCards = room.hands[exchange.sourceId].cards;
+    const targetCards = room.hands[exchange.targetId].cards;
+    const sourceIndex = sourceCards.findIndex(item => item.id === sourceCardId);
+    const targetIndex = targetCards.findIndex(item => item.id === targetCardId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    [sourceCards[sourceIndex], targetCards[targetIndex]] = [targetCards[targetIndex], sourceCards[sourceIndex]];
+    delete game.pendingExchange;
+    beginNextExchange(game);
+    return room;
   });
 }
 
@@ -1213,7 +1358,7 @@ function subscribeHands(){
 
 function renderMyHand(){
   myHandEl.innerHTML = '';
-  myHandEl.classList.remove('has-playable-cards', 'overlapping-cards');
+  myHandEl.classList.remove('has-playable-cards', 'overlapping-cards', 'exchange-pickable');
   myHandEl.style.removeProperty('--hand-columns');
   const myId = state.userId;
   const handData = state.hands[myId];
@@ -1236,6 +1381,10 @@ function renderMyHand(){
   myHandEl.append(upperRow, lowerRow);
 
   let hasPlayableCards = false;
+  const exchange = state.game?.pendingExchange;
+  const canChooseExchangeCard = state.game?.phase === 'exchange-card-selection'
+    && exchange && !exchange.selections?.[myId]
+    && (exchange.sourceId === myId || exchange.targetId === myId);
   const colorOrder = { red: 0, green: 1, orange: 2, gray: 3, yellow: 4 };
   const displayedCards = handData.cards.map((cardData, cardIndex) => ({
     // 古いルームに残っている数字カードも表示を壊さない。
@@ -1272,10 +1421,17 @@ function renderMyHand(){
       card.classList.add('playable');
       card.addEventListener('pointerdown', event => beginCardDrag(event, normalized, cardIndex, card));
     }
+    const canExchange = canChooseExchangeCard && normalized.kind !== 'character'
+      && !(normalized.color === 'yellow' && normalized.number === 1);
+    if (canExchange) {
+      card.classList.add('exchange-pick');
+      card.addEventListener('click', () => chooseExchangeCard(normalized.id));
+    }
     const cardRow = normalized.kind === 'character' || displayedNumberIndex <= 6 ? upperRow : lowerRow;
     cardRow.appendChild(card);
   });
   myHandEl.classList.toggle('has-playable-cards', hasPlayableCards);
+  myHandEl.classList.toggle('exchange-pickable', canChooseExchangeCard);
 }
 
 function canFollowSuit(card){
@@ -1503,8 +1659,9 @@ async function chooseCharacter(characterName, source){
         room.game.startingPlayerId = room.game.turnPlayerId || room.game.playerOrder[0];
         room.game.turnPlayerId = null;
       } else {
-        room.game.phase = 'playing';
-        room.game.turnPlayerId ||= room.game.playerOrder[0];
+        room.game.startingPlayerId = room.game.turnPlayerId || room.game.playerOrder[0];
+        room.game.turnPlayerId = null;
+        beginNextExchange(room.game);
       }
     }
     return room;
@@ -1927,6 +2084,16 @@ function renderPlayerCircle(players){
       });
 
       tag.appendChild(miniHand);
+    }
+
+    const exchangeHintVisible = p.id !== state.userId
+      && ['exchange-target-selection', 'exchange-card-selection'].includes(state.game?.phase)
+      && Boolean(state.game?.pendingExchange);
+    if (exchangeHintVisible) {
+      const hint = document.createElement('div');
+      hint.className = 'exchange-hand-hint';
+      hint.setAttribute('aria-hidden', 'true');
+      tag.appendChild(hint);
     }
 
     playerCircle.appendChild(tag);
