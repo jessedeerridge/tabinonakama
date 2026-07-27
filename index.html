@@ -133,9 +133,17 @@
   .capture-trick{position:absolute;top:0;width:38px;height:56px;}
   .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
   .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
-  .threat-card{--card-color:#171717;--detail-color:#171717;--panel-fill:#eee9dc;background:#302f2c url('shadow.jpg') center/cover no-repeat;filter:grayscale(1);}
-  .threat-card::after{content:'';position:absolute;inset:3px;border:1px solid rgba(255,255,255,.68);border-radius:6px;pointer-events:none;}
-  .threat-card .card-name{color:#111;letter-spacing:0;font-size:9px;}
+  /* 脅威カードは、画像を見せながら左端の黒い矢印欄だけに情報を置く。 */
+  .threat-card{--card-color:#4a2f20;--detail-color:#050505;background:#302f2c url('kyoi.jpg') center/cover no-repeat;}
+  .threat-card::after{content:'';position:absolute;inset:2px;border:1px solid rgba(255,244,220,.72);border-radius:6px;pointer-events:none;}
+  .threat-card .card-badge{top:5px;left:0;width:31px;height:23px;padding-right:6px;box-sizing:border-box;background:#050505;clip-path:polygon(0 0,72% 0,100% 50%,72% 100%,0 100%);display:grid;place-items:center;text-align:center;}
+  .threat-card .card-badge::before{display:none;}
+  .threat-card .card-badge.right{display:none;}
+  .threat-card .card-number{padding:0;color:#fff;font-size:16px;line-height:23px;}
+  .threat-card .card-mark{display:none;}
+  .threat-card .card-name{left:0;right:auto;bottom:5px;width:66px;height:19px;padding-right:9px;box-sizing:border-box;background:#050505;color:#fff;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);font-size:9px;line-height:19px;letter-spacing:0;white-space:nowrap;}
+  .threat-card .card-name::before{display:none;}
+  .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   .victory-condition-icon{width:15px;height:15px;border:0;border-radius:2px;background:#111;color:#fff;box-sizing:border-box;display:grid;place-items:center;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;}
   .victory-condition-icon.ring{background:#f2c94c;color:#111;}
