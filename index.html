@@ -947,6 +947,31 @@ function generateRoomCode(length = 5){
   return code;
 }
 
+// プレイヤーIDは手札だけでなく、ゲーム中のあらゆる保留状態にも使われる。
+// 再入室・席奪取時は部屋全体のキーと値を一括で置換し、進行状態を欠落させない。
+function replacePlayerId(value, previousId, nextId){
+  if (value === previousId) return nextId;
+  if (Array.isArray(value)) return value.map(item => replacePlayerId(item, previousId, nextId));
+  if (!value || typeof value !== 'object') return value;
+
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+    key === previousId ? nextId : key,
+    replacePlayerId(item, previousId, nextId)
+  ]));
+}
+
+function inheritPlayerState(room, previousId, nextId, playerName){
+  if (!room || !previousId || previousId === nextId) return room;
+  const inherited = replacePlayerId(room, previousId, nextId);
+  inherited.users ||= {};
+  inherited.users[nextId] = {
+    ...(inherited.users[nextId] || {}),
+    name: playerName,
+    joinedAt: Date.now()
+  };
+  return inherited;
+}
+
 async function restoreSeatFromDB(){
   if (!state.roomCode) return;
   const tablesRef = ref(db, `rooms/${state.roomCode}/tables`);
@@ -2020,21 +2045,27 @@ async function enterRoom(roomCode, userName){
   state.userName = userName;
   state.roomCode = roomCode;
 
-  await set(ref(db, `rooms/${state.roomCode}/users/${state.userId}`), {
-    name: state.userName,
-    joinedAt: Date.now()
-  });
-
   const roomRef = ref(db, `rooms/${state.roomCode}`);
-  const roomSnap = await get(roomRef);
-  const roomData = roomSnap.val();
+  const joinedAt = Date.now();
+  const joinResult = await runTransaction(roomRef, room => {
+    if (!room) room = { createdAt:joinedAt };
 
-  if(!roomData || !roomData.hostId){
-    await update(roomRef, { hostId: state.userId });
-    state.isHost = true;
-  } else {
-    state.isHost = (roomData.hostId === state.userId);
-  }
+    // 同名の着席者がいる場合は再入室として扱う。IDを部屋全体で移し替えることで、
+    // キャラクター、全手札、場札、獲得札、交換・譲渡などの保留状態、ホスト権限を引き継ぐ。
+    const previousSeat = Object.values(room.tables || {}).find(table =>
+      table?.playerId !== state.userId && table?.playerName === state.userName
+    );
+    if (previousSeat?.playerId) {
+      room = inheritPlayerState(room, previousSeat.playerId, state.userId, state.userName);
+    }
+
+    room.users ||= {};
+    room.users[state.userId] = { name:state.userName, joinedAt };
+    if (!room.hostId) room.hostId = state.userId;
+    return room;
+  });
+  const roomData = joinResult.snapshot.val() || {};
+  state.isHost = (roomData.hostId === state.userId);
 
   updateHostUI();
 
@@ -2450,15 +2481,17 @@ btnKickYes.addEventListener('click', async (e) => {
 
   const seatIndex = pendingSeatIndexToSteal;
   const roomRef = ref(db, `rooms/${state.roomCode}`);
-  const roomSnap = await get(roomRef);
-  const roomData = roomSnap.val() || {};
-
-  const tRef = ref(db, `rooms/${state.roomCode}/tables/${seatIndex}`);
-  await set(tRef, { playerId: state.userId, playerName: state.userName || '名無し' });
-
-  if (roomData.hostId && pendingSeatPlayerIdToSteal && roomData.hostId === pendingSeatPlayerIdToSteal) {
-    await update(roomRef, { hostId: state.userId });
-  }
+  const previousId = pendingSeatPlayerIdToSteal;
+  await runTransaction(roomRef, room => {
+    if (!room || !previousId) return;
+    const occupiedSeat = room.tables?.[seatIndex];
+    // 確認中に席が入れ替わっていた場合、別プレイヤーの状態を誤って奪わない。
+    if (occupiedSeat?.playerId !== previousId) return;
+    room = inheritPlayerState(room, previousId, state.userId, state.userName || '名無し');
+    room.tables ||= {};
+    room.tables[seatIndex] = { playerId:state.userId, playerName:state.userName || '名無し' };
+    return room;
+  });
 
   state.seatedTable = seatIndex;
 
