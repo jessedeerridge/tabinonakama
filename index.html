@@ -338,7 +338,7 @@
   }
   .help-pop-backdrop.hidden{display:none;}
   .help-pop{
-    width:min(520px, calc(100% - 0px));
+    width:min(550px, calc(100% - 0px));
     max-height:min(64vh, 600px);
     background:#fff;border:1px solid #ddd;border-radius:16px;
     box-shadow:0 18px 40px rgba(0,0,0,.35);
@@ -351,11 +351,11 @@
   .help-pop-title{font-weight:800;font-size:14px;}
   .help-pop-body{padding:12px;overflow:auto;max-height:calc(64vh - 48px);}
   .card-list-row{display:flex;justify-content:center;gap:5px;margin:0 0 2px;}
-  .card-list-item{position:relative;width:54px;height:81px;flex:0 0 54px;opacity:.2;}
+  .card-list-item{position:relative;width:58px;height:87px;flex:0 0 58px;opacity:.2;}
   .card-list-item.played{opacity:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));}
-  .card-list-item>.my-card{position:absolute;left:0;top:0;transform:scale(.66);transform-origin:top left;pointer-events:none;}
-  /* 画面幅が狭くても、場のプレイカードと同じ .66 倍の表示倍率は変えない。 */
-  @media (max-width:520px){.card-list-row{justify-content:flex-start;gap:3px}.card-list-item{width:45px;height:69px;flex-basis:45px}}
+  .card-list-item>.my-card{position:absolute;left:0;top:0;transform:scale(.71);transform-origin:top left;pointer-events:none;}
+  /* 画面幅が狭くても倍率は維持し、カード本体のモバイル幅にだけ枠を合わせる。 */
+  @media (max-width:520px){.card-list-row{justify-content:flex-start;gap:3px}.card-list-item{width:49px;height:74px;flex-basis:49px}}
   .role-row{
     display:flex;gap:12px;align-items:flex-start;
     padding:10px 0;
