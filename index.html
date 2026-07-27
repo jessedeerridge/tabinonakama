@@ -123,6 +123,8 @@
   .played-card-slot.gathered{animation:none;transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt));}
   @keyframes gatherCard{from{transform:translate(0,0) rotate(var(--tilt))}to{transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt))}}
   .capture-circle{position:absolute;width:38px;height:56px;transform:translate(-50%,-50%);z-index:3;}
+  /* 自分の獲得カードはネームタグではなく、盤面を基準にした定位置へ固定する。 */
+  .capture-circle.mine{left:calc(50% - 210px);top:92%;}
   .capture-trick{position:absolute;top:0;width:38px;height:56px;}
   .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
   .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
@@ -2331,7 +2333,7 @@ function renderPlayerCircle(players){
     playerCircle.appendChild(play);
 
     const capture = document.createElement('div');
-    capture.className = 'capture-circle';
+    capture.className = `capture-circle${isMe ? ' mine' : ''}`;
     capture.dataset.playerId = p.id;
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const circleSize = Math.max(1, playerCircle.clientWidth);
@@ -2339,8 +2341,11 @@ function renderPlayerCircle(players){
     // 自分の獲得カードはネームタグの寸法や移動に影響されない、盤面基準の定位置に置く。
     const captureX = isMe ? 50 - 210 / circleSize * 100 : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
     const captureY = isMe ? 92 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
-    capture.style.left = `${captureX}%`;
-    capture.style.top = `${captureY}%`;
+    // 自分の位置は CSS の盤面固定値を使い、ネームタグ位置の変更から切り離す。
+    if (!isMe) {
+      capture.style.left = `${captureX}%`;
+      capture.style.top = `${captureY}%`;
+    }
     const oldCount = renderedCaptureCounts.get(p.id);
     // 他プレイヤーの公開キャラクターを獲得カード列の先頭に置く。
     if (!isMe) {
@@ -2380,7 +2385,7 @@ function renderPlayerCircle(players){
           : 0;
         const rotation = cardData.color === 'yellow' ? -2 + yellowIndex * 5 : -2;
         holder.style.left = cardData.color === 'yellow' ? `${yellowIndex * 4}px` : '0';
-        holder.style.top = cardData.color === 'yellow' ? `${yellowIndex * 14}px` : '0';
+        holder.style.top = cardData.color === 'yellow' ? `${yellowIndex * 10}px` : '0';
         holder.style.setProperty('--stack-rotate', `${rotation}deg`);
         holder.appendChild(createCardElement(cardData));
         const captureKey = `${p.id}:${trickIndex}`;
