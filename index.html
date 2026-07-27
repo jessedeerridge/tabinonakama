@@ -2706,8 +2706,12 @@ function renderPlayerCircle(players){
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
-    // 自分の獲得カードはネームタグの寸法や移動に影響されない、盤面基準の定位置に置く。
-    const captureX = isMe ? 50 - 210 / circleSize * 100 : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
+    // 自分の獲得カードは端末ごとの盤面幅に左右されず、画面左端から8pxの位置に置く。
+    // capture-circle は中央基準（translateX(-50%)）なので、半幅を加えた座標を盤面内の割合へ変換する。
+    const circleRect = playerCircle.getBoundingClientRect();
+    const captureX = isMe
+      ? (8 + 38 / 2 - circleRect.left) / circleSize * 100
+      : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
     const captureY = isMe ? 92 + 40 / circleHeight * 100 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
