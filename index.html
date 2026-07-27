@@ -71,7 +71,7 @@
     border:1px solid #ddd;font-size:12px;white-space:nowrap;
   }
   .player-tag.me{ background:#111;color:#fff;border-color:#111; }
-  .player-tag.me{margin-top:46px;}
+  .player-tag.me{margin-top:64px;}
 
   /* 他プレイヤーのミニカード（ネームタグの下に扇状） */
   .player-tag .mini-hand{
@@ -97,7 +97,7 @@
   /* カード自体の82:122比率を保ったまま、手札全体だけを画面幅に合わせて縮小する。 */
   .hand-row>.my-card,.hand-row>.character-card-slot{zoom:var(--hand-card-scale);}
   .hand-row>.my-card{flex:0 0 82px;}
-  .hand-row-upper{position:relative;top:30px;z-index:1;}
+  .hand-row-upper{position:relative;top:46px;z-index:1;}
   .hand-row-lower{position:relative;z-index:2;}
   .hand-row:empty{display:none;}
   /* 実際の占有幅を詰めるため、下段の末尾にも余分な空白が残らない。 */
@@ -281,7 +281,7 @@
   .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
   .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
   .character-picker-row.two-rows{display:grid;grid-template-columns:repeat(var(--choice-columns),minmax(0,104px));justify-content:center;row-gap:clamp(8px,2vh,14px);}
-  .character-choice{position:relative;flex:0 1 104px;width:min(104px,calc((100vw - 54px)/4));aspect-ratio:82/122;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transition:transform .15s ease;}
+  .character-choice{position:relative;flex:0 0 auto;width:min(104px,calc((100vw - 54px)/4));aspect-ratio:82/122;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transition:transform .15s ease;}
   .character-picker-row.two-rows .character-choice{width:100%;}
   .character-choice:not(:disabled):hover{transform:translateY(-5px);}
   .character-choice.forced-unavailable{filter:brightness(.55) saturate(.7);}
@@ -293,6 +293,7 @@
   .character-choice.ring-required-pulse{animation:ringRequiredPulse 1.05s ease-in-out infinite;}
   @keyframes ringRequiredPulse{50%{transform:translateY(-7px) scale(1.06)}}
   .character-card-slot{position:relative;flex:0 0 82px;width:82px;height:122px;visibility:hidden;pointer-events:none;}
+  .hand-row>.character-card{width:82px;height:122px;flex:0 0 82px;}
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
   .character-flight>.my-card{position:absolute;left:0;top:0;transform:scale(var(--flight-scale));transform-origin:top left;}
@@ -1979,8 +1980,10 @@ function renderCharacterPicker(){
     }
     choice.addEventListener('click', event => { event.stopPropagation(); chooseCharacter(character.name, choice); });
     characterPickerRow.appendChild(choice);
-    choice.style.setProperty('--choice-scale', choice.getBoundingClientRect().width / 82);
   });
+  // 全候補を配置して各ボタンの幅が確定してから一括計算する。追加途中で測ると、
+  // Flexboxの再配分前後で左右のカードに異なる倍率が残ってしまう。
+  updateCharacterChoiceScales();
 }
 
 function updateCharacterChoiceScales(){
