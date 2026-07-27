@@ -2573,11 +2573,11 @@ function renderPlayerCircle(players){
       angle, isMe,
       x: 50 + radius * Math.cos(angle),
       y: 50 + radius * Math.sin(angle) - otherPlayerLift + playerDrop,
-      // 他プレイヤーのプレイ位置は12時席と同じく、ネーム直下の手札側へ揃える。
+      // 他プレイヤーのプレイ位置は、扇状の手札の中央より少し下へ揃える。
       playX: isMe ? 50 + 30 * Math.cos(angle) : 50 + radius * Math.cos(angle),
       playY: isMe
         ? 50 + 30 * Math.sin(angle)
-        : 50 + radius * Math.sin(angle) - otherPlayerLift + playerDrop + radius - 17
+        : 50 + radius * Math.sin(angle) - otherPlayerLift + playerDrop + 45 / circleHeight * 100
     };
   };
   const winnerIndex = players.findIndex(p => p.id === state.game?.pendingCapture?.winnerId);
