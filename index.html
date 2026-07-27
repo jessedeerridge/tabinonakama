@@ -2067,7 +2067,27 @@ function renderHands(){
   if (latestPlayers.length) renderPlayerCircle(latestPlayers);
 }
 
-function characterCardData(character, playerId){
+function exchangeEffectText(character, availableCharacters){
+  const exchangeTargetCodes = {
+    pippin:['frodo', 'sam', 'merry'],
+    sam:['frodo', 'merry', 'pippin'],
+    merry:['frodo', 'sam', 'pippin']
+  };
+  const sourceCode = character.code
+    || Object.entries(CHARACTER_NAMES).find(([, name]) => name === character.name)?.[0];
+  const allowedCodes = exchangeTargetCodes[sourceCode];
+  if (!allowedCodes) return null;
+  const targetNames = (availableCharacters || [])
+    .map(candidate => candidate.code
+      || Object.entries(CHARACTER_NAMES).find(([, name]) => name === candidate.name)?.[0])
+    .filter(code => allowedCodes.includes(code))
+    .map(code => CHARACTER_NAMES[code]);
+  if (!targetNames.length) return '交換相手はいない。';
+  if (targetNames.length === 1) return `${targetNames[0]}と交換する。`;
+  return `${targetNames.join('/')}の誰かと交換する。`;
+}
+
+function characterCardData(character, playerId, availableCharacters = state.game?.availableCharacters){
   const characterDetails = {
     'フロド': {
       specialName:'指輪所持者',
@@ -2077,17 +2097,17 @@ function characterCardData(character, playerId){
     'ピピン': {
       specialName:'愚か者',
       victory:'トリック獲得数が最少（最少同数でもよい）。',
-      effect:'フロドかサムかメリーに手札を1枚渡し、1枚もらう。'
+      effect:''
     },
     'サム': {
       specialName:'庭師',
       victory:'引いた脅威カードと同じランクの丘カードを勝ち取る。',
-      effect:'脅威カードを1枚引く。\nフロドかメリーかピピンに手札を1枚渡し、1枚もらう。'
+      effect:'脅威カードを1枚引く。'
     },
     'メリー': {
       specialName:'勇敢な心',
       victory:'1か2トリック獲得。',
-      effect:'フロドかサムまたはピピンと交換する。'
+      effect:''
     },
     'ガンダルフ': {
       specialName:'灰色の魔法使い',
@@ -2101,11 +2121,13 @@ function characterCardData(character, playerId){
     }
   };
   const details = characterDetails[character.name] || {};
+  const exchangeEffect = exchangeEffectText(character, availableCharacters);
+  const effect = [details.effect, exchangeEffect].filter(Boolean).join('\n');
   return {
     kind:'character', name:character.name, required:character.required === true,
     specialName:details.specialName || '特殊名',
     victory:details.victory || '',
-    effect:details.effect || '特殊説明',
+    effect:effect || '特殊説明',
     id:`${playerId}-character-${character.name}`
   };
 }
@@ -2172,9 +2194,9 @@ async function chooseCharacter(characterName, source){
     room.hands ||= {};
     room.hands[state.userId] ||= { cards:[] };
     room.hands[state.userId].cards ||= [];
-    room.hands[state.userId].cards.unshift(characterCardData(character, state.userId));
+    room.hands[state.userId].cards.unshift(characterCardData(character, state.userId, room.game.availableCharacters));
     room.game.characterSelections[state.userId] = { ...character, selectedAt:Date.now() };
-    const selectedCard = characterCardData(character, state.userId);
+    const selectedCard = characterCardData(character, state.userId, room.game.availableCharacters);
     if (selectedCard.effect.includes('脅威カードを1枚引く')) {
       const stage = STAGES.find(item => item.number === Number(room.game.stageNumber));
       const threat = stage?.threats?.[0];
@@ -2961,7 +2983,7 @@ async function dealInitialHands(stageNumber){
     .filter(name => name && name !== 'xxx')
     .map(label => {
       const code = label.replace(/\*+$/, '');
-      return { name: CHARACTER_NAMES[code] || code, required: /\*+$/.test(label) };
+      return { code, name: CHARACTER_NAMES[code] || code, required: /\*+$/.test(label) };
     });
   await update(ref(db, `rooms/${state.roomCode}`), {
     hands,
