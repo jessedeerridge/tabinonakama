@@ -139,7 +139,7 @@
   .character-card-unit{position:relative;flex:0 0 82px;width:82px;height:122px;}
   .character-card-unit>.character-card{width:82px;height:122px;}
   .character-card-unit>.victory-condition-icon{position:absolute;left:50%;top:var(--victory-icon-top,127px);transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
-  .character-capture>.victory-condition-icon{position:absolute;left:12px;top:61px;z-index:2;}
+  .character-capture>.victory-condition-icon{position:absolute;left:50%;top:61px;z-index:2;transform:translateX(-50%);}
   @keyframes captureArrive{from{transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .stage-dialog{position:fixed;inset:0;z-index:320;display:grid;place-items:center;background:rgba(0,0,0,.38);}
