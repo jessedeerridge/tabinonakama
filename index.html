@@ -71,7 +71,7 @@
     border:1px solid #ddd;font-size:12px;white-space:nowrap;
   }
   .player-tag.me{ background:#111;color:#fff;border-color:#111; }
-  .player-tag.me{margin-top:12px;}
+  .player-tag.me{margin-top:17px;}
 
   /* 他プレイヤーのミニカード（ネームタグの下に扇状） */
   .player-tag .mini-hand{
@@ -94,6 +94,7 @@
   /* 手札が1段になっても中央寄せされるゲーム盤全体の高さを変えず、プレイヤーサークルを固定する。 */
   .my-hand{display:flex;width:calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px);height:254px;box-sizing:border-box;flex-direction:column;align-items:center;gap:10px;margin:6px auto 0;padding:0 12px;}
   .hand-row{display:flex;justify-content:center;gap:10px;min-height:122px;}
+  .hand-row-upper{position:relative;top:5px;}
   .hand-row:empty{display:none;}
   /* 実際の占有幅を詰めるため、下段の末尾にも余分な空白が残らない。 */
   .my-hand.overlapping-cards .hand-row>.my-card:not(.character-card)+.my-card:not(.character-card){margin-left:-13px;z-index:calc(2 + var(--card-stack-index,0));}
@@ -2339,7 +2340,7 @@ function renderPlayerCircle(players){
     const circleHeight = Math.max(1, playerCircle.clientHeight);
     // 自分の獲得カードはネームタグの寸法や移動に影響されない、盤面基準の定位置に置く。
     const captureX = isMe ? 50 - 210 / circleSize * 100 : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
-    const captureY = isMe ? 92 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
+    const captureY = isMe ? 92 + 6 / circleHeight * 100 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
