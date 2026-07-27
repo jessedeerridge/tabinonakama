@@ -92,8 +92,8 @@
   .my-hand-wrapper{margin-top:23px;text-align:center;}
   .my-hand-title{display:none;}
   /* 手札が1段になっても中央寄せされるゲーム盤全体の高さを変えず、プレイヤーサークルを固定する。 */
-  .my-hand{display:flex;width:calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px);height:254px;box-sizing:border-box;flex-direction:column;align-items:center;gap:10px;margin:6px auto 0;padding:0 12px;}
-  .hand-row{display:flex;justify-content:center;gap:10px;min-height:122px;}
+  .my-hand{--hand-card-scale:1;display:flex;width:max-content;max-width:none;height:254px;box-sizing:border-box;flex-direction:column;align-items:center;gap:10px;margin:6px auto 0;padding:0 12px;zoom:var(--hand-card-scale);}
+  .hand-row{display:flex;width:max-content;justify-content:center;gap:10px;min-height:122px;}
   .hand-row-upper{position:relative;top:10px;z-index:1;}
   .hand-row-lower{position:relative;z-index:2;}
   .hand-row:empty{display:none;}
@@ -144,6 +144,7 @@
     width:calc(100vw - 32px);display:flex;align-items:center;justify-content:space-between;
     z-index:2;pointer-events:none;
   }
+  .center-lower-card-area:not(.hidden){transform:translate(-50%,calc(-50% - 4px));}
   .center-lower-card{
     position:relative;box-sizing:border-box;border:0;border-radius:10px;overflow:hidden;
     background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;flex:0 0 auto;
@@ -276,9 +277,9 @@
   .character-picker.hidden{display:none;}
   .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
   .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
-  .character-picker-row.two-rows{display:grid;grid-template-columns:repeat(var(--choice-columns),minmax(0,104px));justify-content:center;row-gap:clamp(8px,2vh,14px);}
+  .character-picker-row.two-rows{display:grid;grid-template-columns:repeat(var(--choice-columns),minmax(0,1fr));justify-content:center;row-gap:clamp(8px,2vh,14px);}
   .character-choice{position:relative;flex:0 1 104px;width:min(104px,calc((100vw - 54px)/4));aspect-ratio:82/122;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transition:transform .15s ease;}
-  .character-picker-row.two-rows .character-choice{width:100%;}
+  .character-picker-row.two-rows .character-choice{width:100%;max-width:104px;justify-self:center;}
   .character-choice:not(:disabled):hover{transform:translateY(-5px);}
   .character-choice.forced-unavailable{filter:brightness(.55) saturate(.7);}
   .character-choice.chosen-placeholder{visibility:hidden;pointer-events:none;}
@@ -292,7 +293,7 @@
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
   .character-flight>.my-card{position:absolute;left:0;top:0;transform:scale(var(--flight-scale));transform-origin:top left;}
-  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);height:214px;gap:6px}.hand-row{gap:6px;min-height:104px}.my-hand.overlapping-cards .hand-row>.my-card:not(.character-card)+.my-card:not(.character-card){margin-left:-9px}.my-hand.overlapping-cards .hand-row>.character-card+.my-card,.my-hand.overlapping-cards .hand-row>.character-card-slot+.my-card{margin-left:12px}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
+  @media (max-width:520px){.my-hand{gap:6px}.hand-row{gap:6px}.my-hand.overlapping-cards .hand-row>.my-card:not(.character-card)+.my-card:not(.character-card){margin-left:-9px}.my-hand.overlapping-cards .hand-row>.character-card+.my-card,.my-hand.overlapping-cards .hand-row>.character-card-slot+.my-card{margin-left:12px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
@@ -351,7 +352,7 @@
   .help-pop-backdrop{
     position:fixed;inset:0;background:rgba(0,0,0,.2);
     display:flex;align-items:flex-start;justify-content:center;
-    z-index:310;
+    z-index:1200;
     padding:clamp(28px,7vh,60px) 12px 16px;
     box-sizing:border-box;
   }
@@ -369,12 +370,10 @@
   }
   .help-pop-title{width:100%;font-weight:800;font-size:14px;text-align:center;}
   .help-pop-body{padding:12px;overflow:auto;max-height:calc(70vh - 48px);}
-  .card-list-row{display:grid;grid-template-columns:repeat(8,62px);justify-content:center;width:max-content;min-width:100%;box-sizing:border-box;gap:5px;margin:0 0 2px;}
-  .card-list-item{position:relative;width:62px;height:93px;opacity:.45;}
+  .card-list-row{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));justify-content:center;width:100%;box-sizing:border-box;gap:clamp(2px,1vw,5px);margin:0 0 2px;}
+  .card-list-item{position:relative;width:100%;aspect-ratio:82/122;opacity:.45;overflow:visible;}
   .card-list-item.played{opacity:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));}
-  .card-list-item>.my-card{position:absolute;left:0;top:0;transform:scale(.76);transform-origin:top left;pointer-events:none;}
-  /* 画面幅が狭くても倍率は維持し、カード本体のモバイル幅にだけ枠を合わせる。 */
-  @media (max-width:520px){.card-list-row{grid-template-columns:repeat(8,52px);gap:3px}.card-list-item{width:52px;height:80px}}
+  .card-list-item>.my-card{position:absolute;left:0;top:0;transform:scale(var(--list-card-scale,.76));transform-origin:top left;pointer-events:none;}
   .role-row{
     display:flex;gap:12px;align-items:flex-start;
     padding:10px 0;
@@ -859,6 +858,9 @@ function closeCardZoom(){
 cardZoomBackdrop.addEventListener('click', closeCardZoom);
 window.addEventListener('resize', () => {
   if (!cardZoomBackdrop.classList.contains('hidden')) positionZoomCards();
+  fitMyHandToViewport();
+  fitCharacterChoices();
+  if (!helpBackdrop.classList.contains('hidden')) fitHelpListCards();
 });
 
 function createCharacterEffectRow(type, text){
@@ -911,6 +913,12 @@ function renderHelpList(){
       row.appendChild(holder);
     }
     helpBody.appendChild(row);
+  });
+  requestAnimationFrame(fitHelpListCards);
+}
+function fitHelpListCards(){
+  helpBody.querySelectorAll('.card-list-item').forEach(holder => {
+    holder.style.setProperty('--list-card-scale', Math.min(1, holder.clientWidth / 82));
   });
 }
 function openHelp(){
@@ -1619,6 +1627,22 @@ function renderMyHand(){
   });
   myHandEl.classList.toggle('has-playable-cards', hasPlayableCards);
   myHandEl.classList.toggle('exchange-pickable', canChooseExchangeCard);
+  requestAnimationFrame(fitMyHandToViewport);
+}
+
+// カード自体の縦横比と内部レイアウトは変えず、手札全体だけを画面幅に合わせて縮小する。
+function fitMyHandToViewport(){
+  myHandEl.style.setProperty('--hand-card-scale', 1);
+  const naturalWidth = Math.max(1, ...Array.from(myHandEl.querySelectorAll('.hand-row'), row => row.scrollWidth)) + 24;
+  const availableWidth = Math.max(1, window.innerWidth - 16);
+  myHandEl.style.setProperty('--hand-card-scale', Math.min(1, availableWidth / naturalWidth));
+}
+
+function fitCharacterChoices(){
+  characterPickerRow.querySelectorAll('.character-choice').forEach(choice => {
+    const card = choice.querySelector('.my-card');
+    if (card) choice.style.setProperty('--choice-scale', choice.getBoundingClientRect().width / (card.offsetWidth || 82));
+  });
 }
 
 function beginExchangeCardDrag(event, cardData, source){
@@ -2059,12 +2083,13 @@ async function createUniqueRoom(name){
   }
 }
 onValue(ref(db, 'rooms'), snapshot => {
+  const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
   entranceRooms = Object.entries(snapshot.val() || {}).map(([code, room]) => {
     const people = room.players || room.users || {};
     const entries = Object.entries(people).filter(([, person]) => String(person?.name || '').trim());
     entries.sort(([a],[b]) => (a === room.hostId ? -1 : b === room.hostId ? 1 : 0));
-    return { code, createdAt: room.createdAt || 0, names: entries.map(([, person]) => person.name) };
-  }).sort((a,b) => b.createdAt - a.createdAt);
+    return { code, createdAt: Number(room.createdAt) || 0, names: entries.map(([, person]) => person.name) };
+  }).filter(room => room.createdAt >= sixHoursAgo).sort((a,b) => b.createdAt - a.createdAt);
   entranceLoading.classList.add('hidden');
   renderEntranceRooms();
 }, () => {
