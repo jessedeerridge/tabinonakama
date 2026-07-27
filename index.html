@@ -299,6 +299,18 @@
   .character-choice.required-raised{transform:translateY(-5px);}
   .character-choice.ring-required-pulse{animation:ringRequiredPulse 1.05s ease-in-out infinite;}
   @keyframes ringRequiredPulse{50%{transform:translateY(-7px) scale(1.06)}}
+  /* 全員の目的達成後は、章完了演出に視線を集めるためカードのパルスを止める。 */
+  body.victory-complete .my-hand.has-playable-cards,
+  body.victory-complete .excluded-card-slot.gandalf-pick,
+  body.victory-complete .my-card.exchange-pick,
+  body.victory-complete .character-choice.ring-required-pulse{animation:none!important;}
+  .chapter-complete-banner{position:fixed;left:0;top:50%;z-index:1200;padding:12px 28px;background:#000;color:#fff;font-family:serif;font-size:clamp(24px,7vw,42px);font-weight:900;line-height:1;letter-spacing:.12em;white-space:nowrap;pointer-events:none;transform:translate(-110%,-50%);will-change:transform;}
+  .chapter-complete-banner.running{animation:chapterCompleteFlow 2.4s ease-in-out both;}
+  @keyframes chapterCompleteFlow{
+    0%{transform:translate(-110%,-50%);}
+    29.166%,70.833%{transform:translate(calc(50vw - 50%),-50%);}
+    100%{transform:translate(calc(100vw + 10%),-50%);}
+  }
   .character-card-slot{position:relative;flex:0 0 82px;width:82px;height:122px;visibility:hidden;pointer-events:none;}
   .hand-row>.character-card{width:82px;height:122px;flex:0 0 82px;}
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
@@ -555,6 +567,8 @@
   <div class="exchange-note">＊2秒クリックで決定。</div>
 </section>
 
+<div id="chapterCompleteBanner" class="chapter-complete-banner" role="status" aria-live="assertive"></div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
@@ -640,6 +654,7 @@ const yellowOneDecision = document.getElementById('yellowOneDecision');
 const exchangeDialog = document.getElementById('exchangeDialog');
 const exchangeMessage = document.getElementById('exchangeMessage');
 const exchangeTargets = document.getElementById('exchangeTargets');
+const chapterCompleteBanner = document.getElementById('chapterCompleteBanner');
 
 const STAGES = Array.from({ length: 17 }, (_, index) => ({
   number: index + 1,
@@ -901,6 +916,64 @@ function hasAchievedVictoryCondition(cardData, playerId){
   if (cardData.name === 'ガンダルフ') return trickCount >= 1;
   if (cardData.name === 'ビルボ') return trickCount >= 3;
   return false;
+}
+
+function hasPlayerAchievedVictoryCondition(game, playerId){
+  const character = game?.characterSelections?.[playerId];
+  if (!character) return false;
+  const capturedTricks = game.capturedTricks?.[playerId] || [];
+  const trickCount = capturedTricks.length;
+  if (character.name === 'フロド') {
+    return capturedTricks.reduce((count, trick) => count
+      + (trick.cards || []).filter(card => card.color === 'yellow').length, 0) >= 2;
+  }
+  if (character.name === 'ピピン') {
+    const playerIds = game.playerOrder || Object.keys(game.capturedTricks || {});
+    const minimum = Math.min(...playerIds.map(id => (game.capturedTricks?.[id] || []).length));
+    return game.finished === true && playerIds.length > 0 && trickCount === minimum;
+  }
+  if (character.name === 'ガンダルフ') return trickCount >= 1;
+  if (character.name === 'ビルボ') return trickCount >= 3;
+  return false;
+}
+
+function allPlayersAchievedVictoryConditions(game){
+  const playerIds = game?.playerOrder || [];
+  return playerIds.length > 0 && playerIds.every(playerId => hasPlayerAchievedVictoryCondition(game, playerId));
+}
+
+let chapterCompleteTimer = null;
+let renderedChapterCompleteAt = null;
+function renderChapterComplete(){
+  clearTimeout(chapterCompleteTimer);
+  const achievedAt = state.game?.allVictoryConditionsAchievedAt;
+  if (!achievedAt) {
+    document.body.classList.remove('victory-complete');
+    renderedChapterCompleteAt = null;
+    chapterCompleteBanner.classList.remove('running');
+    chapterCompleteBanner.textContent = '';
+    return;
+  }
+  const animationAt = achievedAt + 1000;
+  const elapsed = Date.now() - animationAt;
+  if (elapsed < 0) {
+    document.body.classList.remove('victory-complete');
+    chapterCompleteTimer = setTimeout(renderChapterComplete, -elapsed + 10);
+    return;
+  }
+  document.body.classList.add('victory-complete');
+  if (elapsed >= 2400 || renderedChapterCompleteAt === achievedAt) return;
+  renderedChapterCompleteAt = achievedAt;
+  const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
+  chapterCompleteBanner.textContent = `${stage?.chapterLabel || `第${state.game?.stageNumber || ''}章`}　完`;
+  chapterCompleteBanner.classList.remove('running');
+  chapterCompleteBanner.style.animationDelay = `${-elapsed}ms`;
+  void chapterCompleteBanner.offsetWidth;
+  chapterCompleteBanner.classList.add('running');
+  chapterCompleteBanner.addEventListener('animationend', () => {
+    chapterCompleteBanner.classList.remove('running');
+    chapterCompleteBanner.style.removeProperty('animation-delay');
+  }, { once:true });
 }
 
 function createVictoryConditionIcon(cardData, playerId){
@@ -1340,6 +1413,7 @@ function subscribeRoom(){
     renderStageInformation();
     renderYellowOneDecision();
     renderExchangeDialog();
+    renderChapterComplete();
     const exchangeOfferTransfer = state.game?.exchangeOfferTransfer;
     if (exchangeOfferTransfer?.movedAt && exchangeOfferTransfer.movedAt !== lastAnimatedExchangeOfferAt) {
       requestAnimationFrame(() => animateExchangeOffer(exchangeOfferTransfer, previousExchangePositions));
@@ -1556,6 +1630,9 @@ function scheduleTrickClear(){
       });
       delete game.trick;
       delete game.pendingCapture;
+      if (!game.allVictoryConditionsAchievedAt && allPlayersAchievedVictoryConditions(game)) {
+        game.allVictoryConditionsAchievedAt = Date.now();
+      }
       return game;
     });
   }, Math.max(0, captureAt - Date.now()) + 20);
