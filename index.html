@@ -175,10 +175,11 @@
   .my-hand.exchange-pickable{animation:none;}
   .my-card.exchange-pick{cursor:grab;touch-action:none;animation:exchangeCardPulse 1.05s ease-in-out infinite;}
   @keyframes exchangeCardPulse{50%{transform:scale(1.07)}}
-  .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:42px;height:42px;box-sizing:border-box;border:4px solid #facc15;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 4px rgba(250,204,21,.25);pointer-events:none;animation:exchangeHintPulse 1.05s ease-in-out infinite;z-index:40;}
+  .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:68px;height:68px;box-sizing:border-box;border:4px solid #facc15;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 4px rgba(250,204,21,.25);pointer-events:none;opacity:0;z-index:40;}
+  .player-tag.exchange-drag-target .exchange-hand-hint{opacity:1;animation:exchangeHintPulse 1.05s ease-in-out infinite;}
   @keyframes exchangeHintPulse{50%{transform:translate(-50%,-50%) scale(1.18);opacity:.65}}
   .exchange-card-flight{position:fixed;z-index:1002;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
-  .exchange-card-flight.card-back{border:1px solid #bbb;border-radius:10px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
+  .exchange-card-flight.card-back{border:1px solid #222;border-radius:10px;background:#111 url('tabinonakamaback.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
@@ -1153,10 +1154,9 @@ function animateExchangeTransfer(transfer, oldPositions){
       || playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(toId)}"]`);
     const to = targetElement?.getBoundingClientRect();
     if (!from || !to) return;
-    const involved = transfer.sourceId === state.userId || transfer.targetId === state.userId;
-    const flight = involved ? createCardElement(card) : document.createElement('div');
-    flight.classList.add('exchange-card-flight');
-    if (!involved) flight.classList.add('card-back');
+    // 交換内容は本人を含めて移動中には公開せず、常に裏向きで見せる。
+    const flight = document.createElement('div');
+    flight.classList.add('exchange-card-flight', 'card-back');
     const startScale = Math.min(from.width / 82, from.height / 122, 1);
     const endScale = Math.min(to.width / 82, to.height / 122, 1);
     flight.style.left = `${from.left}px`;
@@ -1271,7 +1271,7 @@ function renderExchangeDialog(){
     });
   } else if (choosingCard) {
     const otherId = exchange.sourceId === state.userId ? exchange.targetId : exchange.sourceId;
-    exchangeMessage.textContent = `${playerName(otherId)}にあげるカードを選び、相手の手札の円へドラッグしてください。`;
+    exchangeMessage.textContent = `${playerName(otherId)}にあげるカードを選んでください。`;
     exchangeDialog.querySelector('.exchange-note').classList.add('hidden');
   }
 }
@@ -1502,8 +1502,10 @@ function beginExchangeCardDrag(event, cardData, source){
   event.preventDefault();
   const exchange = state.game?.pendingExchange;
   const otherId = exchange?.sourceId === state.userId ? exchange.targetId : exchange?.sourceId;
-  const target = playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(otherId || '')}"] .exchange-hand-hint`);
+  const targetTag = playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(otherId || '')}"]`);
+  const target = targetTag?.querySelector('.exchange-hand-hint');
   if (!target) return;
+  targetTag.classList.add('exchange-drag-target');
   source.setPointerCapture(event.pointerId);
   source.classList.add('drag-source');
   const floating = createCardElement(cardData);
@@ -1516,6 +1518,7 @@ function beginExchangeCardDrag(event, cardData, source){
   const cancel = () => {
     floating.remove();
     source.classList.remove('drag-source');
+    targetTag.classList.remove('exchange-drag-target');
   };
   const finish = currentEvent => {
     source.removeEventListener('pointermove', move);
@@ -1562,7 +1565,10 @@ function beginCardDrag(event, cardData, cardIndex, source){
     floating.remove(); source.classList.remove('drag-source'); playerCircle.classList.remove('dragging');
     const target = playerCircle.querySelector('.play-circle.mine');
     const rect = target?.getBoundingClientRect();
-    if (rect && e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+    // ヒント円の見た目は変えず、指でドロップしやすいよう判定だけを外側へ広げる。
+    const dropPadding = 28;
+    if (rect && e.clientX >= rect.left - dropPadding && e.clientX <= rect.right + dropPadding
+      && e.clientY >= rect.top - dropPadding && e.clientY <= rect.bottom + dropPadding) {
       selfDropPoint = { x: e.clientX, y: e.clientY };
       await playCard(cardIndex, cardData);
     }
