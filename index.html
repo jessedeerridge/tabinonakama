@@ -426,7 +426,7 @@
 
 <main id="main" class="prejoin">
   <div class="room-browser" id="joinBox">
-    <button class="entrance-card create-room-card" id="btnCreateRoom" type="button">CREATE ROOM</button>
+    <button class="entrance-card create-room-card hidden" id="btnCreateRoom" type="button">CREATE ROOM</button>
     <div class="entrance-loading" id="entranceLoading">loading...</div>
     <div class="room-list" id="roomList"></div>
   </div>
@@ -2103,9 +2103,11 @@ onValue(ref(db, 'rooms'), snapshot => {
   }).filter(room => room.createdAt >= sixHoursAgo).sort((a,b) => b.createdAt - a.createdAt);
   scheduleEntranceRoomExpiry();
   entranceLoading.classList.add('hidden');
+  btnCreateRoom.classList.remove('hidden');
   renderEntranceRooms();
 }, () => {
   entranceLoading.classList.add('hidden');
+  btnCreateRoom.classList.remove('hidden');
 });
 
 async function enterRoom(roomCode, userName){
