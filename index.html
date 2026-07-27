@@ -132,6 +132,11 @@
   .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
   .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
+  .victory-condition-icon{width:10px;height:10px;border:0;border-radius:2px;background:#111;color:#fff;box-sizing:border-box;display:grid;place-items:center;font:700 8px/10px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;}
+  .victory-condition-icon.ring{background:#d3ad32;color:#111;}
+  .hand-row>.character-card>.victory-condition-icon{position:absolute;left:50%;bottom:-15px;transform:translateX(-50%);}
+  .hand-row>.character-card{overflow:visible;}
+  .character-capture>.victory-condition-icon{position:absolute;left:14px;top:57px;z-index:2;}
   @keyframes captureArrive{from{transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .stage-dialog{position:fixed;inset:0;z-index:320;display:grid;place-items:center;background:rgba(0,0,0,.38);}
@@ -877,6 +882,19 @@ function createCharacterEffectRow(type, text){
   return row;
 }
 
+function createVictoryConditionIcon(cardData){
+  const icon = document.createElement('span');
+  icon.className = 'victory-condition-icon';
+  const victory = cardData.victory || '';
+  const number = victory.match(/\d+/)?.[0];
+  const isRingGoal = victory.includes('指輪');
+  if (isRingGoal) icon.classList.add('ring');
+  icon.textContent = number || (victory.includes('最少') ? '少' : '');
+  icon.setAttribute('aria-label', `勝利条件：${victory}`);
+  icon.title = `勝利条件：${victory}`;
+  return icon;
+}
+
 // 3文字までは一行、それ以上も読みやすい位置で分け、必ず二行以内にする。
 function appendWrappedCharacterName(element, value){
   const characters = Array.from(value);
@@ -1600,6 +1618,7 @@ function renderMyHand(){
   let displayedNumberIndex = 0;
   displayedCards.forEach(({ normalized, cardIndex }) => {
     const card = createCardElement(normalized);
+    if (normalized.kind === 'character') card.appendChild(createVictoryConditionIcon(normalized));
     if (normalized.kind !== 'character') {
       card.style.setProperty('--card-stack-index', displayedNumberIndex);
       displayedNumberIndex += 1;
@@ -2459,7 +2478,7 @@ function renderPlayerCircle(players){
         characterHolder.className = 'capture-card';
         characterHolder.style.setProperty('--stack-rotate', '0deg');
         characterHolder.appendChild(createCardElement(character));
-        characterBundle.appendChild(characterHolder);
+        characterBundle.append(characterHolder, createVictoryConditionIcon(character));
         capture.appendChild(characterBundle);
       }
     }
@@ -2478,8 +2497,8 @@ function renderPlayerCircle(players){
       // 獲得が5つ以上なら本人分も25pxずつずらして重ねる。
       const compactCapturedTricks = capturedTricks.length >= 5;
       const bundleLeft = compactCapturedTricks
-        ? (isMe ? 0 : 35) + trickIndex * 25 + compactYellowOffsets[trickIndex]
-        : isMe ? trickIndex * 44 : (trickIndex + 1) * 35;
+        ? (isMe ? 0 : 39) + trickIndex * 25 + compactYellowOffsets[trickIndex]
+        : isMe ? trickIndex * 44 : 39 + trickIndex * 35;
       bundle.style.left = `${bundleLeft}px`;
       if (!isMe) bundle.style.zIndex = String(trickIndex + 1);
       const cards = capturedTrick.cards || [];
