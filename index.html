@@ -134,6 +134,7 @@
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   .victory-condition-icon{width:15px;height:15px;border:0;border-radius:2px;background:#111;color:#fff;box-sizing:border-box;display:grid;place-items:center;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;}
   .victory-condition-icon.ring{background:#f2c94c;color:#111;}
+  .victory-condition-icon.achieved{opacity:.35;}
   .character-card-unit{position:relative;flex:0 0 82px;width:82px;height:122px;}
   .character-card-unit>.character-card{width:82px;height:122px;}
   .character-card-unit>.victory-condition-icon{position:absolute;left:50%;top:var(--victory-icon-top,127px);transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
@@ -883,16 +884,37 @@ function createCharacterEffectRow(type, text){
   return row;
 }
 
-function createVictoryConditionIcon(cardData){
+function hasAchievedVictoryCondition(cardData, playerId){
+  const capturedTricks = state.game?.capturedTricks?.[playerId] || [];
+  const trickCount = capturedTricks.length;
+  if (cardData.name === 'フロド') {
+    return capturedTricks.reduce((count, trick) => count
+      + (trick.cards || []).filter(card => card.color === 'yellow').length, 0) >= 2;
+  }
+  if (cardData.name === 'ピピン') {
+    if (state.game?.finished !== true) return false;
+    const playerIds = state.game?.playerOrder || Object.keys(state.game?.capturedTricks || {});
+    const minimum = Math.min(...playerIds.map(id => (state.game?.capturedTricks?.[id] || []).length));
+    return playerIds.length > 0 && trickCount === minimum;
+  }
+  if (cardData.name === 'ガンダルフ') return trickCount >= 1;
+  if (cardData.name === 'ビルボ') return trickCount >= 3;
+  return false;
+}
+
+function createVictoryConditionIcon(cardData, playerId){
   const icon = document.createElement('span');
   icon.className = 'victory-condition-icon';
   const victory = cardData.victory || '';
   const number = victory.match(/\d+/)?.[0];
   const isRingGoal = victory.includes('指輪');
   if (isRingGoal) icon.classList.add('ring');
+  const achieved = hasAchievedVictoryCondition(cardData, playerId);
+  icon.classList.toggle('achieved', achieved);
   icon.textContent = number || (victory.includes('最少') ? '少' : '');
-  icon.setAttribute('aria-label', `勝利条件：${victory}`);
-  icon.title = `勝利条件：${victory}`;
+  const status = achieved ? '（達成済み）' : '';
+  icon.setAttribute('aria-label', `勝利条件：${victory}${status}`);
+  icon.title = `勝利条件：${victory}${status}`;
   return icon;
 }
 
@@ -1644,7 +1666,7 @@ function renderMyHand(){
     if (normalized.kind === 'character') {
       const characterUnit = document.createElement('div');
       characterUnit.className = 'character-card-unit';
-      characterUnit.append(card, createVictoryConditionIcon(normalized));
+      characterUnit.append(card, createVictoryConditionIcon(normalized, myId));
       cardRow.appendChild(characterUnit);
     } else cardRow.appendChild(card);
   });
@@ -2486,7 +2508,7 @@ function renderPlayerCircle(players){
         characterHolder.className = 'capture-card';
         characterHolder.style.setProperty('--stack-rotate', '0deg');
         characterHolder.appendChild(createCardElement(character));
-        characterBundle.append(characterHolder, createVictoryConditionIcon(character));
+        characterBundle.append(characterHolder, createVictoryConditionIcon(character, p.id));
         capture.appendChild(characterBundle);
       }
     }
