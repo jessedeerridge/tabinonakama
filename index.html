@@ -177,10 +177,11 @@
   @keyframes exchangeCardPulse{50%{transform:scale(1.07)}}
   .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:68px;height:68px;box-sizing:border-box;border:0;border-radius:14px;transform:translate(-50%,-50%);background:rgba(125,211,252,.22);pointer-events:none;opacity:0;z-index:40;}
   .player-tag.exchange-drag-target .exchange-hand-hint{opacity:1;}
-  .exchange-pending-card{position:absolute;left:50%;top:calc(100% + 30px);width:54px;height:81px;transform:translate(-50%,-50%);pointer-events:none;z-index:41;}
-  .exchange-pending-card>.my-card{transform:scale(.66);transform-origin:top left;}
+  .exchange-received-card{position:absolute;left:50%;top:calc(100% + 30px);width:54px;height:81px;border:1px solid #bbb;border-radius:7px;background:#fff url('tabicardura.jpg') center/cover no-repeat;transform:translate(-50%,-50%) rotate(var(--received-tilt,0deg));transform-origin:center;pointer-events:none;z-index:42;box-shadow:0 3px 8px rgba(0,0,0,.2);}
+  .player-tag.me .exchange-received-card{top:-5px;transform:translate(-50%,-100%) rotate(calc(180deg + var(--received-tilt,0deg)));}
   .exchange-card-flight{position:fixed;z-index:1002;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
-  .exchange-card-flight.card-back{border:1px solid #222;border-radius:10px;background:#111 url('tabinonakamaback.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
+  .exchange-card-flight.exchange-offer-flight{transform-origin:center;}
+  .exchange-card-flight.card-back{border:1px solid #bbb;border-radius:10px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
@@ -933,6 +934,7 @@ const seenCharacterSelections = new Set();
 const characterSelectionSources = new Map();
 const characterAnimationUntil = new Map();
 let lastAnimatedExchangeAt = null;
+let lastAnimatedExchangeOfferAt = null;
 const exchangeDropPositions = new Map();
 
 function generateRoomCode(length = 5){
@@ -1066,7 +1068,7 @@ function beginNextExchange(game){
     game.pendingExchange = {
       sourceId, candidates,
       targetId:candidates.length === 1 ? candidates[0] : null,
-      selections:{}, requestedAt:Date.now()
+      selectingPlayerId:sourceId, selections:{}, requestedAt:Date.now()
     };
     game.phase = candidates.length === 1 ? 'exchange-card-selection' : 'exchange-target-selection';
     game.turnPlayerId = null;
@@ -1139,9 +1141,40 @@ function captureExchangePositions(){
     if (rect) positions.set(player.id, rect);
   });
   myHandEl.querySelectorAll('[data-card-id]').forEach(card => positions.set(`card:${card.dataset.cardId}`, card.getBoundingClientRect()));
-  playerCircle.querySelectorAll('.exchange-pending-card [data-card-id]').forEach(card => positions.set(`card:${card.dataset.cardId}`, card.getBoundingClientRect()));
+  playerCircle.querySelectorAll('.exchange-received-card[data-card-id]').forEach(card => positions.set(`card:${card.dataset.cardId}`, card.getBoundingClientRect()));
   exchangeDropPositions.forEach((rect, cardId) => positions.set(`card:${cardId}`, rect));
   return positions;
+}
+
+function animateExchangeOffer(transfer, oldPositions){
+  if (!transfer?.movedAt || transfer.movedAt === lastAnimatedExchangeOfferAt) return;
+  lastAnimatedExchangeOfferAt = transfer.movedAt;
+  const from = oldPositions.get(`card:${transfer.card?.id}`) || oldPositions.get(transfer.sourceId);
+  const target = playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(transfer.targetId)}"] .exchange-received-card`);
+  const to = target?.getBoundingClientRect();
+  if (!from || !to) return;
+  const flight = document.createElement('div');
+  flight.classList.add('exchange-card-flight', 'exchange-offer-flight', 'card-back');
+  const startScale = Math.min(from.width / 82, from.height / 122, 1);
+  const endScale = Math.min(to.width / 82, to.height / 122, 1);
+  const angle = transfer.targetId === state.userId ? 180 + (transfer.tilt || 0) : transfer.tilt || 0;
+  const fromLeft = from.left + from.width / 2 - 41;
+  const fromTop = from.top + from.height / 2 - 61;
+  const toLeft = to.left + to.width / 2 - 41;
+  const toTop = to.top + to.height / 2 - 61;
+  flight.style.left = `${fromLeft}px`;
+  flight.style.top = `${fromTop}px`;
+  flight.style.transform = `scale(${startScale}) rotate(${angle}deg)`;
+  target.style.opacity = '0';
+  document.body.appendChild(flight);
+  flight.animate([
+    { left:`${fromLeft}px`, top:`${fromTop}px`, transform:`scale(${startScale}) rotate(${angle}deg)`, opacity:1 },
+    { left:`${toLeft}px`, top:`${toTop}px`, transform:`scale(${endScale}) rotate(${angle}deg)`, opacity:1 }
+  ], { duration:1400, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' }).finished.finally(() => {
+    flight.remove();
+    target.style.removeProperty('opacity');
+    exchangeDropPositions.delete(transfer.card.id);
+  });
 }
 
 function animateExchangeTransfer(transfer, oldPositions){
@@ -1212,6 +1245,14 @@ function subscribeRoom(){
     renderStageInformation();
     renderYellowOneDecision();
     renderExchangeDialog();
+    const exchangeOfferTransfer = state.game?.exchangeOfferTransfer;
+    if (exchangeOfferTransfer?.movedAt && exchangeOfferTransfer.movedAt !== lastAnimatedExchangeOfferAt) {
+      requestAnimationFrame(() => animateExchangeOffer(exchangeOfferTransfer, previousExchangePositions));
+    }
+    const selectionAvailableAt = state.game?.pendingExchange?.selectionAvailableAt;
+    if (selectionAvailableAt && Date.now() < selectionAvailableAt) {
+      setTimeout(() => { renderHands(); renderExchangeDialog(); }, selectionAvailableAt - Date.now() + 20);
+    }
     const exchangeTransfer = state.game?.exchangeTransfer;
     if (exchangeTransfer?.completedAt && exchangeTransfer.completedAt !== lastAnimatedExchangeAt) {
       requestAnimationFrame(() => animateExchangeTransfer(exchangeTransfer, previousExchangePositions));
@@ -1260,7 +1301,8 @@ function renderExchangeDialog(){
   const choosingTarget = state.game?.phase === 'exchange-target-selection' && exchange?.sourceId === state.userId;
   const choosingCard = state.game?.phase === 'exchange-card-selection'
     && exchange && !exchange.selections?.[state.userId]
-    && (exchange.sourceId === state.userId || exchange.targetId === state.userId);
+    && (exchange.selectingPlayerId || exchange.sourceId) === state.userId
+    && (!exchange.selectionAvailableAt || Date.now() >= exchange.selectionAvailableAt);
   exchangeDialog.classList.toggle('hidden', !choosingTarget && !choosingCard);
   exchangeTargets.replaceChildren();
   if (choosingTarget) {
@@ -1300,12 +1342,23 @@ async function chooseExchangeCard(cardId){
     const game = room?.game;
     const exchange = game?.pendingExchange;
     if (game?.phase !== 'exchange-card-selection' || !exchange?.targetId
-      || (exchange.sourceId !== state.userId && exchange.targetId !== state.userId)
+      || (exchange.selectingPlayerId || exchange.sourceId) !== state.userId
+      || (exchange.selectionAvailableAt && Date.now() < exchange.selectionAvailableAt)
       || exchange.selections?.[state.userId]) return;
     const card = (room.hands?.[state.userId]?.cards || []).find(item => item.id === cardId);
     if (!card || card.kind === 'character' || (card.color === 'yellow' && card.number === 1)) return;
     exchange.selections ||= {};
     exchange.selections[state.userId] = cardId;
+    if (state.userId === exchange.sourceId) {
+      // 交換者が先に渡すカードを確定し、到着演出後に相手へ選択を依頼する。
+      exchange.selectingPlayerId = exchange.targetId;
+      game.exchangeOfferTransfer = {
+        sourceId:exchange.sourceId, targetId:exchange.targetId, card,
+        tilt:Math.floor(Math.random() * 5) - 2, movedAt:Date.now()
+      };
+      exchange.selectionAvailableAt = game.exchangeOfferTransfer.movedAt + 1400;
+      return room;
+    }
     const sourceCardId = exchange.selections[exchange.sourceId];
     const targetCardId = exchange.selections[exchange.targetId];
     if (!sourceCardId || !targetCardId) return room;
@@ -1324,6 +1377,7 @@ async function chooseExchangeCard(cardId){
     // 空になった配列はRealtime Database上で消えるため、完了者を別途記録して再実行を防ぐ。
     game.completedExchanges ||= {};
     game.completedExchanges[exchange.sourceId] = true;
+    delete game.exchangeOfferTransfer;
     delete game.pendingExchange;
     beginNextExchange(game);
     return room;
@@ -1456,7 +1510,8 @@ function renderMyHand(){
   const exchange = state.game?.pendingExchange;
   const canChooseExchangeCard = state.game?.phase === 'exchange-card-selection'
     && exchange && !exchange.selections?.[myId]
-    && (exchange.sourceId === myId || exchange.targetId === myId);
+    && (exchange.selectingPlayerId || exchange.sourceId) === myId
+    && (!exchange.selectionAvailableAt || Date.now() >= exchange.selectionAvailableAt);
   const selectedExchangeCardId = exchange?.selections?.[myId];
   const colorOrder = { red: 0, green: 1, orange: 2, gray: 3, yellow: 4 };
   const displayedCards = handData.cards.map((cardData, cardIndex) => ({
@@ -2217,18 +2272,14 @@ function renderPlayerCircle(players){
       hint.setAttribute('aria-hidden', 'true');
       tag.appendChild(hint);
     }
-    const pendingExchange = state.game?.pendingExchange;
-    const mySelectedCardId = pendingExchange?.selections?.[state.userId];
-    const myExchangePartnerId = pendingExchange?.sourceId === state.userId
-      ? pendingExchange.targetId : pendingExchange?.targetId === state.userId ? pendingExchange.sourceId : null;
-    if (p.id === myExchangePartnerId && mySelectedCardId) {
-      const selectedCard = (state.hands[state.userId]?.cards || []).find(card => card.id === mySelectedCardId);
-      if (selectedCard) {
-        const pendingCard = document.createElement('div');
-        pendingCard.className = 'exchange-pending-card';
-        pendingCard.appendChild(createCardElement(selectedCard));
-        tag.appendChild(pendingCard);
-      }
+    const offer = state.game?.exchangeOfferTransfer;
+    if (state.game?.pendingExchange && offer?.card && p.id === offer.targetId) {
+      const receivedCard = document.createElement('div');
+      receivedCard.className = 'exchange-received-card';
+      receivedCard.dataset.cardId = offer.card.id;
+      receivedCard.style.setProperty('--received-tilt', `${offer.tilt || 0}deg`);
+      receivedCard.setAttribute('aria-hidden', 'true');
+      tag.appendChild(receivedCard);
     }
 
     playerCircle.appendChild(tag);
