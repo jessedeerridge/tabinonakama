@@ -135,6 +135,7 @@
   .victory-condition-icon{width:15px;height:15px;border:0;border-radius:2px;background:#111;color:#fff;box-sizing:border-box;display:grid;place-items:center;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;}
   .victory-condition-icon.ring{background:#f2c94c;color:#111;}
   .victory-condition-icon.achieved{opacity:.35;}
+  .victory-condition-icon.word{width:24px;}
   .character-card-unit{position:relative;flex:0 0 82px;width:82px;height:122px;}
   .character-card-unit>.character-card{width:82px;height:122px;}
   .character-card-unit>.victory-condition-icon{position:absolute;left:50%;top:var(--victory-icon-top,127px);transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
@@ -911,7 +912,9 @@ function createVictoryConditionIcon(cardData, playerId){
   if (isRingGoal) icon.classList.add('ring');
   const achieved = hasAchievedVictoryCondition(cardData, playerId);
   icon.classList.toggle('achieved', achieved);
-  icon.textContent = number || (victory.includes('最少') ? '少' : '');
+  const word = victory.includes('最少') ? 'min' : (victory.includes('最大') || victory.includes('最多')) ? 'max' : '';
+  icon.classList.toggle('word', Boolean(word));
+  icon.textContent = number || word;
   const status = achieved ? '（達成済み）' : '';
   icon.setAttribute('aria-label', `勝利条件：${victory}${status}`);
   icon.title = `勝利条件：${victory}${status}`;
