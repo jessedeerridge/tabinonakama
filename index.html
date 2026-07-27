@@ -175,7 +175,8 @@
   #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
   .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);}
   .ringcircle.on{background-image:url('ringcircleon.jpg');}
-  .excluded-card-slot{position:absolute;left:20px;top:92px;width:54px;height:81px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;}
+  .excluded-card-slot{position:absolute;left:20px;top:92px;width:38px;height:56px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;}
+  .excluded-card-slot .my-card{transform:scale(.46);transform-origin:top left;}
   .excluded-card-slot.hidden{display:none;}
   .excluded-card-slot.gandalf-pick{pointer-events:auto;cursor:pointer;animation:excludedCardPulse 1.05s ease-in-out infinite;}
   @keyframes excludedCardPulse{50%{transform:rotate(var(--excluded-tilt,0deg)) scale(1.12)}}
@@ -1002,6 +1003,12 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     return { status:'pending' };
   }
 
+  if (victory.includes('1か2トリック')) {
+    if (trickCount > 2) return { status:'failed' };
+    if (trickCount >= 1) return { status:'achieved' };
+    return { status:isFinished ? 'failed' : 'pending' };
+  }
+
   if (victory.includes('最大') || victory.includes('最多')) {
     const otherCounts = otherIds.map(id => (game.capturedTricks?.[id] || []).length);
     if (!otherCounts.length) return { status:'achieved' };
@@ -1319,14 +1326,15 @@ function exchangeCandidates(game, sourceId){
   const allowedNames = characterName === 'ガンダルフ'
     ? ['フロド']
     : characterName === 'ピピン' ? ['フロド', 'サム', 'メリー']
-    : characterName === 'サム' ? ['フロド', 'メリー', 'ピピン'] : [];
+    : characterName === 'サム' ? ['フロド', 'メリー', 'ピピン']
+    : characterName === 'メリー' ? ['フロド', 'サム', 'ピピン'] : [];
   return (game?.playerOrder || []).filter(playerId => playerId !== sourceId
     && allowedNames.includes(game.characterSelections?.[playerId]?.name));
 }
 
 function beginNextExchange(game){
   game.exchangeQueue ||= (game.playerOrder || [])
-    .filter(playerId => ['ガンダルフ', 'ピピン', 'サム'].includes(game.characterSelections?.[playerId]?.name)
+    .filter(playerId => ['ガンダルフ', 'ピピン', 'サム', 'メリー'].includes(game.characterSelections?.[playerId]?.name)
       && !game.completedExchanges?.[playerId]);
   while (game.exchangeQueue.length) {
     const sourceId = game.exchangeQueue.shift();
@@ -2075,6 +2083,11 @@ function characterCardData(character, playerId){
       specialName:'庭師',
       victory:'引いた脅威カードと同じランクの丘カードを勝ち取る。',
       effect:'脅威カードを1枚引く。\nフロドかメリーかピピンに手札を1枚渡し、1枚もらう。'
+    },
+    'メリー': {
+      specialName:'勇敢な心',
+      victory:'1か2トリック獲得。',
+      effect:'フロドかサムまたはピピンと交換する。'
     },
     'ガンダルフ': {
       specialName:'灰色の魔法使い',
