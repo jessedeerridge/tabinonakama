@@ -901,60 +901,82 @@ function createCharacterEffectRow(type, text){
 }
 
 function hasAchievedVictoryCondition(cardData, playerId){
-  const capturedTricks = state.game?.capturedTricks?.[playerId] || [];
-  const trickCount = capturedTricks.length;
-  if (cardData.name === 'フロド') {
-    return capturedTricks.reduce((count, trick) => count
-      + (trick.cards || []).filter(card => card.color === 'yellow').length, 0) >= 2;
-  }
-  if (cardData.name === 'ピピン') {
-    if (state.game?.finished !== true) return false;
-    const playerIds = state.game?.playerOrder || Object.keys(state.game?.capturedTricks || {});
-    const minimum = Math.min(...playerIds.map(id => (state.game?.capturedTricks?.[id] || []).length));
-    return playerIds.length > 0 && trickCount === minimum;
-  }
-  if (cardData.name === 'ガンダルフ') return trickCount >= 1;
-  if (cardData.name === 'ビルボ') return trickCount >= 3;
-  return false;
+  return victoryConditionStatus(state.room, playerId, cardData).status === 'achieved';
 }
 
-function hasPlayerAchievedVictoryCondition(game, playerId){
-  const character = game?.characterSelections?.[playerId];
-  if (!character) return false;
+function victoryConditionStatus(room, playerId, suppliedCharacter){
+  const game = room?.game;
+  const character = suppliedCharacter || (room?.hands?.[playerId]?.cards || [])
+    .find(card => card?.kind === 'character') || game?.characterSelections?.[playerId];
+  if (!game || !character) return { status:'pending' };
   const capturedTricks = game.capturedTricks?.[playerId] || [];
   const trickCount = capturedTricks.length;
-  if (character.name === 'フロド') {
-    return capturedTricks.reduce((count, trick) => count
-      + (trick.cards || []).filter(card => card.color === 'yellow').length, 0) >= 2;
+  const playerIds = game.playerOrder || [];
+  const otherIds = playerIds.filter(id => id !== playerId);
+  const remainingRounds = Math.max(0, ...playerIds.map(id => (room.hands?.[id]?.cards || [])
+    .filter(card => card?.kind !== 'character').length));
+  const victory = character.victory || characterCardData(character, playerId).victory;
+  const isFinished = game.finished === true;
+
+  if (victory.includes('指輪')) {
+    const target = Number(victory.match(/\d+/)?.[0] || 1);
+    const count = capturedTricks.reduce((total, trick) => total
+      + (trick.cards || []).filter(card => card.color === 'yellow').length, 0);
+    if (count >= target) return { status:'achieved' };
+    const remainingRings = Object.values(room.hands || {}).reduce((total, hand) => total
+      + (hand?.cards || []).filter(card => card.color === 'yellow').length, 0);
+    return { status:(!isFinished && count + remainingRings >= target) ? 'pending' : 'failed' };
   }
-  if (character.name === 'ピピン') {
-    const playerIds = game.playerOrder || Object.keys(game.capturedTricks || {});
-    const minimum = Math.min(...playerIds.map(id => (game.capturedTricks?.[id] || []).length));
-    return game.finished === true && playerIds.length > 0 && trickCount === minimum;
+
+  if (victory.includes('最少')) {
+    const otherCounts = otherIds.map(id => (game.capturedTricks?.[id] || []).length);
+    if (!otherCounts.length) return { status:'achieved' };
+    if (isFinished) return { status:trickCount <= Math.min(...otherCounts) ? 'achieved' : 'failed' };
+    if (trickCount + remainingRounds <= Math.min(...otherCounts)) return { status:'achieved' };
+    if (trickCount > Math.min(...otherCounts.map(count => count + remainingRounds))) return { status:'failed' };
+    return { status:'pending' };
   }
-  if (character.name === 'ガンダルフ') return trickCount >= 1;
-  if (character.name === 'ビルボ') return trickCount >= 3;
-  return false;
+
+  if (victory.includes('最大') || victory.includes('最多')) {
+    const otherCounts = otherIds.map(id => (game.capturedTricks?.[id] || []).length);
+    if (!otherCounts.length) return { status:'achieved' };
+    if (isFinished) return { status:trickCount >= Math.max(...otherCounts) ? 'achieved' : 'failed' };
+    if (trickCount >= Math.max(...otherCounts.map(count => count + remainingRounds))) return { status:'achieved' };
+    if (trickCount + remainingRounds < Math.max(...otherCounts)) return { status:'failed' };
+    return { status:'pending' };
+  }
+
+  const target = Number(victory.match(/\d+/)?.[0]);
+  if (Number.isFinite(target)) {
+    if (trickCount >= target) return { status:'achieved' };
+    return { status:(!isFinished && trickCount + remainingRounds >= target) ? 'pending' : 'failed' };
+  }
+  return { status:isFinished ? 'failed' : 'pending' };
 }
 
-function allPlayersAchievedVictoryConditions(game){
-  const playerIds = game?.playerOrder || [];
-  return playerIds.length > 0 && playerIds.every(playerId => hasPlayerAchievedVictoryCondition(game, playerId));
+function chapterOutcome(room){
+  const playerIds = room?.game?.playerOrder || [];
+  if (!playerIds.length) return null;
+  const statuses = playerIds.map(playerId => victoryConditionStatus(room, playerId).status);
+  if (statuses.every(status => status === 'achieved')) return 'complete';
+  if (statuses.some(status => status === 'failed') || room.game.finished === true) return 'failed';
+  return null;
 }
 
 let chapterCompleteTimer = null;
 let renderedChapterCompleteAt = null;
 function renderChapterComplete(){
   clearTimeout(chapterCompleteTimer);
-  const achievedAt = state.game?.allVictoryConditionsAchievedAt;
-  if (!achievedAt) {
+  const outcome = state.game?.chapterOutcome;
+  const decidedAt = outcome?.decidedAt || state.game?.allVictoryConditionsAchievedAt;
+  if (!decidedAt) {
     document.body.classList.remove('victory-complete');
     renderedChapterCompleteAt = null;
     chapterCompleteBanner.classList.remove('running');
     chapterCompleteBanner.textContent = '';
     return;
   }
-  const animationAt = achievedAt + 1000;
+  const animationAt = decidedAt + 1000;
   const elapsed = Date.now() - animationAt;
   if (elapsed < 0) {
     document.body.classList.remove('victory-complete');
@@ -962,10 +984,11 @@ function renderChapterComplete(){
     return;
   }
   document.body.classList.add('victory-complete');
-  if (elapsed >= 2900 || renderedChapterCompleteAt === achievedAt) return;
-  renderedChapterCompleteAt = achievedAt;
+  if (elapsed >= 2900 || renderedChapterCompleteAt === decidedAt) return;
+  renderedChapterCompleteAt = decidedAt;
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
-  chapterCompleteBanner.textContent = `${stage?.chapterLabel || `第${state.game?.stageNumber || ''}章`}　完`;
+  const resultLabel = outcome?.status === 'failed' ? '失敗' : '完';
+  chapterCompleteBanner.textContent = `${stage?.chapterLabel || `第${state.game?.stageNumber || ''}章`}　${resultLabel}`;
   chapterCompleteBanner.classList.remove('running');
   chapterCompleteBanner.style.animationDelay = `${-elapsed}ms`;
   void chapterCompleteBanner.offsetWidth;
@@ -1630,8 +1653,9 @@ function scheduleTrickClear(){
       });
       delete game.trick;
       delete game.pendingCapture;
-      if (!game.allVictoryConditionsAchievedAt && allPlayersAchievedVictoryConditions(game)) {
-        game.allVictoryConditionsAchievedAt = Date.now();
+      const outcome = chapterOutcome({ game, hands:state.room?.hands || {} });
+      if (!game.chapterOutcome && outcome) {
+        game.chapterOutcome = { status:outcome, decidedAt:Date.now() };
       }
       return game;
     });
