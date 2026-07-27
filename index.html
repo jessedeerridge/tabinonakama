@@ -72,6 +72,8 @@
   }
   .player-tag.me{ background:#111;color:#fff;border-color:#111; }
   .player-tag.me{margin-top:64px;}
+  /* transform でできる stacking context ごと場札より手前に出し、受取カード全体を操作可能にする。 */
+  .player-tag.exchange-return-active{z-index:5;}
 
   /* 他プレイヤーのミニカード（ネームタグの下に扇状） */
   .player-tag .mini-hand{
@@ -2684,6 +2686,7 @@ function renderPlayerCircle(players){
           && (exchange.selectingPlayerId || exchange.sourceId) === state.userId
           && (!exchange.selectionAvailableAt || Date.now() >= exchange.selectionAvailableAt);
         if (canReturnReceivedCard) {
+          tag.classList.add('exchange-return-active');
           receivedCard.classList.add('return-pick');
           receivedCard.addEventListener('pointerdown', event => beginExchangeCardDrag(event, offer.card, receivedCard));
         }
