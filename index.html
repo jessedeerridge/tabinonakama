@@ -212,6 +212,7 @@
   .stage-title,.character-heading,.character-line,.goal-heading{white-space:nowrap;}
   .stage-title{letter-spacing:normal;}
   .character-heading,.goal-heading{letter-spacing:-.08em;}
+  .character-heading{display:block;margin-top:2px;}
   .character-line{display:block;font-size:8px;letter-spacing:normal;}
   @media (max-width:520px){
     .center-lower-card-area{width:calc(100vw - 24px);}
@@ -1255,7 +1256,7 @@ function renderStageInformation(){
   const characterHeading = document.createElement('strong');
   characterHeading.className = 'character-heading';
   characterHeading.textContent = 'キャラクター：';
-  info.append(heading, document.createElement('br'), title, document.createElement('br'), document.createElement('br'), characterHeading, document.createElement('br'));
+  info.append(heading, document.createElement('br'), title, characterHeading);
   stage.characters.forEach(characterLine => {
     const line = document.createElement('span');
     line.className = 'character-line';
@@ -1270,7 +1271,7 @@ function renderStageInformation(){
     const threatHeading = document.createElement('strong');
     threatHeading.className = 'character-heading';
     threatHeading.textContent = '脅威：';
-    info.append(threatHeading, document.createElement('br'));
+    info.append(threatHeading);
     stage.threats.forEach(threat => {
       const line = document.createElement('span');
       line.className = 'character-line';
