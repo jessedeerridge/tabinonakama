@@ -1684,8 +1684,8 @@ async function playCard(cardIndex, expectedCard){
       const winnerId = Object.entries(room.game.trick).find(([,p])=>p===winnerPlay)?.[0] || state.userId;
       const yellowOneEntry = Object.entries(room.game.trick)
         .find(([, play]) => play.card.color === 'yellow' && play.card.number === 1);
-      if (yellowOneEntry) {
-        // 黄1所持者が決めるまで、場札はそのままにして回収を保留する。
+      if (yellowOneEntry && yellowOneEntry[0] !== winnerId) {
+        // 通常判定では黄1が勝てない場合だけ、所持者の選択まで回収を保留する。
         room.game.pendingYellowOneDecision = {
           playerId:yellowOneEntry[0], normalWinnerId:winnerId,
           cards:plays.map(p => p.card), normalWinningCardId:winnerPlay.card.id,
