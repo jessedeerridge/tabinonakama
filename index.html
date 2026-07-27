@@ -274,6 +274,7 @@
     clip-path:polygon(0 10px,30% 6px,70% 6px,100% 10px,100% 100%,0 100%);
   }
   .character-effect-row{display:grid;grid-template-columns:6.6px 1fr;gap:.3px;align-items:start;}
+  .character-effect-row>span:last-child{white-space:pre-line;}
   .character-effect-icon{display:block;width:6.48px;height:6.48px;color:#111;}
   .character-effect-icon svg{display:block;width:100%;height:100%;fill:currentColor;}
   .character-effect-row.victory .character-effect-icon{width:5.76px;height:5.76px;}
@@ -1317,7 +1318,8 @@ function beginNextExchange(game){
       targetId:candidates.length === 1 ? candidates[0] : null,
       selectingPlayerId:sourceId, selections:{}, requestedAt:Date.now()
     };
-    game.phase = candidates.length === 1 ? 'exchange-card-selection' : 'exchange-target-selection';
+    // 候補が複数でも、カードをどのプレイヤーへ落とすかで交換相手を同時に選ぶ。
+    game.phase = 'exchange-card-selection';
     game.turnPlayerId = null;
     return;
   }
@@ -1575,7 +1577,10 @@ function renderExchangeDialog(){
     });
   } else if (choosingCard) {
     const otherId = exchange.sourceId === state.userId ? exchange.targetId : exchange.sourceId;
-    exchangeMessage.textContent = `${playerName(otherId)}にあげるカードを選んでください。`;
+    const recipientText = otherId
+      ? playerName(otherId)
+      : (exchange.candidates || []).map(playerName).join('か');
+    exchangeMessage.textContent = `${recipientText}にあげるカードを選んでください。`;
     exchangeDialog.querySelector('.exchange-note').classList.add('hidden');
   }
 }
@@ -1592,15 +1597,20 @@ async function chooseExchangeTarget(targetId){
   });
 }
 
-async function chooseExchangeCard(cardId){
+async function chooseExchangeCard(cardId, droppedTargetId){
   if (!state.roomCode) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
     const game = room?.game;
     const exchange = game?.pendingExchange;
-    if (game?.phase !== 'exchange-card-selection' || !exchange?.targetId
+    if (game?.phase !== 'exchange-card-selection' || !exchange
       || (exchange.selectingPlayerId || exchange.sourceId) !== state.userId
       || (exchange.selectionAvailableAt && Date.now() < exchange.selectionAvailableAt)
       || exchange.selections?.[state.userId]) return;
+    if (!exchange.targetId && state.userId === exchange.sourceId) {
+      if (!exchange.candidates?.includes(droppedTargetId)) return;
+      exchange.targetId = droppedTargetId;
+    }
+    if (!exchange.targetId) return;
     const card = (room.hands?.[state.userId]?.cards || []).find(item => item.id === cardId);
     if (!card || card.kind === 'character' || (card.color === 'yellow' && card.number === 1)) return;
     exchange.selections ||= {};
@@ -1846,11 +1856,16 @@ function beginExchangeCardDrag(event, cardData, source){
   if (event.button !== undefined && event.button !== 0) return;
   event.preventDefault();
   const exchange = state.game?.pendingExchange;
-  const otherId = exchange?.sourceId === state.userId ? exchange.targetId : exchange?.sourceId;
-  const targetTag = playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(otherId || '')}"]`);
-  const target = targetTag?.querySelector('.exchange-hand-hint');
-  if (!target) return;
-  targetTag.classList.add('exchange-drag-target');
+  const targetIds = exchange?.sourceId === state.userId
+    ? (exchange.targetId ? [exchange.targetId] : exchange.candidates || [])
+    : [exchange?.sourceId].filter(Boolean);
+  const targets = targetIds.map(playerId => {
+    const tag = playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(playerId)}"]`);
+    return { playerId, tag, hint:tag?.querySelector('.exchange-hand-hint') };
+  }).filter(target => target.hint);
+  if (!targets.length) return;
+  // 交換候補が複数いる間は、ドラッグ先を選べるよう全候補のヒントを同時に点灯する。
+  targets.forEach(target => target.tag.classList.add('exchange-drag-target'));
   source.setPointerCapture(event.pointerId);
   source.classList.add('drag-source');
   const floating = createCardElement(cardData);
@@ -1864,23 +1879,26 @@ function beginExchangeCardDrag(event, cardData, source){
   const cancel = () => {
     floating.remove();
     source.classList.remove('drag-source');
-    targetTag.classList.remove('exchange-drag-target');
+    targets.forEach(target => target.tag.classList.remove('exchange-drag-target'));
   };
   const finish = currentEvent => {
     source.removeEventListener('pointermove', move);
     source.removeEventListener('pointerup', finish);
     source.removeEventListener('pointercancel', cancel);
-    const rect = target.getBoundingClientRect();
-    const dropped = currentEvent.clientX >= rect.left && currentEvent.clientX <= rect.right
-      && currentEvent.clientY >= rect.top && currentEvent.clientY <= rect.bottom;
-    if (dropped) {
+    const droppedTarget = targets.find(({ hint }) => {
+      const rect = hint.getBoundingClientRect();
+      return currentEvent.clientX >= rect.left && currentEvent.clientX <= rect.right
+        && currentEvent.clientY >= rect.top && currentEvent.clientY <= rect.bottom;
+    });
+    if (droppedTarget) {
+      const rect = droppedTarget.hint.getBoundingClientRect();
       exchangeDropPositions.set(cardData.id, {
         left:rect.left + rect.width / 2 - 27, top:rect.top + rect.height / 2 - 40.5,
         width:54, height:81
       });
     }
     cancel();
-    if (dropped) chooseExchangeCard(cardData.id);
+    if (droppedTarget) chooseExchangeCard(cardData.id, droppedTarget.playerId);
   };
   move(event);
   source.addEventListener('pointermove', move);
@@ -2015,12 +2033,12 @@ function characterCardData(character, playerId){
     'ピピン': {
       specialName:'愚か者',
       victory:'トリック獲得数が最少（最少同数でもよい）。',
-      effect:'フロド/サム/メリーの誰かと交換する。'
+      effect:'フロドかサムかメリーに手札を1枚渡し、1枚もらう。'
     },
     'サム': {
       specialName:'庭師',
       victory:'引いた脅威カードと同じランクの丘カードを勝ち取る。',
-      effect:'脅威カードを1枚引く。フロドかメリーまたはピピンと交換する。'
+      effect:'脅威カードを1枚引く。\nフロドかメリーかピピンに手札を1枚渡し、1枚もらう。'
     },
     'ガンダルフ': {
       specialName:'灰色の魔法使い',
@@ -2605,9 +2623,12 @@ function renderPlayerCircle(players){
       tag.appendChild(miniHand);
     }
 
-    const exchangeHintVisible = p.id !== state.userId
-      && ['exchange-target-selection', 'exchange-card-selection'].includes(state.game?.phase)
-      && Boolean(state.game?.pendingExchange);
+    const pendingExchange = state.game?.pendingExchange;
+    const exchangeHintIds = pendingExchange?.sourceId === state.userId
+      ? (pendingExchange.targetId ? [pendingExchange.targetId] : pendingExchange.candidates || [])
+      : pendingExchange?.targetId === state.userId ? [pendingExchange.sourceId] : [];
+    const exchangeHintVisible = state.game?.phase === 'exchange-card-selection'
+      && exchangeHintIds.includes(p.id);
     if (exchangeHintVisible) {
       const hint = document.createElement('div');
       hint.className = 'exchange-hand-hint';
