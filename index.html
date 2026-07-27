@@ -36,7 +36,7 @@
     position:fixed;left:50%;bottom:10px;transform:translateX(-50%);
     background:orange;border:1px solid #eee;border-radius:12px;
     box-shadow:0 12px 28px rgba(0,0,0,.12);
-    padding:10px;z-index:220;display:flex;flex-direction:column;gap:10px;min-width:280px;
+    padding:10px;z-index:330;display:flex;flex-direction:column;gap:10px;min-width:280px;
   }
   .seat-pop.hidden{display:none;}
   .seat-pop .row{display:flex;gap:8px;align-items:center;}
@@ -53,7 +53,7 @@
     background:rgba(20,20,20,.92);color:#fff;
     padding:12px 16px;border-radius:14px;
     box-shadow:0 18px 40px rgba(0,0,0,.35);
-    z-index:225;font-weight:800;white-space:nowrap;
+    z-index:330;font-weight:800;white-space:nowrap;
     pointer-events:none;
   }
   .host-selecting-pop.hidden{display:none;}
@@ -136,13 +136,13 @@
   /* 脅威カードは、画像を見せながら左端の黒い矢印欄だけに情報を置く。 */
   .threat-card{--card-color:#4a2f20;--detail-color:#050505;background:#302f2c url('kyoi.jpg') center/cover no-repeat;}
   .threat-card::after{content:'';position:absolute;inset:2px;border:1px solid rgba(255,244,220,.72);border-radius:6px;pointer-events:none;}
-  .threat-card .card-badge{top:5px;left:0;width:31px;height:23px;padding-right:6px;box-sizing:border-box;background:#050505;clip-path:polygon(0 0,72% 0,100% 50%,72% 100%,0 100%);display:grid;place-items:center;text-align:center;}
-  .threat-card .card-badge::before{display:none;}
+  .threat-card .card-badge{top:5px;left:0;width:31px;height:23px;padding-right:6px;box-sizing:border-box;background:#4a2f20;clip-path:polygon(0 0,72% 0,100% 50%,72% 100%,0 100%);display:grid;place-items:center;text-align:center;}
+  .threat-card .card-badge::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,72% 0,100% 50%,72% 100%,0 100%);}
   .threat-card .card-badge.right{display:none;}
   .threat-card .card-number{padding:0;color:#fff;font-size:16px;line-height:23px;}
   .threat-card .card-mark{display:none;}
-  .threat-card .card-name{left:0;right:auto;bottom:5px;width:66px;height:19px;padding-right:9px;box-sizing:border-box;background:#050505;color:#fff;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);font-size:9px;line-height:19px;letter-spacing:0;white-space:nowrap;}
-  .threat-card .card-name::before{display:none;}
+  .threat-card .card-name{left:0;right:auto;bottom:5px;width:66px;height:19px;padding-right:9px;box-sizing:border-box;background:#4a2f20;color:#fff;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);font-size:9px;line-height:19px;letter-spacing:0;white-space:nowrap;}
+  .threat-card .card-name::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   .victory-condition-icon{width:15px;height:15px;border:0;border-radius:2px;background:#111;color:#fff;box-sizing:border-box;display:grid;place-items:center;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;}
@@ -342,7 +342,7 @@
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
     position:fixed;inset:0;background:rgba(0,0,0,.35);
-    display:flex;align-items:center;justify-content:center;z-index:300;
+    display:flex;align-items:center;justify-content:center;z-index:330;
   }
   .dialog-backdrop.hidden{display:none;}
   .dialog-box{
