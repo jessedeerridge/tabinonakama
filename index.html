@@ -180,6 +180,7 @@
   .exchange-received-card{position:absolute;left:50%;top:calc(100% + 30px);width:54px;height:81px;border:1px solid #bbb;border-radius:7px;background:#fff url('tabicardura.jpg') center/cover no-repeat;transform:translate(-50%,-50%) rotate(var(--received-tilt,0deg));transform-origin:center;pointer-events:none;z-index:42;box-shadow:0 3px 8px rgba(0,0,0,.2);}
   .player-tag.me .exchange-received-card{top:-5px;transform:translate(-50%,-100%) rotate(calc(180deg + var(--received-tilt,0deg)));}
   .exchange-card-flight{position:fixed;z-index:1002;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
+  .exchange-card-flight.exchange-offer-flight{transform-origin:center;}
   .exchange-card-flight.card-back{border:1px solid #bbb;border-radius:10px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
@@ -1153,17 +1154,22 @@ function animateExchangeOffer(transfer, oldPositions){
   const to = target?.getBoundingClientRect();
   if (!from || !to) return;
   const flight = document.createElement('div');
-  flight.classList.add('exchange-card-flight', 'card-back');
+  flight.classList.add('exchange-card-flight', 'exchange-offer-flight', 'card-back');
   const startScale = Math.min(from.width / 82, from.height / 122, 1);
   const endScale = Math.min(to.width / 82, to.height / 122, 1);
-  flight.style.left = `${from.left}px`;
-  flight.style.top = `${from.top}px`;
-  flight.style.transform = `scale(${startScale})`;
+  const angle = transfer.targetId === state.userId ? 180 + (transfer.tilt || 0) : transfer.tilt || 0;
+  const fromLeft = from.left + from.width / 2 - 41;
+  const fromTop = from.top + from.height / 2 - 61;
+  const toLeft = to.left + to.width / 2 - 41;
+  const toTop = to.top + to.height / 2 - 61;
+  flight.style.left = `${fromLeft}px`;
+  flight.style.top = `${fromTop}px`;
+  flight.style.transform = `scale(${startScale}) rotate(${angle}deg)`;
   target.style.opacity = '0';
   document.body.appendChild(flight);
   flight.animate([
-    { left:`${from.left}px`, top:`${from.top}px`, transform:`scale(${startScale})`, opacity:1 },
-    { left:`${to.left}px`, top:`${to.top}px`, transform:`scale(${endScale}) rotate(${transfer.targetId === state.userId ? 180 + (transfer.tilt || 0) : transfer.tilt || 0}deg)`, opacity:1 }
+    { left:`${fromLeft}px`, top:`${fromTop}px`, transform:`scale(${startScale}) rotate(${angle}deg)`, opacity:1 },
+    { left:`${toLeft}px`, top:`${toTop}px`, transform:`scale(${endScale}) rotate(${angle}deg)`, opacity:1 }
   ], { duration:1400, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' }).finished.finally(() => {
     flight.remove();
     target.style.removeProperty('opacity');
