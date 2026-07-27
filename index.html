@@ -131,6 +131,8 @@
   .capture-trick{position:absolute;top:0;width:38px;height:56px;}
   .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
   .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
+  /* 公開キャラクターと最初の獲得カードの間に、必ず1pxの隙間を残す。 */
+  .capture-trick.character-capture+.capture-trick{margin-left:4px;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   @keyframes captureArrive{from{transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
@@ -268,6 +270,19 @@
   .character-effect-row.victory .character-effect-icon{width:5.76px;height:5.76px;}
   .character-effect-row.special .character-effect-icon svg{fill:none;stroke:currentColor;stroke-width:.9;stroke-linejoin:round;}
   .character-effect-row.special .character-effect-icon path{fill:currentColor;stroke:none;}
+  .character-victory-badge{
+    display:none;position:absolute;left:50%;bottom:-22px;transform:translateX(-50%);
+    min-width:18px;height:18px;padding:0 3px;box-sizing:border-box;border:1px solid #111;
+    background:#111;color:#fff;font:900 12px/16px system-ui,-apple-system,"Segoe UI",sans-serif;
+    text-align:center;z-index:6;
+  }
+  .character-victory-badge.ring{background:#d5a313;color:#111;border-color:#8b6910;}
+  .character-victory-badge.minimum{font-size:7px;letter-spacing:-.08em;}
+  /* 選択画面や拡大表示ではなく、各プレイヤーが所持するキャラクターの下だけに表示する。 */
+  .hand-row>.character-card>.character-victory-badge,
+  .character-capture .character-card>.character-victory-badge{display:block;}
+  .hand-row>.character-card,
+  .character-capture .character-card{overflow:visible;}
   .card-zoom-backdrop{position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.45);cursor:default;}
   .card-zoom-backdrop.hidden{display:none;}
   .card-zoom-frame{position:fixed;inset:0;pointer-events:none;}
@@ -777,7 +792,9 @@ function createCharacterCardElement(cardData){
     createCharacterEffectRow('victory', victory),
     createCharacterEffectRow('special', cardData.effect || '特殊説明')
   );
+  const victoryBadge = createCharacterVictoryBadge(victory);
   card.append(name, special, effect);
+  if (victoryBadge) card.appendChild(victoryBadge);
   card.addEventListener('click', event => {
     event.stopPropagation();
     openCardZoom(card);
@@ -789,6 +806,28 @@ function createCharacterCardElement(cardData){
     openCardZoom(card);
   });
   return card;
+}
+
+function createCharacterVictoryBadge(victory){
+  if (!victory) return null;
+  const badge = document.createElement('span');
+  badge.className = 'character-victory-badge';
+  const ringCount = victory.match(/指輪を(\d+)枚/);
+  const trickCount = victory.match(/(\d+)トリック/);
+  if (ringCount) {
+    badge.classList.add('ring');
+    badge.textContent = ringCount[1];
+    badge.setAttribute('aria-label', `指輪を${ringCount[1]}枚獲得`);
+  } else if (trickCount) {
+    badge.textContent = trickCount[1];
+    badge.setAttribute('aria-label', `種類を問わず${trickCount[1]}トリック獲得`);
+  } else if (victory.includes('最少')) {
+    badge.classList.add('minimum');
+    badge.textContent = '最少';
+    badge.setAttribute('aria-label', 'トリック獲得数が最少');
+  } else return null;
+  badge.title = badge.getAttribute('aria-label');
+  return badge;
 }
 
 function positionZoomCards(){
