@@ -565,12 +565,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
 
-// 再入室後も同じプレイヤーとして復元できるよう、ブラウザ単位でIDを保持する。
-// 旧版が sessionStorage に保存したIDも最初の一度だけ引き継ぐ。
-const savedUserId = localStorage.getItem('bbUserId')
-  || sessionStorage.getItem('bbUserId')
-  || crypto.randomUUID();
-localStorage.setItem('bbUserId', savedUserId);
+// ★ userId をタブ単位で固定（タブごとに別ID）
+const savedUserId = sessionStorage.getItem('bbUserId') || crypto.randomUUID();
 sessionStorage.setItem('bbUserId', savedUserId);
 
 // ▼ 状態
@@ -949,57 +945,6 @@ function generateRoomCode(length = 5){
   let code = '';
   for(let i=0;i<length;i++) code += chars.charAt(Math.floor(Math.random()*chars.length));
   return code;
-}
-
-// ゲーム内にはプレイヤーIDを値・配列要素・オブジェクトのキーとして保持する状態がある。
-// 席を引き継ぐ際は再帰的にすべて置換し、交換や譲渡の途中状態も旧IDに取り残さない。
-function replacePlayerReferences(value, previousPlayerId, nextPlayerId){
-  if (value === previousPlayerId) return nextPlayerId;
-  if (Array.isArray(value)) {
-    return value.map(item => replacePlayerReferences(item, previousPlayerId, nextPlayerId));
-  }
-  if (!value || typeof value !== 'object') return value;
-
-  const replaced = {};
-  Object.entries(value).forEach(([key, item]) => {
-    const nextKey = key === previousPlayerId ? nextPlayerId : key;
-    replaced[nextKey] = replacePlayerReferences(item, previousPlayerId, nextPlayerId);
-  });
-  return replaced;
-}
-
-function inheritPlayerState(room, previousPlayerId, nextPlayerId){
-  if (!room || !previousPlayerId || previousPlayerId === nextPlayerId) return;
-
-  if (room.hands?.[previousPlayerId]) {
-    room.hands[nextPlayerId] = room.hands[previousPlayerId];
-    delete room.hands[previousPlayerId];
-  }
-  if (room.game) room.game = replacePlayerReferences(room.game, previousPlayerId, nextPlayerId);
-  if (room.hostId === previousPlayerId) room.hostId = nextPlayerId;
-}
-
-async function claimSeat(seatIndex, previousPlayerId = null){
-  if (!state.roomCode) return false;
-  const result = await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
-    if (!room) return;
-    room.tables ||= {};
-    const currentPlayerId = room.tables[seatIndex]?.playerId || null;
-
-    // 空席選択中に別プレイヤーが着席した場合は、その席を意図せず奪わない。
-    if (!previousPlayerId && currentPlayerId && currentPlayerId !== state.userId) return;
-    if (previousPlayerId && currentPlayerId !== previousPlayerId && currentPlayerId !== state.userId) return;
-
-    if (previousPlayerId && previousPlayerId !== state.userId) {
-      inheritPlayerState(room, previousPlayerId, state.userId);
-    }
-    room.tables[seatIndex] = { playerId:state.userId, playerName:state.userName || '名無し' };
-    return room;
-  });
-  if (!result.committed) return false;
-  state.seatedTable = Number(seatIndex);
-  seatPop.classList.add('hidden');
-  return true;
 }
 
 async function restoreSeatFromDB(){
@@ -2170,7 +2115,11 @@ async function renderSeatTabs(){
 
         tab.onclick = async () => {
           await update(roomRef, { maxPlayers: i });
-          await claimSeat(1);
+          const tRef = ref(db, `rooms/${state.roomCode}/tables/1`);
+          await set(tRef, { playerId: state.userId, playerName: state.userName });
+
+          state.seatedTable = 1;
+          seatPop.classList.add('hidden');
         };
         seatTabs.appendChild(tab);
       }
@@ -2193,7 +2142,10 @@ async function renderSeatTabs(){
 
       tab.onclick = async () => {
         if(tab.classList.contains('disabled')) return;
-        await claimSeat(i);
+        const tRef = ref(db, `rooms/${state.roomCode}/tables/${i}`);
+        await set(tRef, { playerId: state.userId, playerName: state.userName });
+        state.seatedTable = i;
+        seatPop.classList.add('hidden');
       };
       seatTabs.appendChild(tab);
     }
@@ -2497,14 +2449,18 @@ btnKickYes.addEventListener('click', async (e) => {
   }
 
   const seatIndex = pendingSeatIndexToSteal;
-  const inherited = await claimSeat(seatIndex, pendingSeatPlayerIdToSteal);
-  if (!inherited) {
-    kickDialog.classList.add('hidden');
-    pendingSeatIndexToSteal = null;
-    pendingSeatPlayerIdToSteal = null;
-    await syncSeatUI();
-    return;
+  const roomRef = ref(db, `rooms/${state.roomCode}`);
+  const roomSnap = await get(roomRef);
+  const roomData = roomSnap.val() || {};
+
+  const tRef = ref(db, `rooms/${state.roomCode}/tables/${seatIndex}`);
+  await set(tRef, { playerId: state.userId, playerName: state.userName || '名無し' });
+
+  if (roomData.hostId && pendingSeatPlayerIdToSteal && roomData.hostId === pendingSeatPlayerIdToSteal) {
+    await update(roomRef, { hostId: state.userId });
   }
+
+  state.seatedTable = seatIndex;
 
   kickDialog.classList.add('hidden');
   pendingSeatIndexToSteal = null;
