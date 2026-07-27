@@ -2336,9 +2336,12 @@ function renderPlayerCircle(players){
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
-    // 自分の獲得カードはネームタグの寸法や移動に影響されない、盤面基準の定位置に置く。
-    const captureX = isMe ? 50 - 210 / circleSize * 100 : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
-    const captureY = isMe ? 92 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
+    // 自分の獲得カードは、現在の見た目の位置を保ったまま盤面の中央下を基準に固定する。
+    // ネームタグの位置や大きさは使わないため、タグを下げても獲得カードは追従しない。
+    const myCaptureX = 50 - 210 / circleSize * 100;
+    const myCaptureY = 92;
+    const captureX = isMe ? myCaptureX : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
+    const captureY = isMe ? myCaptureY : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
@@ -2380,7 +2383,8 @@ function renderPlayerCircle(players){
           : 0;
         const rotation = cardData.color === 'yellow' ? -2 + yellowIndex * 5 : -2;
         holder.style.left = cardData.color === 'yellow' ? `${yellowIndex * 4}px` : '0';
-        holder.style.top = cardData.color === 'yellow' ? `${yellowIndex * 14}px` : '0';
+        // 黄が複数ある場合も数字が読める範囲で、縦方向の広がりを控えめにする。
+        holder.style.top = cardData.color === 'yellow' ? `${yellowIndex * 10}px` : '0';
         holder.style.setProperty('--stack-rotate', `${rotation}deg`);
         holder.appendChild(createCardElement(cardData));
         const captureKey = `${p.id}:${trickIndex}`;
