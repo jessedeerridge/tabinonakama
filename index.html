@@ -175,9 +175,10 @@
   .my-hand.exchange-pickable{animation:none;}
   .my-card.exchange-pick{cursor:grab;touch-action:none;animation:exchangeCardPulse 1.05s ease-in-out infinite;}
   @keyframes exchangeCardPulse{50%{transform:scale(1.07)}}
-  .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:68px;height:68px;box-sizing:border-box;border:4px solid #facc15;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 4px rgba(250,204,21,.25);pointer-events:none;opacity:0;z-index:40;}
-  .player-tag.exchange-drag-target .exchange-hand-hint{opacity:1;animation:exchangeHintPulse 1.05s ease-in-out infinite;}
-  @keyframes exchangeHintPulse{50%{transform:translate(-50%,-50%) scale(1.18);opacity:.65}}
+  .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:68px;height:68px;box-sizing:border-box;border:0;border-radius:14px;transform:translate(-50%,-50%);background:rgba(125,211,252,.22);pointer-events:none;opacity:0;z-index:40;}
+  .player-tag.exchange-drag-target .exchange-hand-hint{opacity:1;}
+  .exchange-pending-card{position:absolute;left:50%;top:calc(100% + 30px);width:54px;height:81px;transform:translate(-50%,-50%);pointer-events:none;z-index:41;}
+  .exchange-pending-card>.my-card{transform:scale(.66);transform-origin:top left;}
   .exchange-card-flight{position:fixed;z-index:1002;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
   .exchange-card-flight.card-back{border:1px solid #222;border-radius:10px;background:#111 url('tabinonakamaback.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
@@ -932,6 +933,7 @@ const seenCharacterSelections = new Set();
 const characterSelectionSources = new Map();
 const characterAnimationUntil = new Map();
 let lastAnimatedExchangeAt = null;
+const exchangeDropPositions = new Map();
 
 function generateRoomCode(length = 5){
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -1055,7 +1057,8 @@ function exchangeCandidates(game, sourceId){
 
 function beginNextExchange(game){
   game.exchangeQueue ||= (game.playerOrder || [])
-    .filter(playerId => ['ガンダルフ', 'ピピン'].includes(game.characterSelections?.[playerId]?.name));
+    .filter(playerId => ['ガンダルフ', 'ピピン'].includes(game.characterSelections?.[playerId]?.name)
+      && !game.completedExchanges?.[playerId]);
   while (game.exchangeQueue.length) {
     const sourceId = game.exchangeQueue.shift();
     const candidates = exchangeCandidates(game, sourceId);
@@ -1136,6 +1139,8 @@ function captureExchangePositions(){
     if (rect) positions.set(player.id, rect);
   });
   myHandEl.querySelectorAll('[data-card-id]').forEach(card => positions.set(`card:${card.dataset.cardId}`, card.getBoundingClientRect()));
+  playerCircle.querySelectorAll('.exchange-pending-card [data-card-id]').forEach(card => positions.set(`card:${card.dataset.cardId}`, card.getBoundingClientRect()));
+  exchangeDropPositions.forEach((rect, cardId) => positions.set(`card:${cardId}`, rect));
   return positions;
 }
 
@@ -1167,9 +1172,10 @@ function animateExchangeTransfer(transfer, oldPositions){
     flight.animate([
       { left:`${from.left}px`, top:`${from.top}px`, transform:`scale(${startScale})`, opacity:1 },
       { left:`${to.left}px`, top:`${to.top}px`, transform:`scale(${endScale})`, opacity:1 }
-    ], { duration:800, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' }).finished.finally(() => {
+    ], { duration:1400, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' }).finished.finally(() => {
       flight.remove();
       exactTarget?.style.removeProperty('opacity');
+      exchangeDropPositions.delete(card.id);
     });
   });
 }
@@ -1315,6 +1321,9 @@ async function chooseExchangeCard(cardId){
       sourceId:exchange.sourceId, targetId:exchange.targetId,
       sourceCard, targetCard, completedAt:Date.now()
     };
+    // 空になった配列はRealtime Database上で消えるため、完了者を別途記録して再実行を防ぐ。
+    game.completedExchanges ||= {};
+    game.completedExchanges[exchange.sourceId] = true;
     delete game.pendingExchange;
     beginNextExchange(game);
     return room;
@@ -1448,6 +1457,7 @@ function renderMyHand(){
   const canChooseExchangeCard = state.game?.phase === 'exchange-card-selection'
     && exchange && !exchange.selections?.[myId]
     && (exchange.sourceId === myId || exchange.targetId === myId);
+  const selectedExchangeCardId = exchange?.selections?.[myId];
   const colorOrder = { red: 0, green: 1, orange: 2, gray: 3, yellow: 4 };
   const displayedCards = handData.cards.map((cardData, cardIndex) => ({
     // 古いルームに残っている数字カードも表示を壊さない。
@@ -1455,7 +1465,8 @@ function renderMyHand(){
       ? cardData
       : { color: 'gray', name: '山', number: cardData },
     cardIndex
-  })).filter(({ normalized }) => normalized.kind !== 'character' || !characterIsWaiting).sort((left, right) => {
+  })).filter(({ normalized }) => normalized.id !== selectedExchangeCardId)
+    .filter(({ normalized }) => normalized.kind !== 'character' || !characterIsWaiting).sort((left, right) => {
     if (left.normalized.kind === 'character') return right.normalized.kind === 'character' ? 0 : -1;
     if (right.normalized.kind === 'character') return 1;
     const typeDifference = (colorOrder[left.normalized.color] ?? 3) - (colorOrder[right.normalized.color] ?? 3);
@@ -1527,6 +1538,12 @@ function beginExchangeCardDrag(event, cardData, source){
     const rect = target.getBoundingClientRect();
     const dropped = currentEvent.clientX >= rect.left && currentEvent.clientX <= rect.right
       && currentEvent.clientY >= rect.top && currentEvent.clientY <= rect.bottom;
+    if (dropped) {
+      exchangeDropPositions.set(cardData.id, {
+        left:rect.left + rect.width / 2 - 27, top:rect.top + rect.height / 2 - 40.5,
+        width:54, height:81
+      });
+    }
     cancel();
     if (dropped) chooseExchangeCard(cardData.id);
   };
@@ -2199,6 +2216,19 @@ function renderPlayerCircle(players){
       hint.className = 'exchange-hand-hint';
       hint.setAttribute('aria-hidden', 'true');
       tag.appendChild(hint);
+    }
+    const pendingExchange = state.game?.pendingExchange;
+    const mySelectedCardId = pendingExchange?.selections?.[state.userId];
+    const myExchangePartnerId = pendingExchange?.sourceId === state.userId
+      ? pendingExchange.targetId : pendingExchange?.targetId === state.userId ? pendingExchange.sourceId : null;
+    if (p.id === myExchangePartnerId && mySelectedCardId) {
+      const selectedCard = (state.hands[state.userId]?.cards || []).find(card => card.id === mySelectedCardId);
+      if (selectedCard) {
+        const pendingCard = document.createElement('div');
+        pendingCard.className = 'exchange-pending-card';
+        pendingCard.appendChild(createCardElement(selectedCard));
+        tag.appendChild(pendingCard);
+      }
     }
 
     playerCircle.appendChild(tag);
