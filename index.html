@@ -400,6 +400,7 @@
   .room-browser.hidden{display:none;}
   .entrance-card{box-sizing:border-box;position:relative;width:100%;height:76px;min-height:76px;margin:0 0 10px;border:1px solid rgba(0,0,0,.7);border-radius:10px;padding:10px 12px;box-shadow:0 3px 12px rgba(0,0,0,.1);font-family:"Noto Sans JP","Yu Gothic",sans-serif;color:#111;cursor:pointer;}
   .create-room-card{background:rgba(0,0,0,.72);color:#fff;display:grid;place-items:center;font-size:21px;font-weight:700;letter-spacing:.08em;}
+  .create-room-card.hidden{display:none;}
   .room-card{background:rgba(255,255,255,.72);text-align:left;display:block;}
   .entrance-loading{height:28px;flex:0 0 auto;display:grid;place-items:center;font-size:13px;color:#555;}
   .entrance-loading.hidden{display:none;}
@@ -426,7 +427,7 @@
 
 <main id="main" class="prejoin">
   <div class="room-browser" id="joinBox">
-    <button class="entrance-card create-room-card" id="btnCreateRoom" type="button">CREATE ROOM</button>
+    <button class="entrance-card create-room-card hidden" id="btnCreateRoom" type="button">CREATE ROOM</button>
     <div class="entrance-loading" id="entranceLoading">loading...</div>
     <div class="room-list" id="roomList"></div>
   </div>
@@ -2075,6 +2076,11 @@ function renderEntranceRooms(){
     roomList.appendChild(button);
   });
 }
+function finishEntranceLoading(){
+  renderEntranceRooms();
+  entranceLoading.classList.add('hidden');
+  btnCreateRoom.classList.remove('hidden');
+}
 btnCreateRoom.addEventListener('click', event => {
   if (event.target.closest('.entrance-name-form')) return;
   activeEntranceCode = '__create__';
@@ -2102,10 +2108,9 @@ onValue(ref(db, 'rooms'), snapshot => {
     return { code, createdAt: room.createdAt || 0, names: entries.map(([, person]) => person.name) };
   }).filter(room => room.createdAt >= sixHoursAgo).sort((a,b) => b.createdAt - a.createdAt);
   scheduleEntranceRoomExpiry();
-  entranceLoading.classList.add('hidden');
-  renderEntranceRooms();
+  finishEntranceLoading();
 }, () => {
-  entranceLoading.classList.add('hidden');
+  finishEntranceLoading();
 });
 
 async function enterRoom(roomCode, userName){
