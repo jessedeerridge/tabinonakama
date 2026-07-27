@@ -339,7 +339,7 @@
   .help-pop-backdrop.hidden{display:none;}
   .help-pop{
     width:min(520px, calc(100% - 0px));
-    max-height:min(58vh, 520px);
+    max-height:min(64vh, 600px);
     background:#fff;border:1px solid #ddd;border-radius:16px;
     box-shadow:0 18px 40px rgba(0,0,0,.35);
     overflow:hidden;
@@ -349,12 +349,14 @@
     padding:10px 12px;border-bottom:1px solid #eee;
   }
   .help-pop-title{font-weight:800;font-size:14px;}
-  .help-pop-body{padding:12px;overflow:auto;max-height:calc(58vh - 48px);}
-  .card-list-row{display:flex;justify-content:center;gap:5px;margin:0 0 5px;}
-  .card-list-item{position:relative;width:50px;height:75px;flex:0 0 50px;opacity:.2;}
+  .help-pop-body{padding:12px;overflow:auto;max-height:calc(64vh - 48px);}
+  .card-list-row{display:flex;justify-content:center;gap:5px;margin:0 0 2px;}
+  .card-list-item{position:relative;width:54px;height:81px;flex:0 0 54px;opacity:.2;}
   .card-list-item.played{opacity:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));}
-  .card-list-item>.my-card{position:absolute;left:0;top:0;transform:scale(.61);transform-origin:top left;pointer-events:none;}
-  @media (max-width:520px){.card-list-row{gap:3px}.card-list-item{width:39px;height:58px;flex-basis:39px}.card-list-item>.my-card{transform:scale(.47)}}
+  .card-list-item>.my-card{position:absolute;left:0;top:0;transform:scale(.66);transform-origin:top left;pointer-events:none;}
+  @media (max-width:520px){.card-list-row{gap:3px}.card-list-item{width:45px;height:67px;flex-basis:45px}.card-list-item>.my-card{transform:scale(.55)}}
+  @media (max-width:430px){.card-list-item{width:40px;height:60px;flex-basis:40px}.card-list-item>.my-card{transform:scale(.49)}}
+  @media (max-width:380px){.card-list-item{width:38px;height:57px;flex-basis:38px}.card-list-item>.my-card{transform:scale(.46)}}
   .role-row{
     display:flex;gap:12px;align-items:flex-start;
     padding:10px 0;
@@ -858,7 +860,9 @@ function renderHelpList(){
   ];
   const playedKeys = new Set(playedCards.map(card => `${card.color}:${card.number}`));
   helpBody.replaceChildren();
-  CARD_TYPES.forEach(type => {
+  // 一覧では指輪を最下段に固定する。
+  const listTypes = [...CARD_TYPES].sort((left, right) => Number(left.color === 'yellow') - Number(right.color === 'yellow'));
+  listTypes.forEach(type => {
     const row = document.createElement('div');
     row.className = 'card-list-row';
     for (let number = 1; number <= type.max; number += 1) {
