@@ -147,6 +147,11 @@
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   .victory-condition-icon{width:15px;height:15px;border:0;border-radius:2px;background:#111;color:#fff;box-sizing:border-box;display:grid;place-items:center;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;}
   .victory-condition-icon.ring{background:#f2c94c;color:#111;}
+  .victory-condition-icon.hill{background:#d98236;color:#111;}
+  .victory-condition-icon.exact{border:1px solid #d5a313;}
+  .victory-condition-icon.choice{width:auto;background:transparent;color:#6b4f13;display:flex;gap:3px;border:0;}
+  .victory-condition-option{width:15px;height:15px;box-sizing:border-box;border:1px solid #d5a313;border-radius:2px;background:#111;color:#fff;display:grid;place-items:center;}
+  .victory-condition-or{font-size:7px;font-weight:800;line-height:15px;}
   .victory-condition-icon.achieved{opacity:.35;}
   .victory-condition-icon.word{width:24px;}
   .character-card-unit{position:relative;flex:0 0 82px;width:82px;height:122px;}
@@ -1075,14 +1080,36 @@ function createVictoryConditionIcon(cardData, playerId){
   const icon = document.createElement('span');
   icon.className = 'victory-condition-icon';
   const victory = cardData.victory || '';
-  const number = victory.match(/\d+/)?.[0];
+  const numbers = [...victory.matchAll(/\d+/g)].map(match => match[0]);
+  const threatRank = victory.includes('脅威カードと同じランク')
+    ? state.game?.threatCards?.[playerId]?.[0]?.number : null;
+  const number = threatRank || numbers[0];
   const isRingGoal = victory.includes('指輪');
   if (isRingGoal) icon.classList.add('ring');
+  if (threatRank != null) icon.classList.add('hill');
   const achieved = hasAchievedVictoryCondition(cardData, playerId);
   icon.classList.toggle('achieved', achieved);
   const word = victory.includes('最少') ? 'min' : (victory.includes('最大') || victory.includes('最多')) ? 'max' : '';
   icon.classList.toggle('word', Boolean(word));
-  icon.textContent = number || word;
+  const isExactCount = Boolean(numbers.length) && !victory.includes('以上');
+  if (numbers.length > 1 && victory.includes('か')) {
+    icon.classList.add('choice');
+    numbers.forEach((value, index) => {
+      if (index) {
+        const separator = document.createElement('span');
+        separator.className = 'victory-condition-or';
+        separator.textContent = 'or';
+        icon.appendChild(separator);
+      }
+      const option = document.createElement('span');
+      option.className = 'victory-condition-option';
+      option.textContent = value;
+      icon.appendChild(option);
+    });
+  } else {
+    icon.classList.toggle('exact', isExactCount);
+    icon.textContent = number || word;
+  }
   const status = achieved ? '（達成済み）' : '';
   icon.setAttribute('aria-label', `勝利条件：${victory}${status}`);
   icon.title = `勝利条件：${victory}${status}`;
@@ -2067,7 +2094,7 @@ function renderHands(){
   if (latestPlayers.length) renderPlayerCircle(latestPlayers);
 }
 
-function exchangeEffectText(character, availableCharacters){
+function exchangeEffectText(character){
   const exchangeTargetCodes = {
     pippin:['frodo', 'sam', 'merry'],
     sam:['frodo', 'merry', 'pippin'],
@@ -2077,17 +2104,12 @@ function exchangeEffectText(character, availableCharacters){
     || Object.entries(CHARACTER_NAMES).find(([, name]) => name === character.name)?.[0];
   const allowedCodes = exchangeTargetCodes[sourceCode];
   if (!allowedCodes) return null;
-  const targetNames = (availableCharacters || [])
-    .map(candidate => candidate.code
-      || Object.entries(CHARACTER_NAMES).find(([, name]) => name === candidate.name)?.[0])
-    .filter(code => allowedCodes.includes(code))
-    .map(code => CHARACTER_NAMES[code]);
-  if (!targetNames.length) return '交換相手はいない。';
+  const targetNames = allowedCodes.map(code => CHARACTER_NAMES[code]);
   if (targetNames.length === 1) return `${targetNames[0]}と交換する。`;
   return `${targetNames.join('/')}の誰かと交換する。`;
 }
 
-function characterCardData(character, playerId, availableCharacters = state.game?.availableCharacters){
+function characterCardData(character, playerId){
   const characterDetails = {
     'フロド': {
       specialName:'指輪所持者',
@@ -2121,7 +2143,7 @@ function characterCardData(character, playerId, availableCharacters = state.game
     }
   };
   const details = characterDetails[character.name] || {};
-  const exchangeEffect = exchangeEffectText(character, availableCharacters);
+  const exchangeEffect = exchangeEffectText(character);
   const effect = [details.effect, exchangeEffect].filter(Boolean).join('\n');
   return {
     kind:'character', name:character.name, required:character.required === true,
@@ -2194,9 +2216,9 @@ async function chooseCharacter(characterName, source){
     room.hands ||= {};
     room.hands[state.userId] ||= { cards:[] };
     room.hands[state.userId].cards ||= [];
-    room.hands[state.userId].cards.unshift(characterCardData(character, state.userId, room.game.availableCharacters));
+    room.hands[state.userId].cards.unshift(characterCardData(character, state.userId));
     room.game.characterSelections[state.userId] = { ...character, selectedAt:Date.now() };
-    const selectedCard = characterCardData(character, state.userId, room.game.availableCharacters);
+    const selectedCard = characterCardData(character, state.userId);
     if (selectedCard.effect.includes('脅威カードを1枚引く')) {
       const stage = STAGES.find(item => item.number === Number(room.game.stageNumber));
       const threat = stage?.threats?.[0];
