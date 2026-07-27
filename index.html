@@ -2359,13 +2359,22 @@ function renderPlayerCircle(players){
         capture.appendChild(characterBundle);
       }
     }
+    // 黄カードを横へ広げた分は、詰め表示でも次のトリックとの間隔に加える。
+    // 各トリックの黄カード枚数は最大でも少数なので、全体を広げすぎず重なりも判別できる。
+    const compactYellowOffsets = [];
+    let compactYellowOffset = 0;
+    capturedTricks.forEach((capturedTrick, trickIndex) => {
+      compactYellowOffsets[trickIndex] = compactYellowOffset;
+      const yellowCount = (capturedTrick.cards || []).filter(card => card.color === 'yellow').length;
+      compactYellowOffset += Math.max(0, yellowCount - 1) * 10;
+    });
     capturedTricks.forEach((capturedTrick, trickIndex) => {
       const bundle = document.createElement('div');
       bundle.className = 'capture-trick';
       // 獲得が5つ以上なら本人分も25pxずつずらして重ねる。
       const compactCapturedTricks = capturedTricks.length >= 5;
       const bundleLeft = compactCapturedTricks
-        ? (isMe ? 0 : 35) + trickIndex * 25
+        ? (isMe ? 0 : 35) + trickIndex * 25 + compactYellowOffsets[trickIndex]
         : isMe ? trickIndex * 44 : (trickIndex + 1) * 35;
       bundle.style.left = `${bundleLeft}px`;
       if (!isMe) bundle.style.zIndex = String(trickIndex + 1);
@@ -2382,8 +2391,9 @@ function renderPlayerCircle(players){
           ? ordered.slice(0, cardIndex).filter(card => card.color === 'yellow').length
           : 0;
         const rotation = cardData.color === 'yellow' ? -2 + yellowIndex * 5 : -2;
-        holder.style.left = cardData.color === 'yellow' ? `${yellowIndex * 4}px` : '0';
-        holder.style.top = cardData.color === 'yellow' ? `${yellowIndex * 14}px` : '0';
+        const yellowOffsetX = cardData.color === 'yellow' ? yellowIndex * 10 : 0;
+        holder.style.left = `${yellowOffsetX}px`;
+        holder.style.top = '0';
         holder.style.setProperty('--stack-rotate', `${rotation}deg`);
         holder.appendChild(createCardElement(cardData));
         const captureKey = `${p.id}:${trickIndex}`;
@@ -2400,7 +2410,7 @@ function renderPlayerCircle(players){
           // 移動元を求める。これで左上席を含む全席で、回収済みカードの位置から連続して見える。
           const playedToCapturedOffsetX = (54 - 38) / 2;
           const playedToCapturedOffsetY = (81 - 56) / 2;
-          holder.style.setProperty('--capture-x', `${(playX-captureX)*size/100 - bundleLeft - playedToCapturedOffsetX}px`);
+          holder.style.setProperty('--capture-x', `${(playX-captureX)*size/100 - bundleLeft - yellowOffsetX - playedToCapturedOffsetX}px`);
           holder.style.setProperty('--capture-y', `${(playY-captureY)*size/100 - playedToCapturedOffsetY}px`);
         }
         bundle.appendChild(holder);
