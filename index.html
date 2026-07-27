@@ -167,7 +167,6 @@
   .ringcircle.on{background-image:url('ringcircleon.jpg');}
   .excluded-card-slot{position:absolute;left:20px;top:92px;width:54px;height:81px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;}
   .excluded-card-slot.hidden{display:none;}
-  .excluded-card-slot>.my-card{transform:scale(.66);transform-origin:top left;}
   .excluded-card-slot.gandalf-pick{pointer-events:auto;cursor:pointer;animation:excludedCardPulse 1.05s ease-in-out infinite;}
   @keyframes excludedCardPulse{50%{transform:rotate(var(--excluded-tilt,0deg)) scale(1.12)}}
   .lost-card-flight{position:fixed;z-index:1001;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
@@ -195,6 +194,13 @@
   .player-tag.exchange-drag-target .exchange-hand-hint{opacity:1;}
   .exchange-received-card{position:absolute;left:50%;top:calc(100% + 30px);width:54px;height:81px;border:1px solid #bbb;border-radius:7px;background:#fff url('tabicardura.jpg') center/cover no-repeat;transform:translate(-50%,-50%) rotate(var(--received-tilt,0deg));transform-origin:center;pointer-events:none;z-index:42;box-shadow:0 3px 8px rgba(0,0,0,.2);}
   .player-tag.me .exchange-received-card{top:-5px;transform:translate(-50%,-100%) rotate(calc(180deg + var(--received-tilt,0deg)));}
+  .exchange-received-card.face-up{border:0;background:transparent;box-shadow:none;}
+  .player-tag.me .exchange-received-card.face-up{transform:translate(-50%,-100%) rotate(var(--received-tilt,0deg));}
+  .exchange-received-card.face-up>.my-card{position:absolute;left:0;top:0;transform:scale(.66);transform-origin:top left;}
+  .exchange-received-card.return-pick{pointer-events:auto;cursor:grab;touch-action:none;}
+  .exchange-received-card.return-pick>.my-card{animation:exchangeReceivedCardPulse 1.05s ease-in-out infinite;}
+  .exchange-received-card.drag-source>.my-card{visibility:hidden;}
+  @keyframes exchangeReceivedCardPulse{50%{transform:scale(.7062)}}
   .exchange-card-flight{position:fixed;z-index:1002;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
   .exchange-card-flight.exchange-offer-flight{transform-origin:center;}
   .exchange-card-flight.card-back{border:1px solid #bbb;border-radius:10px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
@@ -1242,7 +1248,9 @@ function renderStageInformation(){
   excludedCardSlot.classList.toggle('gandalf-pick', canGandalfPick);
   if (excludedCard) {
     excludedCardSlot.style.setProperty('--excluded-tilt', `${state.game.excludedCardTilt || 0}deg`);
-    excludedCardSlot.appendChild(createCardElement(excludedCard));
+    const excludedCardElement = createCardElement(excludedCard);
+    excludedCardElement.classList.add('played-card');
+    excludedCardSlot.appendChild(excludedCardElement);
   }
 
   winningconditionInfo.replaceChildren();
@@ -1411,7 +1419,7 @@ function animateExchangeOffer(transfer, oldPositions){
   const endScale = Math.min(to.width / 82, to.height / 122, 1);
   const fromWidth = transfer.sourceId === state.userId ? 82 * startScale : from.width;
   const fromHeight = transfer.sourceId === state.userId ? 122 * startScale : from.height;
-  const angle = transfer.targetId === state.userId ? 180 + (transfer.tilt || 0) : transfer.tilt || 0;
+  const angle = transfer.tilt || 0;
   const fromLeft = from.left + fromWidth / 2 - 41;
   const fromTop = from.top + fromHeight / 2 - 61;
   const toLeft = to.left + to.width / 2 - 41;
@@ -1449,7 +1457,10 @@ function animateExchangeTransfer(transfer, oldPositions){
     // 交換内容は本人を含めて移動中には公開せず、常に裏向きで見せる。
     const flight = document.createElement('div');
     flight.classList.add('exchange-card-flight', 'card-back');
-    const startScale = fromId === state.userId
+    const isReturnedOffer = transfer.returnedOfferedCard && card.id === transfer.targetCard?.id;
+    const startScale = isReturnedOffer
+      ? .66
+      : fromId === state.userId
       ? currentHandCardScale()
       : Math.min(from.width / 82, from.height / 122, 1);
     const endScale = toId === state.userId
@@ -1612,7 +1623,11 @@ async function chooseExchangeCard(cardId, droppedTargetId){
       exchange.targetId = droppedTargetId;
     }
     if (!exchange.targetId) return;
-    const card = (room.hands?.[state.userId]?.cards || []).find(item => item.id === cardId);
+    const offeredCard = state.userId === exchange.targetId
+      && game.exchangeOfferTransfer?.card?.id === cardId
+      ? game.exchangeOfferTransfer.card
+      : null;
+    const card = (room.hands?.[state.userId]?.cards || []).find(item => item.id === cardId) || offeredCard;
     if (!card || card.kind === 'character' || (card.color === 'yellow' && card.number === 1)) return;
     exchange.selections ||= {};
     exchange.selections[state.userId] = cardId;
@@ -1633,13 +1648,18 @@ async function chooseExchangeCard(cardId, droppedTargetId){
     const targetCards = room.hands[exchange.targetId].cards;
     const sourceIndex = sourceCards.findIndex(item => item.id === sourceCardId);
     const targetIndex = targetCards.findIndex(item => item.id === targetCardId);
-    if (sourceIndex < 0 || targetIndex < 0) return;
+    if (sourceIndex < 0 || (targetIndex < 0 && targetCardId !== sourceCardId)) return;
     const sourceCard = sourceCards[sourceIndex];
-    const targetCard = targetCards[targetIndex];
-    [sourceCards[sourceIndex], targetCards[targetIndex]] = [targetCards[targetIndex], sourceCards[sourceIndex]];
+    const returnedOfferedCard = targetCardId === sourceCardId;
+    const targetCard = returnedOfferedCard ? sourceCard : targetCards[targetIndex];
+    if (!returnedOfferedCard) {
+      [sourceCards[sourceIndex], targetCards[targetIndex]] = [targetCards[targetIndex], sourceCards[sourceIndex]];
+    }
     game.exchangeTransfer = {
       sourceId:exchange.sourceId, targetId:exchange.targetId,
-      sourceCard, targetCard, completedAt:Date.now()
+      // 渡されたカードをそのまま返した場合は、その一枚だけを相手側から戻す演出にする。
+      sourceCard:returnedOfferedCard ? null : sourceCard,
+      targetCard, returnedOfferedCard, completedAt:Date.now()
     };
     // 空になった配列はRealtime Database上で消えるため、完了者を別途記録して再実行を防ぐ。
     game.completedExchanges ||= {};
@@ -1871,7 +1891,7 @@ function beginExchangeCardDrag(event, cardData, source){
   source.classList.add('drag-source');
   const floating = createCardElement(cardData);
   floating.classList.add('drag-card');
-  floating.style.setProperty('--drag-card-scale', currentHandCardScale());
+  floating.style.setProperty('--drag-card-scale', source.classList.contains('exchange-received-card') ? .66 : currentHandCardScale());
   document.body.appendChild(floating);
   const move = currentEvent => {
     floating.style.left = `${currentEvent.clientX}px`;
@@ -2648,6 +2668,21 @@ function renderPlayerCircle(players){
       receivedCard.dataset.cardId = offer.card.id;
       receivedCard.style.setProperty('--received-tilt', `${offer.tilt || 0}deg`);
       receivedCard.setAttribute('aria-hidden', 'true');
+      // 渡された本人にだけカードの表を公開し、ほかのプレイヤーには従来どおり裏面を見せる。
+      if (offer.targetId === state.userId) {
+        receivedCard.classList.add('face-up');
+        receivedCard.removeAttribute('aria-hidden');
+        receivedCard.appendChild(createCardElement(offer.card));
+        const exchange = state.game.pendingExchange;
+        const canReturnReceivedCard = state.game.phase === 'exchange-card-selection'
+          && !exchange.selections?.[state.userId]
+          && (exchange.selectingPlayerId || exchange.sourceId) === state.userId
+          && (!exchange.selectionAvailableAt || Date.now() >= exchange.selectionAvailableAt);
+        if (canReturnReceivedCard) {
+          receivedCard.classList.add('return-pick');
+          receivedCard.addEventListener('pointerdown', event => beginExchangeCardDrag(event, offer.card, receivedCard));
+        }
+      }
       tag.appendChild(receivedCard);
     }
 
