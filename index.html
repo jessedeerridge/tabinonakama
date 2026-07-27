@@ -1757,9 +1757,9 @@ function renderPlayerCircle(players){
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
-    // 公開キャラクターをネームタグの左上から離し、着地時に窮屈に見えない余白を作る。
-    const captureX = isMe ? playX + 13 : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
-    const captureY = isMe ? playY + 11 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
+    // 獲得カードは本人分もネームタグの左端を基準にし、カード列がタグの下へ入り込まないようにする。
+    const captureX = x + ((isMe ? -180 : -24) - tag.offsetWidth / 2) / circleSize * 100;
+    const captureY = isMe ? playY + 12 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
@@ -1780,9 +1780,12 @@ function renderPlayerCircle(players){
     capturedTricks.forEach((capturedTrick, trickIndex) => {
       const bundle = document.createElement('div');
       bundle.className = 'capture-trick';
-      // 他プレイヤーの獲得が5つ以上なら、固定したキャラクターの右で25pxずつずらして重ねる。
-      const compactCapturedTricks = !isMe && capturedTricks.length >= 5;
-      bundle.style.left = `${isMe ? trickIndex * 44 : compactCapturedTricks ? 35 + trickIndex * 25 : (trickIndex + 1) * 35}px`;
+      // 獲得が5つ以上なら本人分も25pxずつずらして重ねる。
+      const compactCapturedTricks = capturedTricks.length >= 5;
+      const bundleLeft = compactCapturedTricks
+        ? (isMe ? 0 : 35) + trickIndex * 25
+        : isMe ? trickIndex * 44 : (trickIndex + 1) * 35;
+      bundle.style.left = `${bundleLeft}px`;
       if (!isMe) bundle.style.zIndex = String(trickIndex + 1);
       const cards = capturedTrick.cards || [];
       const yellows = cards.filter(card => card.color === 'yellow');
@@ -1811,8 +1814,12 @@ function renderPlayerCircle(players){
           const size = playerCircle.clientWidth;
           holder.classList.add('new-capture');
           holder.style.animationDelay = `${-captureElapsed}ms`;
-          holder.style.setProperty('--capture-x', `${(playX-captureX)*size/100}px`);
-          holder.style.setProperty('--capture-y', `${(playY-captureY)*size/100}px`);
+          // プレイ枠と獲得枠は大きさ・基準点が異なるため、各枠の左上と列オフセットも含めて
+          // 移動元を求める。これで左上席を含む全席で、回収済みカードの位置から連続して見える。
+          const playedToCapturedOffsetX = (54 - 38) / 2;
+          const playedToCapturedOffsetY = (81 - 56) / 2;
+          holder.style.setProperty('--capture-x', `${(playX-captureX)*size/100 - bundleLeft - playedToCapturedOffsetX}px`);
+          holder.style.setProperty('--capture-y', `${(playY-captureY)*size/100 - playedToCapturedOffsetY}px`);
         }
         bundle.appendChild(holder);
       });
