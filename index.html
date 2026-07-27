@@ -101,7 +101,7 @@
   .hand-row:empty{display:none;}
   /* 実際の占有幅を詰めるため、下段の末尾にも余分な空白が残らない。 */
   .my-hand.overlapping-cards .hand-row>.my-card:not(.character-card)+.my-card:not(.character-card){margin-left:-13px;z-index:calc(2 + var(--card-stack-index,0));}
-  .my-hand.overlapping-cards .hand-row>.character-card+.my-card,.my-hand.overlapping-cards .hand-row>.character-card-slot+.my-card{margin-left:8px;}
+  .my-hand.overlapping-cards .hand-row>.character-card-unit+.my-card,.my-hand.overlapping-cards .hand-row>.character-card-slot+.my-card{margin-left:8px;}
   .my-card{
     --card-color:#9ca3af;--detail-color:var(--card-color);--panel-fill:#fffdf3;
     position:relative;width:82px;height:122px;border-radius:10px;
@@ -132,6 +132,12 @@
   .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
   .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
+  .victory-condition-icon{width:15px;height:15px;border:0;border-radius:2px;background:#111;color:#fff;box-sizing:border-box;display:grid;place-items:center;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;}
+  .victory-condition-icon.ring{background:#d3ad32;color:#111;}
+  .character-card-unit{position:relative;flex:0 0 82px;width:82px;height:122px;}
+  .character-card-unit>.character-card{width:82px;height:122px;}
+  .character-card-unit>.victory-condition-icon{position:absolute;left:50%;top:var(--victory-icon-top,127px);transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
+  .character-capture>.victory-condition-icon{position:absolute;left:12px;top:61px;z-index:2;}
   @keyframes captureArrive{from{transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .stage-dialog{position:fixed;inset:0;z-index:320;display:grid;place-items:center;background:rgba(0,0,0,.38);}
@@ -877,6 +883,19 @@ function createCharacterEffectRow(type, text){
   return row;
 }
 
+function createVictoryConditionIcon(cardData){
+  const icon = document.createElement('span');
+  icon.className = 'victory-condition-icon';
+  const victory = cardData.victory || '';
+  const number = victory.match(/\d+/)?.[0];
+  const isRingGoal = victory.includes('指輪');
+  if (isRingGoal) icon.classList.add('ring');
+  icon.textContent = number || (victory.includes('最少') ? '少' : '');
+  icon.setAttribute('aria-label', `勝利条件：${victory}`);
+  icon.title = `勝利条件：${victory}`;
+  return icon;
+}
+
 // 3文字までは一行、それ以上も読みやすい位置で分け、必ず二行以内にする。
 function appendWrappedCharacterName(element, value){
   const characters = Array.from(value);
@@ -1562,6 +1581,9 @@ function renderMyHand(){
   const naturalWidth = upperCardCount * 82 + Math.max(0, upperCardCount - 1) * 10 - overlapReduction + characterSpacing;
   const handScale = Math.min(1, Math.max(.25, (window.innerWidth - 24) / Math.max(82, naturalWidth)));
   myHandEl.style.setProperty('--hand-card-scale', handScale);
+  // 行全体が縮小されても、勝利条件の四角は常に15px、カードとの間隔は常に5pxに保つ。
+  myHandEl.style.setProperty('--victory-icon-scale', 1 / handScale);
+  myHandEl.style.setProperty('--victory-icon-top', `${122 + 5 / handScale}px`);
   const upperRow = document.createElement('div');
   upperRow.className = 'hand-row hand-row-upper';
   const lowerRow = document.createElement('div');
@@ -1619,7 +1641,12 @@ function renderMyHand(){
       card.addEventListener('pointerdown', event => beginExchangeCardDrag(event, normalized, card));
     }
     const cardRow = normalized.kind === 'character' || displayedNumberIndex <= 6 ? upperRow : lowerRow;
-    cardRow.appendChild(card);
+    if (normalized.kind === 'character') {
+      const characterUnit = document.createElement('div');
+      characterUnit.className = 'character-card-unit';
+      characterUnit.append(card, createVictoryConditionIcon(normalized));
+      cardRow.appendChild(characterUnit);
+    } else cardRow.appendChild(card);
   });
   myHandEl.classList.toggle('has-playable-cards', hasPlayableCards);
   myHandEl.classList.toggle('exchange-pickable', canChooseExchangeCard);
@@ -2459,7 +2486,7 @@ function renderPlayerCircle(players){
         characterHolder.className = 'capture-card';
         characterHolder.style.setProperty('--stack-rotate', '0deg');
         characterHolder.appendChild(createCardElement(character));
-        characterBundle.appendChild(characterHolder);
+        characterBundle.append(characterHolder, createVictoryConditionIcon(character));
         capture.appendChild(characterBundle);
       }
     }
@@ -2478,8 +2505,8 @@ function renderPlayerCircle(players){
       // 獲得が5つ以上なら本人分も25pxずつずらして重ねる。
       const compactCapturedTricks = capturedTricks.length >= 5;
       const bundleLeft = compactCapturedTricks
-        ? (isMe ? 0 : 35) + trickIndex * 25 + compactYellowOffsets[trickIndex]
-        : isMe ? trickIndex * 44 : (trickIndex + 1) * 35;
+        ? (isMe ? 0 : 40) + trickIndex * 25 + compactYellowOffsets[trickIndex]
+        : isMe ? trickIndex * 44 : 40 + trickIndex * 35;
       bundle.style.left = `${bundleLeft}px`;
       if (!isMe) bundle.style.zIndex = String(trickIndex + 1);
       const cards = capturedTrick.cards || [];
