@@ -91,10 +91,12 @@
   /* 自分の手札表示（大きめ横並び） */
   .my-hand-wrapper{margin-top:23px;text-align:center;}
   .my-hand-title{display:none;}
-  .my-hand{display:flex;width:calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px);box-sizing:border-box;justify-content:center;gap:10px;margin:6px auto 0;min-height:132px;flex-wrap:wrap;padding:0 12px;}
-  /* 通常の10px間隔を13px戻して3px重ね、上段はキャラクターから少し離す。 */
-  .my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--row-offset,0px) + var(--overlap-offset,0px));z-index:calc(2 + var(--card-stack-index,0));}
-  .my-hand.overlapping-cards>.character-card,.my-hand.overlapping-cards>.character-card-slot{left:18px;}
+  .my-hand{display:flex;width:calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px);box-sizing:border-box;flex-direction:column;align-items:center;gap:10px;margin:6px auto 0;min-height:132px;padding:0 12px;}
+  .hand-row{display:flex;justify-content:center;gap:10px;min-height:122px;}
+  .hand-row:empty{display:none;}
+  /* 実際の占有幅を詰めるため、下段の末尾にも余分な空白が残らない。 */
+  .my-hand.overlapping-cards .hand-row>.my-card:not(.character-card)+.my-card:not(.character-card){margin-left:-13px;z-index:calc(2 + var(--card-stack-index,0));}
+  .my-hand.overlapping-cards .hand-row>.character-card+.my-card,.my-hand.overlapping-cards .hand-row>.character-card-slot+.my-card{margin-left:8px;}
   .my-card{
     --card-color:#9ca3af;--detail-color:var(--card-color);--panel-fill:#fffdf3;
     position:relative;width:82px;height:122px;border-radius:10px;
@@ -270,7 +272,7 @@
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
   .character-flight>.my-card{position:absolute;left:0;top:0;transform:scale(var(--flight-scale));transform-origin:top left;}
-  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--mobile-row-offset,var(--row-offset,0px)) + var(--mobile-overlap-offset,0px))}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
+  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.hand-row{gap:6px;min-height:104px}.my-hand.overlapping-cards .hand-row>.my-card:not(.character-card)+.my-card:not(.character-card){margin-left:-9px}.my-hand.overlapping-cards .hand-row>.character-card+.my-card,.my-hand.overlapping-cards .hand-row>.character-card-slot+.my-card{margin-left:12px}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
@@ -347,11 +349,11 @@
   }
   .help-pop-title{font-weight:800;font-size:14px;}
   .help-pop-body{padding:12px;overflow:auto;max-height:calc(58vh - 48px);}
-  .card-list-row{display:grid;grid-template-columns:34px repeat(8,minmax(25px,1fr));gap:4px;align-items:center;margin:0 0 8px;}
-  .card-list-label{font-size:11px;font-weight:900;text-align:center;}
-  .card-list-item{height:42px;box-sizing:border-box;border:3px solid var(--list-color);border-radius:5px;background:var(--list-color);color:#111;display:grid;place-items:center;font-size:16px;font-weight:900;box-shadow:inset 0 0 0 2px rgba(255,255,255,.78);opacity:.2;}
-  .card-list-item.played{opacity:.95;box-shadow:inset 0 0 0 2px rgba(255,255,255,.86),0 2px 5px rgba(0,0,0,.2);}
-  .card-list-item.absent{visibility:hidden;}
+  .card-list-row{display:flex;justify-content:center;gap:5px;margin:0 0 8px;}
+  .card-list-item{position:relative;width:45px;height:67px;flex:0 0 45px;opacity:.2;}
+  .card-list-item.played{opacity:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));}
+  .card-list-item>.my-card{position:absolute;left:0;top:0;transform:scale(.55);transform-origin:top left;pointer-events:none;}
+  @media (max-width:520px){.card-list-row{gap:3px}.card-list-item{width:38px;height:57px;flex-basis:38px}.card-list-item>.my-card{transform:scale(.46)}}
   .role-row{
     display:flex;gap:12px;align-items:flex-start;
     padding:10px 0;
@@ -467,7 +469,6 @@
   <div class="help-pop" role="dialog" aria-modal="true" aria-label="カードリスト">
     <div class="help-pop-header">
       <div class="help-pop-title">カードリスト</div>
-      <button id="btnHelpClose" class="btn ghost" style="padding:2px 6px;font-size:12px;">×</button>
     </div>
     <div class="help-pop-body" id="helpBody">
       <!-- JSで生成 -->
@@ -620,7 +621,6 @@ Object.assign(STAGES[0], {
 /* ★ 追加：ヘルプUI参照 */
 const helpBtn = document.getElementById('helpBtn');
 const helpBackdrop = document.getElementById('helpBackdrop');
-const btnHelpClose = document.getElementById('btnHelpClose');
 const helpBody = document.getElementById('helpBody');
 
 // 山札は各カード1枚ずつ（黄のみ1〜5、ほかの色は1〜8）。
@@ -857,22 +857,15 @@ function renderHelpList(){
   ];
   const playedKeys = new Set(playedCards.map(card => `${card.color}:${card.number}`));
   helpBody.replaceChildren();
-  const colorValues = { red:'#c94c47', green:'#559344', orange:'#d98236', yellow:'#d3ad32', gray:'#a9aca8' };
   CARD_TYPES.forEach(type => {
     const row = document.createElement('div');
     row.className = 'card-list-row';
-    row.style.setProperty('--list-color', colorValues[type.color]);
-    const label = document.createElement('div');
-    label.className = 'card-list-label';
-    label.textContent = type.name;
-    row.appendChild(label);
-    for (let number = 1; number <= 8; number += 1) {
-      const card = document.createElement('div');
-      card.className = 'card-list-item';
-      card.textContent = number;
-      if (number > type.max) card.classList.add('absent');
-      else if (playedKeys.has(`${type.color}:${number}`)) card.classList.add('played');
-      row.appendChild(card);
+    for (let number = 1; number <= type.max; number += 1) {
+      const holder = document.createElement('div');
+      holder.className = 'card-list-item';
+      holder.appendChild(createCardElement({ color:type.color, name:type.name, number }));
+      if (playedKeys.has(`${type.color}:${number}`)) holder.classList.add('played');
+      row.appendChild(holder);
     }
     helpBody.appendChild(row);
   });
@@ -888,7 +881,6 @@ helpBtn.addEventListener('click', () => {
   // 入室後だけ
   if (joinBox.classList.contains('hidden')) openHelp();
 });
-btnHelpClose.addEventListener('click', closeHelp);
 helpBackdrop.addEventListener('click', (e) => {
   if (e.target === helpBackdrop) closeHelp();
 });
@@ -1225,8 +1217,12 @@ function renderMyHand(){
   myHandEl.classList.toggle('overlapping-cards', numberCardCount >= 6);
   // 数字カードが7枚以上なら、1段目を「キャラクター+数字6枚」に固定して残りを2段目へ送る。
   const columnCount = numberCardCount >= 7 ? 7 : Math.max(cardCount, 1);
-  const lowerRowCount = Math.max(0, numberCardCount - 6);
   myHandEl.style.setProperty('--hand-columns', columnCount);
+  const upperRow = document.createElement('div');
+  upperRow.className = 'hand-row hand-row-upper';
+  const lowerRow = document.createElement('div');
+  lowerRow.className = 'hand-row hand-row-lower';
+  myHandEl.append(upperRow, lowerRow);
 
   let hasPlayableCards = false;
   const colorOrder = { red: 0, green: 1, orange: 2, gray: 3, yellow: 4 };
@@ -1247,21 +1243,13 @@ function renderMyHand(){
     const characterSlot = document.createElement('div');
     characterSlot.className = 'character-card-slot';
     characterSlot.setAttribute('aria-hidden', 'true');
-    myHandEl.appendChild(characterSlot);
+    upperRow.appendChild(characterSlot);
   }
 
   let displayedNumberIndex = 0;
   displayedCards.forEach(({ normalized, cardIndex }) => {
     const card = createCardElement(normalized);
     if (normalized.kind !== 'character') {
-      const rowIndex = numberCardCount >= 7 ? displayedNumberIndex % 6 : displayedNumberIndex;
-      card.style.setProperty('--overlap-offset', `${rowIndex * -13}px`);
-      card.style.setProperty('--mobile-overlap-offset', `${rowIndex * -9}px`);
-      // 下段も重ねた後のカード群全体が中央に残るよう、重なり幅の半分を右へ戻す。
-      const lowerRowCenterCorrection = Math.max(0, lowerRowCount - 1) * 6.5;
-      card.style.setProperty('--row-offset', displayedNumberIndex < 6 ? '18px' : `${lowerRowCenterCorrection}px`);
-      const mobileLowerRowCenterCorrection = Math.max(0, lowerRowCount - 1) * 4.5;
-      card.style.setProperty('--mobile-row-offset', displayedNumberIndex < 6 ? '18px' : `${mobileLowerRowCenterCorrection}px`);
       card.style.setProperty('--card-stack-index', displayedNumberIndex);
       displayedNumberIndex += 1;
     }
@@ -1273,7 +1261,8 @@ function renderMyHand(){
       card.classList.add('playable');
       card.addEventListener('pointerdown', event => beginCardDrag(event, normalized, cardIndex, card));
     }
-    myHandEl.appendChild(card);
+    const cardRow = normalized.kind === 'character' || displayedNumberIndex <= 6 ? upperRow : lowerRow;
+    cardRow.appendChild(card);
   });
   myHandEl.classList.toggle('has-playable-cards', hasPlayableCards);
 }
@@ -1420,7 +1409,7 @@ function animateCharacterSelection(playerId, character, sourceRect){
   const isMe = playerId === state.userId;
   // 自分は手札の先頭枠、他プレイヤーは公開キャラクター専用の獲得カード枠を着地点にする。
   const target = isMe
-    ? (myHandEl.firstElementChild || myHandEl)
+    ? (myHandEl.querySelector('.character-card,.character-card-slot') || myHandEl)
     : playerCircle.querySelector(`.capture-circle[data-player-id="${CSS.escape(playerId)}"]`);
   const targetRect = target?.getBoundingClientRect();
   if (!sourceRect || !targetRect) return;
@@ -2023,7 +2012,7 @@ function renderPlayerCircle(players){
           : 0;
         const rotation = cardData.color === 'yellow' ? -2 + yellowIndex * 5 : -2;
         holder.style.left = cardData.color === 'yellow' ? `${yellowIndex * 4}px` : '0';
-        holder.style.top = cardData.color === 'yellow' ? `${yellowIndex * 20}px` : '0';
+        holder.style.top = cardData.color === 'yellow' ? `${yellowIndex * 14}px` : '0';
         holder.style.setProperty('--stack-rotate', `${rotation}deg`);
         holder.appendChild(createCardElement(cardData));
         const captureKey = `${p.id}:${trickIndex}`;
