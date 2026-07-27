@@ -2559,14 +2559,17 @@ function renderPlayerCircle(players){
   const meIndex = players.findIndex(p => p.id === state.userId);
   const geometryFor = (player, idx) => {
     const k = (meIndex === -1) ? idx : (idx - meIndex + n) % n;
-    const angle = anchorAngle + step * k;
+    // 3人プレイの左右席は4人プレイの左右席と同じ座標に固定する。
+    const angle = n === 3 && k > 0
+      ? (k === 1 ? Math.PI : Math.PI * 2)
+      : anchorAngle + step * k;
     const isMe = player.id === state.userId;
     const isTopPlayer = Math.sin(angle) < -.85;
     const playRadius = isMe ? 30 : (isTopPlayer ? 17 : 24);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
     const otherPlayerLift = isMe ? 0 : 80 / circleHeight * 100;
-    // 12時位置のプレイヤーは、ネーム・手札・プレイ位置・獲得カードをまとめて15px下げる。
-    const topPlayerDrop = !isMe && isTopPlayer ? 25 / circleHeight * 100 : 0;
+    // 12時位置のプレイヤーは、ネーム・手札・プレイ位置・獲得カードをまとめてさらに下げる。
+    const topPlayerDrop = !isMe && isTopPlayer ? 45 / circleHeight * 100 : 0;
     return {
       angle, isMe,
       x: 50 + radius * Math.cos(angle),
