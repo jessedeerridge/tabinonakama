@@ -166,6 +166,21 @@
   .hold-decision::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,.24);transform:scaleX(var(--hold-progress,0));transform-origin:left;z-index:0;}
   .hold-decision>span{position:relative;z-index:1;}
   .yellow-one-note{position:absolute;right:10px;bottom:6px;font-size:10px;font-weight:700;}
+  .exchange-dialog{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:315;width:max-content;max-width:calc(100vw - 24px);box-sizing:border-box;padding:10px 12px 24px;border:1px solid #bbb;border-radius:12px;background:#fff;color:#111;box-shadow:0 12px 28px rgba(0,0,0,.28);text-align:center;}
+  .exchange-dialog.hidden{display:none;}
+  .exchange-message{max-width:300px;font-size:14px;font-weight:900;line-height:1.35;}
+  .exchange-targets{display:flex;justify-content:center;gap:6px;margin-top:8px;overflow-x:auto;}
+  .exchange-target{flex:0 0 auto;min-width:88px;background:#fff;color:#111;border-color:#777;}
+  .exchange-note{position:absolute;right:12px;bottom:8px;font-size:10px;font-weight:700;}
+  .my-hand.exchange-pickable{animation:none;}
+  .my-card.exchange-pick{cursor:grab;touch-action:none;animation:exchangeCardPulse 1.05s ease-in-out infinite;}
+  @keyframes exchangeCardPulse{50%{transform:scale(1.07)}}
+  .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:68px;height:68px;box-sizing:border-box;border:0;border-radius:14px;transform:translate(-50%,-50%);background:rgba(125,211,252,.22);pointer-events:none;opacity:0;z-index:40;}
+  .player-tag.exchange-drag-target .exchange-hand-hint{opacity:1;}
+  .exchange-pending-card{position:absolute;left:50%;top:calc(100% + 30px);width:54px;height:81px;transform:translate(-50%,-50%);pointer-events:none;z-index:41;}
+  .exchange-pending-card>.my-card{transform:scale(.66);transform-origin:top left;}
+  .exchange-card-flight{position:fixed;z-index:1002;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
+  .exchange-card-flight.card-back{border:1px solid #222;border-radius:10px;background:#111 url('tabinonakamaback.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
@@ -519,6 +534,12 @@
   <div class="yellow-one-note">＊長押しで決定。</div>
 </section>
 
+<section id="exchangeDialog" class="exchange-dialog hidden" aria-live="assertive">
+  <div id="exchangeMessage" class="exchange-message"></div>
+  <div id="exchangeTargets" class="exchange-targets"></div>
+  <div class="exchange-note">＊2秒クリックで決定。</div>
+</section>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
@@ -601,6 +622,9 @@ const excludedCardSlot = document.getElementById('excludedCardSlot');
 const characterPicker = document.getElementById('characterPicker');
 const characterPickerRow = document.getElementById('characterPickerRow');
 const yellowOneDecision = document.getElementById('yellowOneDecision');
+const exchangeDialog = document.getElementById('exchangeDialog');
+const exchangeMessage = document.getElementById('exchangeMessage');
+const exchangeTargets = document.getElementById('exchangeTargets');
 
 const STAGES = Array.from({ length: 17 }, (_, index) => ({
   number: index + 1,
@@ -908,6 +932,8 @@ const renderedCaptureCounts = new Map();
 const seenCharacterSelections = new Set();
 const characterSelectionSources = new Map();
 const characterAnimationUntil = new Map();
+let lastAnimatedExchangeAt = null;
+const exchangeDropPositions = new Map();
 
 function generateRoomCode(length = 5){
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -1020,6 +1046,39 @@ function renderStageInformation(){
   winningconditionGoal.append(goal);
 }
 
+function exchangeCandidates(game, sourceId){
+  const characterName = game?.characterSelections?.[sourceId]?.name;
+  const allowedNames = characterName === 'ガンダルフ'
+    ? ['フロド']
+    : characterName === 'ピピン' ? ['フロド', 'サム', 'メリー'] : [];
+  return (game?.playerOrder || []).filter(playerId => playerId !== sourceId
+    && allowedNames.includes(game.characterSelections?.[playerId]?.name));
+}
+
+function beginNextExchange(game){
+  game.exchangeQueue ||= (game.playerOrder || [])
+    .filter(playerId => ['ガンダルフ', 'ピピン'].includes(game.characterSelections?.[playerId]?.name)
+      && !game.completedExchanges?.[playerId]);
+  while (game.exchangeQueue.length) {
+    const sourceId = game.exchangeQueue.shift();
+    const candidates = exchangeCandidates(game, sourceId);
+    if (!candidates.length) continue;
+    game.pendingExchange = {
+      sourceId, candidates,
+      targetId:candidates.length === 1 ? candidates[0] : null,
+      selections:{}, requestedAt:Date.now()
+    };
+    game.phase = candidates.length === 1 ? 'exchange-card-selection' : 'exchange-target-selection';
+    game.turnPlayerId = null;
+    return;
+  }
+  delete game.exchangeQueue;
+  delete game.pendingExchange;
+  game.phase = 'playing';
+  game.turnPlayerId = game.startingPlayerId || game.playerOrder?.[0] || null;
+  delete game.startingPlayerId;
+}
+
 async function takeExcludedCardAsGandalf(){
   if (!state.roomCode || state.game?.phase !== 'gandalf-selection' || state.game?.gandalfPlayerId !== state.userId) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
@@ -1031,9 +1090,8 @@ async function takeExcludedCardAsGandalf(){
     room.hands[state.userId].cards.push(game.excludedCard);
     game.lostCardTransfer = { cardId:game.excludedCard.id, playerId:state.userId, movedAt:Date.now() };
     delete game.excludedCard;
-    game.phase = 'playing';
-    game.turnPlayerId = game.startingPlayerId || game.playerOrder?.[0] || null;
-    delete game.startingPlayerId;
+    // ロストカード取得など、交換以外の効果をすべて終えてから交換を始める。
+    beginNextExchange(game);
     return room;
   });
 }
@@ -1071,6 +1129,57 @@ function captureMyHandRects(){
   ]));
 }
 
+function captureExchangePositions(){
+  const positions = new Map();
+  latestPlayers.forEach(player => {
+    const element = player.id === state.userId ? myHandEl
+      : playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(player.id)}"] .mini-hand`)
+        || playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(player.id)}"]`);
+    const rect = element?.getBoundingClientRect();
+    if (rect) positions.set(player.id, rect);
+  });
+  myHandEl.querySelectorAll('[data-card-id]').forEach(card => positions.set(`card:${card.dataset.cardId}`, card.getBoundingClientRect()));
+  playerCircle.querySelectorAll('.exchange-pending-card [data-card-id]').forEach(card => positions.set(`card:${card.dataset.cardId}`, card.getBoundingClientRect()));
+  exchangeDropPositions.forEach((rect, cardId) => positions.set(`card:${cardId}`, rect));
+  return positions;
+}
+
+function animateExchangeTransfer(transfer, oldPositions){
+  if (!transfer?.completedAt || transfer.completedAt === lastAnimatedExchangeAt) return;
+  lastAnimatedExchangeAt = transfer.completedAt;
+  [
+    { card:transfer.sourceCard, fromId:transfer.sourceId, toId:transfer.targetId },
+    { card:transfer.targetCard, fromId:transfer.targetId, toId:transfer.sourceId }
+  ].forEach(({ card, fromId, toId }) => {
+    if (!card) return;
+    const from = oldPositions.get(`card:${card.id}`) || oldPositions.get(fromId);
+    const exactTarget = toId === state.userId ? myHandEl.querySelector(`[data-card-id="${CSS.escape(card.id)}"]`) : null;
+    const targetElement = exactTarget
+      || playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(toId)}"] .mini-hand`)
+      || playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(toId)}"]`);
+    const to = targetElement?.getBoundingClientRect();
+    if (!from || !to) return;
+    // 交換内容は本人を含めて移動中には公開せず、常に裏向きで見せる。
+    const flight = document.createElement('div');
+    flight.classList.add('exchange-card-flight', 'card-back');
+    const startScale = Math.min(from.width / 82, from.height / 122, 1);
+    const endScale = Math.min(to.width / 82, to.height / 122, 1);
+    flight.style.left = `${from.left}px`;
+    flight.style.top = `${from.top}px`;
+    flight.style.transform = `scale(${startScale})`;
+    document.body.appendChild(flight);
+    if (exactTarget) exactTarget.style.opacity = '0';
+    flight.animate([
+      { left:`${from.left}px`, top:`${from.top}px`, transform:`scale(${startScale})`, opacity:1 },
+      { left:`${to.left}px`, top:`${to.top}px`, transform:`scale(${endScale})`, opacity:1 }
+    ], { duration:1400, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' }).finished.finally(() => {
+      flight.remove();
+      exactTarget?.style.removeProperty('opacity');
+      exchangeDropPositions.delete(card.id);
+    });
+  });
+}
+
 function animateMyHandReflow(previousRects){
   myHandEl.querySelectorAll('[data-card-id]').forEach(card => {
     const previous = previousRects.get(card.dataset.cardId);
@@ -1093,6 +1202,7 @@ function subscribeRoom(){
     const previousTransferAt = state.game?.lostCardTransfer?.movedAt;
     const excludedSourceRect = state.game?.excludedCard ? excludedCardSlot.getBoundingClientRect() : null;
     const previousMyHandRects = captureMyHandRects();
+    const previousExchangePositions = captureExchangePositions();
     state.room = snap.val() || {};
     state.game = state.room.game || null;
     state.hands = state.room.hands || {};
@@ -1101,6 +1211,11 @@ function subscribeRoom(){
     renderHands();
     renderStageInformation();
     renderYellowOneDecision();
+    renderExchangeDialog();
+    const exchangeTransfer = state.game?.exchangeTransfer;
+    if (exchangeTransfer?.completedAt && exchangeTransfer.completedAt !== lastAnimatedExchangeAt) {
+      requestAnimationFrame(() => animateExchangeTransfer(exchangeTransfer, previousExchangePositions));
+    }
     const transfer = state.game?.lostCardTransfer;
     if (transfer?.movedAt && transfer.movedAt !== previousTransferAt && excludedSourceRect) {
       requestAnimationFrame(() => {
@@ -1110,6 +1225,108 @@ function subscribeRoom(){
     }
     scheduleTrickClear();
     syncSeatUI();
+  });
+}
+
+function playerName(playerId){
+  return latestPlayers.find(player => player.id === playerId)?.name
+    || Object.values(state.room?.tables || {}).find(player => player?.playerId === playerId)?.playerName
+    || 'プレイヤー';
+}
+
+function attachTwoSecondHold(button, action){
+  let timer = null;
+  let animation = null;
+  const cancel = () => {
+    clearTimeout(timer); timer = null;
+    animation?.cancel(); animation = null;
+    button.style.setProperty('--hold-progress', 0);
+  };
+  button.addEventListener('click', event => event.preventDefault());
+  button.addEventListener('pointerdown', event => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    button.setPointerCapture(event.pointerId);
+    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:2000, fill:'forwards' });
+    timer = setTimeout(() => { cancel(); action(); }, 2000);
+  });
+  button.addEventListener('pointerup', cancel);
+  button.addEventListener('pointercancel', cancel);
+  button.addEventListener('lostpointercapture', cancel);
+}
+
+function renderExchangeDialog(){
+  const exchange = state.game?.pendingExchange;
+  const choosingTarget = state.game?.phase === 'exchange-target-selection' && exchange?.sourceId === state.userId;
+  const choosingCard = state.game?.phase === 'exchange-card-selection'
+    && exchange && !exchange.selections?.[state.userId]
+    && (exchange.sourceId === state.userId || exchange.targetId === state.userId);
+  exchangeDialog.classList.toggle('hidden', !choosingTarget && !choosingCard);
+  exchangeTargets.replaceChildren();
+  if (choosingTarget) {
+    exchangeMessage.textContent = '交換するプレイヤーを選んでください。';
+    exchangeDialog.querySelector('.exchange-note').classList.remove('hidden');
+    exchange.candidates.forEach(playerId => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn hold-decision exchange-target';
+      button.innerHTML = `<span></span>`;
+      button.firstElementChild.textContent = playerName(playerId);
+      attachTwoSecondHold(button, () => chooseExchangeTarget(playerId));
+      exchangeTargets.appendChild(button);
+    });
+  } else if (choosingCard) {
+    const otherId = exchange.sourceId === state.userId ? exchange.targetId : exchange.sourceId;
+    exchangeMessage.textContent = `${playerName(otherId)}にあげるカードを選んでください。`;
+    exchangeDialog.querySelector('.exchange-note').classList.add('hidden');
+  }
+}
+
+async function chooseExchangeTarget(targetId){
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    const exchange = game?.pendingExchange;
+    if (game?.phase !== 'exchange-target-selection' || exchange?.sourceId !== state.userId
+      || !exchange.candidates?.includes(targetId)) return;
+    exchange.targetId = targetId;
+    game.phase = 'exchange-card-selection';
+    return game;
+  });
+}
+
+async function chooseExchangeCard(cardId){
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const game = room?.game;
+    const exchange = game?.pendingExchange;
+    if (game?.phase !== 'exchange-card-selection' || !exchange?.targetId
+      || (exchange.sourceId !== state.userId && exchange.targetId !== state.userId)
+      || exchange.selections?.[state.userId]) return;
+    const card = (room.hands?.[state.userId]?.cards || []).find(item => item.id === cardId);
+    if (!card || card.kind === 'character' || (card.color === 'yellow' && card.number === 1)) return;
+    exchange.selections ||= {};
+    exchange.selections[state.userId] = cardId;
+    const sourceCardId = exchange.selections[exchange.sourceId];
+    const targetCardId = exchange.selections[exchange.targetId];
+    if (!sourceCardId || !targetCardId) return room;
+    const sourceCards = room.hands[exchange.sourceId].cards;
+    const targetCards = room.hands[exchange.targetId].cards;
+    const sourceIndex = sourceCards.findIndex(item => item.id === sourceCardId);
+    const targetIndex = targetCards.findIndex(item => item.id === targetCardId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const sourceCard = sourceCards[sourceIndex];
+    const targetCard = targetCards[targetIndex];
+    [sourceCards[sourceIndex], targetCards[targetIndex]] = [targetCards[targetIndex], sourceCards[sourceIndex]];
+    game.exchangeTransfer = {
+      sourceId:exchange.sourceId, targetId:exchange.targetId,
+      sourceCard, targetCard, completedAt:Date.now()
+    };
+    // 空になった配列はRealtime Database上で消えるため、完了者を別途記録して再実行を防ぐ。
+    game.completedExchanges ||= {};
+    game.completedExchanges[exchange.sourceId] = true;
+    delete game.pendingExchange;
+    beginNextExchange(game);
+    return room;
   });
 }
 
@@ -1213,7 +1430,7 @@ function subscribeHands(){
 
 function renderMyHand(){
   myHandEl.innerHTML = '';
-  myHandEl.classList.remove('has-playable-cards', 'overlapping-cards');
+  myHandEl.classList.remove('has-playable-cards', 'overlapping-cards', 'exchange-pickable');
   myHandEl.style.removeProperty('--hand-columns');
   const myId = state.userId;
   const handData = state.hands[myId];
@@ -1236,6 +1453,11 @@ function renderMyHand(){
   myHandEl.append(upperRow, lowerRow);
 
   let hasPlayableCards = false;
+  const exchange = state.game?.pendingExchange;
+  const canChooseExchangeCard = state.game?.phase === 'exchange-card-selection'
+    && exchange && !exchange.selections?.[myId]
+    && (exchange.sourceId === myId || exchange.targetId === myId);
+  const selectedExchangeCardId = exchange?.selections?.[myId];
   const colorOrder = { red: 0, green: 1, orange: 2, gray: 3, yellow: 4 };
   const displayedCards = handData.cards.map((cardData, cardIndex) => ({
     // 古いルームに残っている数字カードも表示を壊さない。
@@ -1243,7 +1465,8 @@ function renderMyHand(){
       ? cardData
       : { color: 'gray', name: '山', number: cardData },
     cardIndex
-  })).filter(({ normalized }) => normalized.kind !== 'character' || !characterIsWaiting).sort((left, right) => {
+  })).filter(({ normalized }) => normalized.id !== selectedExchangeCardId)
+    .filter(({ normalized }) => normalized.kind !== 'character' || !characterIsWaiting).sort((left, right) => {
     if (left.normalized.kind === 'character') return right.normalized.kind === 'character' ? 0 : -1;
     if (right.normalized.kind === 'character') return 1;
     const typeDifference = (colorOrder[left.normalized.color] ?? 3) - (colorOrder[right.normalized.color] ?? 3);
@@ -1272,10 +1495,62 @@ function renderMyHand(){
       card.classList.add('playable');
       card.addEventListener('pointerdown', event => beginCardDrag(event, normalized, cardIndex, card));
     }
+    const canExchange = canChooseExchangeCard && normalized.kind !== 'character'
+      && !(normalized.color === 'yellow' && normalized.number === 1);
+    if (canExchange) {
+      card.classList.add('exchange-pick');
+      card.addEventListener('pointerdown', event => beginExchangeCardDrag(event, normalized, card));
+    }
     const cardRow = normalized.kind === 'character' || displayedNumberIndex <= 6 ? upperRow : lowerRow;
     cardRow.appendChild(card);
   });
   myHandEl.classList.toggle('has-playable-cards', hasPlayableCards);
+  myHandEl.classList.toggle('exchange-pickable', canChooseExchangeCard);
+}
+
+function beginExchangeCardDrag(event, cardData, source){
+  if (event.button !== undefined && event.button !== 0) return;
+  event.preventDefault();
+  const exchange = state.game?.pendingExchange;
+  const otherId = exchange?.sourceId === state.userId ? exchange.targetId : exchange?.sourceId;
+  const targetTag = playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(otherId || '')}"]`);
+  const target = targetTag?.querySelector('.exchange-hand-hint');
+  if (!target) return;
+  targetTag.classList.add('exchange-drag-target');
+  source.setPointerCapture(event.pointerId);
+  source.classList.add('drag-source');
+  const floating = createCardElement(cardData);
+  floating.classList.add('drag-card');
+  document.body.appendChild(floating);
+  const move = currentEvent => {
+    floating.style.left = `${currentEvent.clientX}px`;
+    floating.style.top = `${currentEvent.clientY}px`;
+  };
+  const cancel = () => {
+    floating.remove();
+    source.classList.remove('drag-source');
+    targetTag.classList.remove('exchange-drag-target');
+  };
+  const finish = currentEvent => {
+    source.removeEventListener('pointermove', move);
+    source.removeEventListener('pointerup', finish);
+    source.removeEventListener('pointercancel', cancel);
+    const rect = target.getBoundingClientRect();
+    const dropped = currentEvent.clientX >= rect.left && currentEvent.clientX <= rect.right
+      && currentEvent.clientY >= rect.top && currentEvent.clientY <= rect.bottom;
+    if (dropped) {
+      exchangeDropPositions.set(cardData.id, {
+        left:rect.left + rect.width / 2 - 27, top:rect.top + rect.height / 2 - 40.5,
+        width:54, height:81
+      });
+    }
+    cancel();
+    if (dropped) chooseExchangeCard(cardData.id);
+  };
+  move(event);
+  source.addEventListener('pointermove', move);
+  source.addEventListener('pointerup', finish, { once:true });
+  source.addEventListener('pointercancel', cancel, { once:true });
 }
 
 function canFollowSuit(card){
@@ -1307,7 +1582,10 @@ function beginCardDrag(event, cardData, cardIndex, source){
     floating.remove(); source.classList.remove('drag-source'); playerCircle.classList.remove('dragging');
     const target = playerCircle.querySelector('.play-circle.mine');
     const rect = target?.getBoundingClientRect();
-    if (rect && e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+    // ヒント円の見た目は変えず、指でドロップしやすいよう判定だけを外側へ広げる。
+    const dropPadding = 28;
+    if (rect && e.clientX >= rect.left - dropPadding && e.clientX <= rect.right + dropPadding
+      && e.clientY >= rect.top - dropPadding && e.clientY <= rect.bottom + dropPadding) {
       selfDropPoint = { x: e.clientX, y: e.clientY };
       await playCard(cardIndex, cardData);
     }
@@ -1503,8 +1781,9 @@ async function chooseCharacter(characterName, source){
         room.game.startingPlayerId = room.game.turnPlayerId || room.game.playerOrder[0];
         room.game.turnPlayerId = null;
       } else {
-        room.game.phase = 'playing';
-        room.game.turnPlayerId ||= room.game.playerOrder[0];
+        room.game.startingPlayerId = room.game.turnPlayerId || room.game.playerOrder[0];
+        room.game.turnPlayerId = null;
+        beginNextExchange(room.game);
       }
     }
     return room;
@@ -1927,6 +2206,29 @@ function renderPlayerCircle(players){
       });
 
       tag.appendChild(miniHand);
+    }
+
+    const exchangeHintVisible = p.id !== state.userId
+      && ['exchange-target-selection', 'exchange-card-selection'].includes(state.game?.phase)
+      && Boolean(state.game?.pendingExchange);
+    if (exchangeHintVisible) {
+      const hint = document.createElement('div');
+      hint.className = 'exchange-hand-hint';
+      hint.setAttribute('aria-hidden', 'true');
+      tag.appendChild(hint);
+    }
+    const pendingExchange = state.game?.pendingExchange;
+    const mySelectedCardId = pendingExchange?.selections?.[state.userId];
+    const myExchangePartnerId = pendingExchange?.sourceId === state.userId
+      ? pendingExchange.targetId : pendingExchange?.targetId === state.userId ? pendingExchange.sourceId : null;
+    if (p.id === myExchangePartnerId && mySelectedCardId) {
+      const selectedCard = (state.hands[state.userId]?.cards || []).find(card => card.id === mySelectedCardId);
+      if (selectedCard) {
+        const pendingCard = document.createElement('div');
+        pendingCard.className = 'exchange-pending-card';
+        pendingCard.appendChild(createCardElement(selectedCard));
+        tag.appendChild(pendingCard);
+      }
     }
 
     playerCircle.appendChild(tag);
