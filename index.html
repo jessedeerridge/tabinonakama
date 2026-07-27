@@ -180,7 +180,8 @@
   .exchange-pending-card{position:absolute;left:50%;top:calc(100% + 30px);width:54px;height:81px;transform:translate(-50%,-50%);pointer-events:none;z-index:41;}
   .exchange-pending-card>.my-card{transform:scale(.66);transform-origin:top left;}
   .exchange-card-flight{position:fixed;z-index:1002;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
-  .exchange-card-flight.card-back{border:1px solid #222;border-radius:10px;background:#111 url('tabinonakamaback.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
+  /* 縦長の裏面画像を切り抜かず、カード内へ全体表示する。 */
+  .exchange-card-flight.card-back{border:1px solid #222;border-radius:10px;background-color:#111;background-image:url('tabinonakamaback.jpg');background-position:center;background-size:contain;background-repeat:no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);overflow:hidden;}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
