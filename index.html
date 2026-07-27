@@ -36,7 +36,7 @@
     position:fixed;left:50%;bottom:10px;transform:translateX(-50%);
     background:orange;border:1px solid #eee;border-radius:12px;
     box-shadow:0 12px 28px rgba(0,0,0,.12);
-    padding:10px;z-index:220;display:flex;flex-direction:column;gap:10px;min-width:280px;
+    padding:10px;z-index:330;display:flex;flex-direction:column;gap:10px;min-width:280px;
   }
   .seat-pop.hidden{display:none;}
   .seat-pop .row{display:flex;gap:8px;align-items:center;}
@@ -53,7 +53,7 @@
     background:rgba(20,20,20,.92);color:#fff;
     padding:12px 16px;border-radius:14px;
     box-shadow:0 18px 40px rgba(0,0,0,.35);
-    z-index:225;font-weight:800;white-space:nowrap;
+    z-index:330;font-weight:800;white-space:nowrap;
     pointer-events:none;
   }
   .host-selecting-pop.hidden{display:none;}
@@ -83,7 +83,7 @@
   }
   .player-tag .mini-card{
     position:absolute;left:50%;top:0;width:32px;height:44px;
-    border-radius:6px;border:1px solid #bbb;
+    border-radius:6px;border:1px solid #10233f;
     background:#fff url('tabicardura.jpg') center/cover no-repeat;
     font-size:10px;display:flex;align-items:center;justify-content:center;
     transform-origin:bottom center;
@@ -133,9 +133,17 @@
   .capture-trick{position:absolute;top:0;width:38px;height:56px;}
   .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
   .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
-  .threat-card{--card-color:#171717;--detail-color:#171717;--panel-fill:#eee9dc;background:#302f2c url('shadow.jpg') center/cover no-repeat;filter:grayscale(1);}
-  .threat-card::after{content:'';position:absolute;inset:3px;border:1px solid rgba(255,255,255,.68);border-radius:6px;pointer-events:none;}
-  .threat-card .card-name{color:#111;letter-spacing:0;font-size:9px;}
+  /* 脅威カードは、画像を見せながら左端の黒い矢印欄だけに情報を置く。 */
+  .threat-card{--card-color:#4a2f20;--detail-color:#050505;background:#302f2c url('kyoi.jpg') center/cover no-repeat;}
+  .threat-card::after{content:'';position:absolute;inset:2px;border:1px solid rgba(255,244,220,.72);border-radius:6px;pointer-events:none;}
+  .threat-card .card-badge{top:5px;left:0;width:31px;height:23px;padding-right:6px;box-sizing:border-box;background:#4a2f20;clip-path:polygon(0 0,72% 0,100% 50%,72% 100%,0 100%);display:grid;place-items:center;text-align:center;}
+  .threat-card .card-badge::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,72% 0,100% 50%,72% 100%,0 100%);}
+  .threat-card .card-badge.right{display:none;}
+  .threat-card .card-number{padding:0;color:#fff;font-size:16px;line-height:23px;}
+  .threat-card .card-mark{display:none;}
+  .threat-card .card-name{left:0;right:auto;bottom:5px;width:66px;height:19px;padding-right:9px;box-sizing:border-box;background:#4a2f20;color:#fff;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);font-size:9px;line-height:19px;letter-spacing:0;white-space:nowrap;}
+  .threat-card .card-name::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
+  .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   .victory-condition-icon{width:15px;height:15px;border:0;border-radius:2px;background:#111;color:#fff;box-sizing:border-box;display:grid;place-items:center;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;}
   .victory-condition-icon.ring{background:#f2c94c;color:#111;}
@@ -167,7 +175,8 @@
   #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
   .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);}
   .ringcircle.on{background-image:url('ringcircleon.jpg');}
-  .excluded-card-slot{position:absolute;left:20px;top:92px;width:54px;height:81px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;}
+  .excluded-card-slot{position:absolute;left:20px;top:92px;width:38px;height:56px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;}
+  .excluded-card-slot .my-card{transform:scale(.46);transform-origin:top left;}
   .excluded-card-slot.hidden{display:none;}
   .excluded-card-slot.gandalf-pick{pointer-events:auto;cursor:pointer;animation:excludedCardPulse 1.05s ease-in-out infinite;}
   @keyframes excludedCardPulse{50%{transform:rotate(var(--excluded-tilt,0deg)) scale(1.12)}}
@@ -194,7 +203,7 @@
   @keyframes exchangeCardPulse{50%{transform:scale(1.07)}}
   .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:68px;height:68px;box-sizing:border-box;border:0;border-radius:14px;transform:translate(-50%,-50%);background:rgba(125,211,252,.22);pointer-events:none;opacity:0;z-index:40;}
   .player-tag.exchange-drag-target .exchange-hand-hint{opacity:1;}
-  .exchange-received-card{position:absolute;left:50%;top:calc(100% + 30px);width:54px;height:81px;border:1px solid #bbb;border-radius:7px;background:#fff url('tabicardura.jpg') center/cover no-repeat;transform:translate(-50%,-50%) rotate(var(--received-tilt,0deg));transform-origin:center;pointer-events:none;z-index:42;box-shadow:0 3px 8px rgba(0,0,0,.2);}
+  .exchange-received-card{position:absolute;left:50%;top:calc(100% + 30px);width:54px;height:81px;border:1px solid #10233f;border-radius:7px;background:#fff url('tabicardura.jpg') center/cover no-repeat;transform:translate(-50%,-50%) rotate(var(--received-tilt,0deg));transform-origin:center;pointer-events:none;z-index:42;box-shadow:0 3px 8px rgba(0,0,0,.2);}
   .player-tag.me .exchange-received-card{top:-5px;transform:translate(-50%,-100%) rotate(calc(180deg + var(--received-tilt,0deg)));}
   .exchange-received-card.face-up{border:0;background:transparent;box-shadow:none;}
   .player-tag.me .exchange-received-card.face-up{transform:translate(-50%,-100%) rotate(var(--received-tilt,0deg));}
@@ -205,7 +214,7 @@
   @keyframes exchangeReceivedCardPulse{50%{transform:scale(.7062)}}
   .exchange-card-flight{position:fixed;z-index:1002;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
   .exchange-card-flight.exchange-offer-flight{transform-origin:center;}
-  .exchange-card-flight.card-back{border:1px solid #bbb;border-radius:10px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
+  .exchange-card-flight.card-back{border:1px solid #10233f;border-radius:10px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
@@ -334,7 +343,7 @@
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
     position:fixed;inset:0;background:rgba(0,0,0,.35);
-    display:flex;align-items:center;justify-content:center;z-index:300;
+    display:flex;align-items:center;justify-content:center;z-index:330;
   }
   .dialog-backdrop.hidden{display:none;}
   .dialog-box{
@@ -356,7 +365,7 @@
   /* ★ 設定ポップ（ホスト専用パネル） */
   .start-pop{
     position:fixed;right:16px;bottom:72px;background:#fff;border:1px solid #ddd;border-radius:12px;
-    box-shadow:0 12px 28px rgba(0,0,0,.16);padding:10px 12px;z-index:240;min-width:260px;
+    box-shadow:0 12px 28px rgba(0,0,0,.16);padding:10px 12px;z-index:330;min-width:260px;
     display:flex;flex-direction:column;gap:8px;
   }
   .start-pop.hidden{display:none;}
@@ -994,6 +1003,12 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     return { status:'pending' };
   }
 
+  if (victory.includes('1か2トリック')) {
+    if (trickCount > 2) return { status:'failed' };
+    if (trickCount >= 1) return { status:'achieved' };
+    return { status:isFinished ? 'failed' : 'pending' };
+  }
+
   if (victory.includes('最大') || victory.includes('最多')) {
     const otherCounts = otherIds.map(id => (game.capturedTricks?.[id] || []).length);
     if (!otherCounts.length) return { status:'achieved' };
@@ -1311,14 +1326,15 @@ function exchangeCandidates(game, sourceId){
   const allowedNames = characterName === 'ガンダルフ'
     ? ['フロド']
     : characterName === 'ピピン' ? ['フロド', 'サム', 'メリー']
-    : characterName === 'サム' ? ['フロド', 'メリー', 'ピピン'] : [];
+    : characterName === 'サム' ? ['フロド', 'メリー', 'ピピン']
+    : characterName === 'メリー' ? ['フロド', 'サム', 'ピピン'] : [];
   return (game?.playerOrder || []).filter(playerId => playerId !== sourceId
     && allowedNames.includes(game.characterSelections?.[playerId]?.name));
 }
 
 function beginNextExchange(game){
   game.exchangeQueue ||= (game.playerOrder || [])
-    .filter(playerId => ['ガンダルフ', 'ピピン', 'サム'].includes(game.characterSelections?.[playerId]?.name)
+    .filter(playerId => ['ガンダルフ', 'ピピン', 'サム', 'メリー'].includes(game.characterSelections?.[playerId]?.name)
       && !game.completedExchanges?.[playerId]);
   while (game.exchangeQueue.length) {
     const sourceId = game.exchangeQueue.shift();
@@ -2051,7 +2067,27 @@ function renderHands(){
   if (latestPlayers.length) renderPlayerCircle(latestPlayers);
 }
 
-function characterCardData(character, playerId){
+function exchangeEffectText(character, availableCharacters){
+  const exchangeTargetCodes = {
+    pippin:['frodo', 'sam', 'merry'],
+    sam:['frodo', 'merry', 'pippin'],
+    merry:['frodo', 'sam', 'pippin']
+  };
+  const sourceCode = character.code
+    || Object.entries(CHARACTER_NAMES).find(([, name]) => name === character.name)?.[0];
+  const allowedCodes = exchangeTargetCodes[sourceCode];
+  if (!allowedCodes) return null;
+  const targetNames = (availableCharacters || [])
+    .map(candidate => candidate.code
+      || Object.entries(CHARACTER_NAMES).find(([, name]) => name === candidate.name)?.[0])
+    .filter(code => allowedCodes.includes(code))
+    .map(code => CHARACTER_NAMES[code]);
+  if (!targetNames.length) return '交換相手はいない。';
+  if (targetNames.length === 1) return `${targetNames[0]}と交換する。`;
+  return `${targetNames.join('/')}の誰かと交換する。`;
+}
+
+function characterCardData(character, playerId, availableCharacters = state.game?.availableCharacters){
   const characterDetails = {
     'フロド': {
       specialName:'指輪所持者',
@@ -2061,12 +2097,17 @@ function characterCardData(character, playerId){
     'ピピン': {
       specialName:'愚か者',
       victory:'トリック獲得数が最少（最少同数でもよい）。',
-      effect:'フロドかサムかメリーに手札を1枚渡し、1枚もらう。'
+      effect:''
     },
     'サム': {
       specialName:'庭師',
       victory:'引いた脅威カードと同じランクの丘カードを勝ち取る。',
-      effect:'脅威カードを1枚引く。\nフロドかメリーかピピンに手札を1枚渡し、1枚もらう。'
+      effect:'脅威カードを1枚引く。'
+    },
+    'メリー': {
+      specialName:'勇敢な心',
+      victory:'1か2トリック獲得。',
+      effect:''
     },
     'ガンダルフ': {
       specialName:'灰色の魔法使い',
@@ -2080,11 +2121,13 @@ function characterCardData(character, playerId){
     }
   };
   const details = characterDetails[character.name] || {};
+  const exchangeEffect = exchangeEffectText(character, availableCharacters);
+  const effect = [details.effect, exchangeEffect].filter(Boolean).join('\n');
   return {
     kind:'character', name:character.name, required:character.required === true,
     specialName:details.specialName || '特殊名',
     victory:details.victory || '',
-    effect:details.effect || '特殊説明',
+    effect:effect || '特殊説明',
     id:`${playerId}-character-${character.name}`
   };
 }
@@ -2151,9 +2194,9 @@ async function chooseCharacter(characterName, source){
     room.hands ||= {};
     room.hands[state.userId] ||= { cards:[] };
     room.hands[state.userId].cards ||= [];
-    room.hands[state.userId].cards.unshift(characterCardData(character, state.userId));
+    room.hands[state.userId].cards.unshift(characterCardData(character, state.userId, room.game.availableCharacters));
     room.game.characterSelections[state.userId] = { ...character, selectedAt:Date.now() };
-    const selectedCard = characterCardData(character, state.userId);
+    const selectedCard = characterCardData(character, state.userId, room.game.availableCharacters);
     if (selectedCard.effect.includes('脅威カードを1枚引く')) {
       const stage = STAGES.find(item => item.number === Number(room.game.stageNumber));
       const threat = stage?.threats?.[0];
@@ -2201,6 +2244,12 @@ async function chooseCharacter(characterName, source){
 
 function renderCharacterPicker(){
   const game = state.game;
+  const canShowPicker = game?.phase === 'character-selection' && state.seatedTable !== null;
+  characterPicker.classList.toggle('hidden', !canShowPicker);
+  if (!canShowPicker) {
+    characterPickerRow.replaceChildren();
+    return;
+  }
   const selections = game?.characterSelections || {};
   const oldRects = new Map();
   characterPickerRow.querySelectorAll('.character-choice').forEach(choice => oldRects.set(choice.dataset.characterName, choice.getBoundingClientRect()));
@@ -2216,12 +2265,10 @@ function renderCharacterPicker(){
   });
   const alreadyChose = Boolean(selections[state.userId]);
   // 選択済みの本人にも、全員の選択が終わるまでは残りの候補を表示し続ける。
-  characterPicker.classList.toggle('hidden', game?.phase !== 'character-selection');
   characterPicker.classList.toggle('locked', alreadyChose);
   characterPickerRow.classList.remove('two-rows');
   characterPickerRow.style.removeProperty('--choice-columns');
   characterPickerRow.replaceChildren();
-  if (game?.phase !== 'character-selection') return;
   const chosenNames = new Set(Object.values(selections).map(item => item.name));
   const allCharacters = game.availableCharacters || [];
   const remainingCharacters = allCharacters.filter(character => !chosenNames.has(character.name));
@@ -2572,6 +2619,8 @@ function subscribePlayers(){
 
     await syncSeatUI();
     renderPlayerCircle(players);
+    // キャラクター選択中に着席・離席した場合も、座席確定後だけ候補を表示する。
+    renderCharacterPicker();
   });
 }
 
@@ -2899,6 +2948,7 @@ btnKickYes.addEventListener('click', async (e) => {
   pendingSeatPlayerIdToSteal = null;
 
   seatPop.classList.add('hidden');
+  renderCharacterPicker();
 });
 
 async function dealInitialHands(stageNumber){
@@ -2933,7 +2983,7 @@ async function dealInitialHands(stageNumber){
     .filter(name => name && name !== 'xxx')
     .map(label => {
       const code = label.replace(/\*+$/, '');
-      return { name: CHARACTER_NAMES[code] || code, required: /\*+$/.test(label) };
+      return { code, name: CHARACTER_NAMES[code] || code, required: /\*+$/.test(label) };
     });
   await update(ref(db, `rooms/${state.roomCode}`), {
     hands,
