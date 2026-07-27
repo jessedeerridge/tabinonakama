@@ -1521,7 +1521,12 @@ function subscribeRoom(){
     }
     const selectionAvailableAt = state.game?.pendingExchange?.selectionAvailableAt;
     if (selectionAvailableAt && Date.now() < selectionAvailableAt) {
-      setTimeout(() => { renderHands(); renderExchangeDialog(); }, selectionAvailableAt - Date.now() + 20);
+      setTimeout(() => {
+        renderHands();
+        renderExchangeDialog();
+        // 受取カードのドラッグ可否も到着時刻で切り替わるため、プレイヤー周りを再描画する。
+        renderPlayerCircle(latestPlayers);
+      }, selectionAvailableAt - Date.now() + 20);
     }
     const exchangeTransfer = state.game?.exchangeTransfer;
     if (exchangeTransfer?.completedAt && exchangeTransfer.completedAt !== lastAnimatedExchangeAt) {
