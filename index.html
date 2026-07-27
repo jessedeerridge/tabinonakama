@@ -71,7 +71,7 @@
     border:1px solid #ddd;font-size:12px;white-space:nowrap;
   }
   .player-tag.me{ background:#111;color:#fff;border-color:#111; }
-  .player-tag.me{margin-top:22px;}
+  .player-tag.me{margin-top:30px;}
 
   /* 他プレイヤーのミニカード（ネームタグの下に扇状） */
   .player-tag .mini-hand{
@@ -96,7 +96,7 @@
   .hand-row{display:flex;justify-content:center;gap:10px;min-height:122px;}
   /* カード自体の82:122比率を保ったまま、手札全体だけを画面幅に合わせて縮小する。 */
   .hand-row>.my-card,.hand-row>.character-card-slot{zoom:var(--hand-card-scale);}
-  .hand-row-upper{position:relative;top:10px;z-index:1;}
+  .hand-row-upper{position:relative;top:18px;z-index:1;}
   .hand-row-lower{position:relative;z-index:2;}
   .hand-row:empty{display:none;}
   /* 実際の占有幅を詰めるため、下段の末尾にも余分な空白が残らない。 */
@@ -114,7 +114,7 @@
   .my-card.playable{cursor:grab;touch-action:none;transform:scale(var(--playable-card-scale));}
   .my-card.drag-source{visibility:hidden;}
   @keyframes playableCardsPulse{50%{--playable-card-scale:1.07}}
-  .drag-card{position:fixed;z-index:1000;pointer-events:none;transform:translate(-50%,-50%) scale(1.08);opacity:.94;}
+  .drag-card{position:fixed;z-index:1000;pointer-events:none;transform:translate(-50%,-50%) scale(var(--drag-card-scale,1));opacity:.94;transform-origin:center;}
   .play-circle{position:absolute;width:64px;height:88px;border:0;border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:4;}
   .play-circle.drop-hint::before{content:'';position:absolute;inset:0;border-radius:inherit;background:rgba(125,211,252,.22);opacity:0;transition:opacity .15s;}
   .player-circle.dragging .play-circle.drop-hint::before{opacity:1;}
@@ -123,7 +123,7 @@
   .played-card-slot.no-arrive{animation:none;}
   .played-card-slot.self-play{animation-name:cardArriveSelf;}
   @keyframes cardArrive{from{opacity:0;transform:translate(var(--from-x,0),var(--from-y,0)) scale(.25) rotate(var(--tilt))}to{opacity:1;transform:translate(0,0) scale(1) rotate(var(--tilt))}}
-  @keyframes cardArriveSelf{from{opacity:.88;transform:translate(var(--from-x,0),var(--from-y,0)) scale(1.5) rotate(var(--tilt))}to{opacity:1;transform:translate(0,0) scale(1) rotate(var(--tilt))}}
+  @keyframes cardArriveSelf{from{opacity:.88;transform:translate(var(--from-x,0),var(--from-y,0)) scale(var(--self-play-scale,1.5)) rotate(var(--tilt))}to{opacity:1;transform:translate(0,0) scale(1) rotate(var(--tilt))}}
   .played-card-slot.gathering{animation:gatherCard .7s ease-in-out both;}
   .played-card-slot.gathered{animation:none;transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt));}
   @keyframes gatherCard{from{transform:translate(0,0) rotate(var(--tilt))}to{transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt))}}
@@ -1622,6 +1622,8 @@ function beginExchangeCardDrag(event, cardData, source){
   source.classList.add('drag-source');
   const floating = createCardElement(cardData);
   floating.classList.add('drag-card');
+  const sourceRect = source.getBoundingClientRect();
+  floating.style.setProperty('--drag-card-scale', Math.min(sourceRect.width / 82, sourceRect.height / 122));
   document.body.appendChild(floating);
   const move = currentEvent => {
     floating.style.left = `${currentEvent.clientX}px`;
@@ -1673,6 +1675,9 @@ function beginCardDrag(event, cardData, cardIndex, source){
   playerCircle.classList.add('dragging');
   const floating = createCardElement(cardData);
   floating.classList.add('drag-card');
+  const sourceRect = source.getBoundingClientRect();
+  const sourceScale = Math.min(sourceRect.width / 82, sourceRect.height / 122);
+  floating.style.setProperty('--drag-card-scale', sourceScale);
   document.body.appendChild(floating);
   const move = e => { floating.style.left = `${e.clientX}px`; floating.style.top = `${e.clientY}px`; };
   move(event);
@@ -1687,7 +1692,8 @@ function beginCardDrag(event, cardData, cardIndex, source){
     const dropPadding = 28;
     if (rect && e.clientX >= rect.left - dropPadding && e.clientX <= rect.right + dropPadding
       && e.clientY >= rect.top - dropPadding && e.clientY <= rect.bottom + dropPadding) {
-      selfDropPoint = { x: e.clientX, y: e.clientY };
+      // 場への移動開始時も、縮小後の手札カードと同じ見た目の大きさから開始する。
+      selfDropPoint = { x: e.clientX, y: e.clientY, scale:sourceScale * 82 / 54 };
       await playCard(cardIndex, cardData);
     }
   };
@@ -2376,6 +2382,7 @@ function renderPlayerCircle(players){
         const targetY = circleRect.top + playY * circleRect.height / 100;
         slot.style.setProperty('--from-x', `${selfDropPoint ? selfDropPoint.x - targetX : 0}px`);
         slot.style.setProperty('--from-y', `${selfDropPoint ? selfDropPoint.y - targetY : 0}px`);
+        slot.style.setProperty('--self-play-scale', String(selfDropPoint?.scale || 1.5));
         selfDropPoint = null;
       } else {
         slot.style.setProperty('--from-x', `${(x-playX)*2.5}px`);
