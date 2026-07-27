@@ -93,9 +93,8 @@
   .my-hand-title{display:none;}
   /* 手札が1段になっても中央寄せされるゲーム盤全体の高さを変えず、プレイヤーサークルを固定する。 */
   .my-hand{--hand-card-scale:1;display:flex;width:min(calc(100vw - 8px),calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px));height:254px;box-sizing:border-box;flex-direction:column;align-items:center;gap:10px;margin:6px auto 0;padding:0 12px;}
-  .hand-row{display:flex;justify-content:center;gap:10px;min-height:122px;}
-  /* カード自体の82:122比率を保ったまま、手札全体だけを画面幅に合わせて縮小する。 */
-  .hand-row>.my-card,.hand-row>.character-card-slot{zoom:var(--hand-card-scale);}
+  .hand-row{display:flex;justify-content:center;gap:10px;min-height:122px;transform:scale(var(--hand-card-scale));transform-origin:top center;}
+  /* 行全体を一度だけ拡縮し、キャラカード内の欄・文字・余白も原版と完全に同じ比率に保つ。 */
   .hand-row>.my-card{flex:0 0 82px;}
   .hand-row-upper{position:relative;top:46px;z-index:1;}
   .hand-row-lower{position:relative;z-index:2;}
@@ -1839,9 +1838,8 @@ function animateCharacterSelection(playerId, character, sourceRect){
   flight.appendChild(flightCard);
   document.body.appendChild(flight);
   const baseWidth = 82;
-  const handScale = currentHandCardScale();
-  const destinationWidth = isMe ? 82 * handScale : 38;
-  const destinationHeight = isMe ? 122 * handScale : 56;
+  const destinationWidth = isMe ? targetRect.width : 38;
+  const destinationHeight = isMe ? targetRect.height : 56;
   const destinationLeft = targetRect.left;
   const destinationTop = targetRect.top;
   flight.style.setProperty('--flight-scale', sourceRect.width / baseWidth);
