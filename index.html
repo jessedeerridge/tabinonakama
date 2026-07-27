@@ -91,10 +91,12 @@
   /* 自分の手札表示（大きめ横並び） */
   .my-hand-wrapper{margin-top:23px;text-align:center;}
   .my-hand-title{display:none;}
-  .my-hand{display:flex;width:calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px);box-sizing:border-box;justify-content:center;gap:10px;margin:6px auto 0;min-height:132px;flex-wrap:wrap;padding:0 12px;}
-  /* 通常の10px間隔を13px戻して3px重ね、上段はキャラクターから少し離す。 */
-  .my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--row-offset,0px) + var(--overlap-offset,0px));z-index:calc(2 + var(--card-stack-index,0));}
-  .my-hand.overlapping-cards>.character-card,.my-hand.overlapping-cards>.character-card-slot{left:18px;}
+  .my-hand{display:flex;width:calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px);box-sizing:border-box;flex-direction:column;align-items:center;gap:10px;margin:6px auto 0;min-height:132px;padding:0 12px;}
+  .hand-row{display:flex;justify-content:center;gap:10px;min-height:122px;}
+  .hand-row:empty{display:none;}
+  /* 実際の占有幅を詰めるため、下段の末尾にも余分な空白が残らない。 */
+  .my-hand.overlapping-cards .hand-row>.my-card:not(.character-card)+.my-card:not(.character-card){margin-left:-13px;z-index:calc(2 + var(--card-stack-index,0));}
+  .my-hand.overlapping-cards .hand-row>.character-card+.my-card,.my-hand.overlapping-cards .hand-row>.character-card-slot+.my-card{margin-left:8px;}
   .my-card{
     --card-color:#9ca3af;--detail-color:var(--card-color);--panel-fill:#fffdf3;
     position:relative;width:82px;height:122px;border-radius:10px;
@@ -260,6 +262,7 @@
   .character-picker-row.two-rows .character-choice{width:100%;}
   .character-choice:not(:disabled):hover{transform:translateY(-5px);}
   .character-choice.forced-unavailable{filter:brightness(.55) saturate(.7);}
+  .character-choice.chosen-placeholder{visibility:hidden;pointer-events:none;}
   .character-picker.locked .character-choice{cursor:default;}
   .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
   .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;box-sizing:border-box;border:2px solid #10233f;border-radius:50%;background:transparent url('definitechara.jpg') center/cover no-repeat;z-index:5;pointer-events:none;}
@@ -270,7 +273,7 @@
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
   .character-flight>.my-card{position:absolute;left:0;top:0;transform:scale(var(--flight-scale));transform-origin:top left;}
-  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--row-offset,0px) + var(--mobile-overlap-offset,0px))}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
+  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.hand-row{gap:6px;min-height:104px}.my-hand.overlapping-cards .hand-row>.my-card:not(.character-card)+.my-card:not(.character-card){margin-left:-9px}.my-hand.overlapping-cards .hand-row>.character-card+.my-card,.my-hand.overlapping-cards .hand-row>.character-card-slot+.my-card{margin-left:12px}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
@@ -328,14 +331,15 @@
   /* ★ 追加：ヘルプ一覧ポップ */
   .help-pop-backdrop{
     position:fixed;inset:0;background:rgba(0,0,0,.35);
-    display:flex;align-items:flex-end;justify-content:center;
+    display:flex;align-items:flex-start;justify-content:center;
     z-index:310;
-    padding:16px;
+    padding:clamp(28px,7vh,60px) 12px 16px;
+    box-sizing:border-box;
   }
   .help-pop-backdrop.hidden{display:none;}
   .help-pop{
-    width:min(520px, calc(100% - 0px));
-    max-height:min(70vh, 640px);
+    width:min(580px, calc(100% - 0px));
+    max-height:min(70vh, 620px);
     background:#fff;border:1px solid #ddd;border-radius:16px;
     box-shadow:0 18px 40px rgba(0,0,0,.35);
     overflow:hidden;
@@ -344,8 +348,14 @@
     display:flex;align-items:center;justify-content:space-between;
     padding:10px 12px;border-bottom:1px solid #eee;
   }
-  .help-pop-title{font-weight:800;font-size:14px;}
+  .help-pop-title{width:100%;font-weight:800;font-size:14px;text-align:center;}
   .help-pop-body{padding:12px;overflow:auto;max-height:calc(70vh - 48px);}
+  .card-list-row{display:flex;justify-content:center;width:max-content;min-width:100%;box-sizing:border-box;gap:5px;margin:0 0 2px;}
+  .card-list-item{position:relative;width:62px;height:93px;flex:0 0 62px;opacity:.2;}
+  .card-list-item.played{opacity:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));}
+  .card-list-item>.my-card{position:absolute;left:0;top:0;transform:scale(.76);transform-origin:top left;pointer-events:none;}
+  /* 画面幅が狭くても倍率は維持し、カード本体のモバイル幅にだけ枠を合わせる。 */
+  @media (max-width:520px){.card-list-row{gap:3px}.card-list-item{width:52px;height:80px;flex-basis:52px}}
   .role-row{
     display:flex;gap:12px;align-items:flex-start;
     padding:10px 0;
@@ -454,14 +464,13 @@
 <button id="hostSettingsBtn" class="host-settings-btn" title="設定">⚙</button>
 
 <!-- ★ 追加：ヘルプボタン（？） -->
-<button id="helpBtn" class="help-btn" title="正体カード一覧">？</button>
+<button id="helpBtn" class="help-btn" title="カードリスト">？</button>
 
 <!-- ★ 追加：ヘルプ一覧ポップ -->
 <div id="helpBackdrop" class="help-pop-backdrop hidden">
-  <div class="help-pop" role="dialog" aria-modal="true" aria-label="正体カード一覧">
+  <div class="help-pop" role="dialog" aria-modal="true" aria-label="カードリスト">
     <div class="help-pop-header">
-      <div class="help-pop-title">正体カード</div>
-      <button id="btnHelpClose" class="btn ghost" style="padding:2px 6px;font-size:12px;">×</button>
+      <div class="help-pop-title">カードリスト</div>
     </div>
     <div class="help-pop-body" id="helpBody">
       <!-- JSで生成 -->
@@ -614,16 +623,7 @@ Object.assign(STAGES[0], {
 /* ★ 追加：ヘルプUI参照 */
 const helpBtn = document.getElementById('helpBtn');
 const helpBackdrop = document.getElementById('helpBackdrop');
-const btnHelpClose = document.getElementById('btnHelpClose');
 const helpBody = document.getElementById('helpBody');
-
-/* ★ 追加：仮のカード一覧データ */
-const ROLE_HELP = [
-  { name: "カード1", text: "ああああ" },
-  { name: "カード2", text: "いいいい" },
-  { name: "カード3", text: "うううう" },
-  { name: "カード4", text: "うううう" },
-];
 
 // 山札は各カード1枚ずつ（黄のみ1〜5、ほかの色は1〜8）。
 const CARD_TYPES = [
@@ -852,24 +852,25 @@ function appendWrappedCharacterName(element, value){
 }
 
 function renderHelpList(){
-  helpBody.innerHTML = '';
-  ROLE_HELP.forEach((r, idx) => {
+  const playedCards = [
+    ...Object.values(state.game?.trick || {}).map(play => play.card),
+    ...Object.values(state.game?.capturedTricks || {}).flatMap(tricks =>
+      (tricks || []).flatMap(trick => trick.cards || []))
+  ];
+  const playedKeys = new Set(playedCards.map(card => `${card.color}:${card.number}`));
+  helpBody.replaceChildren();
+  // 一覧では指輪を最下段に固定する。
+  const listTypes = [...CARD_TYPES].sort((left, right) => Number(left.color === 'yellow') - Number(right.color === 'yellow'));
+  listTypes.forEach(type => {
     const row = document.createElement('div');
-    row.className = 'role-row';
-
-    const card = document.createElement('div');
-    card.className = 'role-card';
-    card.textContent = `CARD ${idx+1}`;
-
-    const desc = document.createElement('div');
-    desc.className = 'role-desc';
-    desc.innerHTML = `
-      <div class="name">${r.name}</div>
-      <div class="text">${r.text}</div>
-    `;
-
-    row.appendChild(card);
-    row.appendChild(desc);
+    row.className = 'card-list-row';
+    for (let number = 1; number <= type.max; number += 1) {
+      const holder = document.createElement('div');
+      holder.className = 'card-list-item';
+      holder.appendChild(createCardElement({ color:type.color, name:type.name, number }));
+      if (playedKeys.has(`${type.color}:${number}`)) holder.classList.add('played');
+      row.appendChild(holder);
+    }
     helpBody.appendChild(row);
   });
 }
@@ -884,7 +885,6 @@ helpBtn.addEventListener('click', () => {
   // 入室後だけ
   if (joinBox.classList.contains('hidden')) openHelp();
 });
-btnHelpClose.addEventListener('click', closeHelp);
 helpBackdrop.addEventListener('click', (e) => {
   if (e.target === helpBackdrop) closeHelp();
 });
@@ -1222,6 +1222,11 @@ function renderMyHand(){
   // 数字カードが7枚以上なら、1段目を「キャラクター+数字6枚」に固定して残りを2段目へ送る。
   const columnCount = numberCardCount >= 7 ? 7 : Math.max(cardCount, 1);
   myHandEl.style.setProperty('--hand-columns', columnCount);
+  const upperRow = document.createElement('div');
+  upperRow.className = 'hand-row hand-row-upper';
+  const lowerRow = document.createElement('div');
+  lowerRow.className = 'hand-row hand-row-lower';
+  myHandEl.append(upperRow, lowerRow);
 
   let hasPlayableCards = false;
   const colorOrder = { red: 0, green: 1, orange: 2, gray: 3, yellow: 4 };
@@ -1242,17 +1247,13 @@ function renderMyHand(){
     const characterSlot = document.createElement('div');
     characterSlot.className = 'character-card-slot';
     characterSlot.setAttribute('aria-hidden', 'true');
-    myHandEl.appendChild(characterSlot);
+    upperRow.appendChild(characterSlot);
   }
 
   let displayedNumberIndex = 0;
   displayedCards.forEach(({ normalized, cardIndex }) => {
     const card = createCardElement(normalized);
     if (normalized.kind !== 'character') {
-      const rowIndex = numberCardCount >= 7 ? displayedNumberIndex % 6 : displayedNumberIndex;
-      card.style.setProperty('--overlap-offset', `${rowIndex * -13}px`);
-      card.style.setProperty('--mobile-overlap-offset', `${rowIndex * -9}px`);
-      card.style.setProperty('--row-offset', displayedNumberIndex < 6 ? '18px' : '0px');
       card.style.setProperty('--card-stack-index', displayedNumberIndex);
       displayedNumberIndex += 1;
     }
@@ -1264,7 +1265,8 @@ function renderMyHand(){
       card.classList.add('playable');
       card.addEventListener('pointerdown', event => beginCardDrag(event, normalized, cardIndex, card));
     }
-    myHandEl.appendChild(card);
+    const cardRow = normalized.kind === 'character' || displayedNumberIndex <= 6 ? upperRow : lowerRow;
+    cardRow.appendChild(card);
   });
   myHandEl.classList.toggle('has-playable-cards', hasPlayableCards);
 }
@@ -1411,7 +1413,7 @@ function animateCharacterSelection(playerId, character, sourceRect){
   const isMe = playerId === state.userId;
   // 自分は手札の先頭枠、他プレイヤーは公開キャラクター専用の獲得カード枠を着地点にする。
   const target = isMe
-    ? (myHandEl.firstElementChild || myHandEl)
+    ? (myHandEl.querySelector('.character-card,.character-card-slot') || myHandEl)
     : playerCircle.querySelector(`.capture-circle[data-player-id="${CSS.escape(playerId)}"]`);
   const targetRect = target?.getBoundingClientRect();
   if (!sourceRect || !targetRect) return;
@@ -1526,23 +1528,27 @@ function renderCharacterPicker(){
   characterPickerRow.replaceChildren();
   if (game?.phase !== 'character-selection') return;
   const chosenNames = new Set(Object.values(selections).map(item => item.name));
-  const remainingCharacters = (game.availableCharacters || []).filter(character => !chosenNames.has(character.name));
+  const allCharacters = game.availableCharacters || [];
+  const remainingCharacters = allCharacters.filter(character => !chosenNames.has(character.name));
   const remainingRequiredCount = remainingCharacters.filter(character => character.required).length;
   const remainingPlayerCount = (game.playerOrder || []).length - Object.keys(selections).length;
   const mustChooseRequired = remainingRequiredCount > 0 && remainingRequiredCount >= remainingPlayerCount;
   const hasYellowOne = (state.hands?.[state.userId]?.cards || [])
     .some(card => card.color === 'yellow' && card.number === 1);
-  if (remainingCharacters.length >= 5) {
+  if (allCharacters.length >= 5) {
     characterPickerRow.classList.add('two-rows');
-    characterPickerRow.style.setProperty('--choice-columns', Math.ceil(remainingCharacters.length / 2));
+    characterPickerRow.style.setProperty('--choice-columns', Math.ceil(allCharacters.length / 2));
   }
-  remainingCharacters.forEach(character => {
+  // 選択済みカードも不可視の枠として残し、誰かが取っても残りのカードを動かさない。
+  allCharacters.forEach(character => {
     const choice = document.createElement('button');
     choice.type = 'button';
     choice.className = 'character-choice';
+    const isChosen = chosenNames.has(character.name);
+    choice.classList.toggle('chosen-placeholder', isChosen);
     const violatesRingRule = character.name === 'フロド' ? !hasYellowOne : hasYellowOne;
     const unavailable = violatesRingRule || (mustChooseRequired && !character.required);
-    choice.disabled = alreadyChose || unavailable;
+    choice.disabled = isChosen || alreadyChose || unavailable;
     // 選択できない場合も、フロドは暗くせず黄1との対応を見分けやすくする。
     choice.classList.toggle('forced-unavailable', unavailable && !hasYellowOne && character.name !== 'フロド');
     choice.dataset.characterName = character.name;
@@ -1970,9 +1976,9 @@ function renderPlayerCircle(players){
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
-    // 獲得カードは本人分もネームタグの左端を基準にし、カード列がタグの下へ入り込まないようにする。
-    const captureX = x + ((isMe ? -180 : -24) - tag.offsetWidth / 2) / circleSize * 100;
-    const captureY = isMe ? playY + 12 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
+    // 自分の獲得カードはネームタグの寸法や移動に影響されない、盤面基準の定位置に置く。
+    const captureX = isMe ? 50 - 210 / circleSize * 100 : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
+    const captureY = isMe ? 92 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
@@ -2014,7 +2020,7 @@ function renderPlayerCircle(players){
           : 0;
         const rotation = cardData.color === 'yellow' ? -2 + yellowIndex * 5 : -2;
         holder.style.left = cardData.color === 'yellow' ? `${yellowIndex * 4}px` : '0';
-        holder.style.top = cardData.color === 'yellow' ? `${yellowIndex * 28}px` : '0';
+        holder.style.top = cardData.color === 'yellow' ? `${yellowIndex * 14}px` : '0';
         holder.style.setProperty('--stack-rotate', `${rotation}deg`);
         holder.appendChild(createCardElement(cardData));
         const captureKey = `${p.id}:${trickIndex}`;
