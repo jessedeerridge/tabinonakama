@@ -270,7 +270,7 @@
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
   .character-flight{position:fixed;z-index:1000;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
   .character-flight>.my-card{position:absolute;left:0;top:0;transform:scale(var(--flight-scale));transform-origin:top left;}
-  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--mobile-row-offset,var(--row-offset,0px)) + var(--mobile-overlap-offset,0px))}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
+  @media (max-width:520px){.my-hand{width:calc(var(--hand-columns,1) * 68px + (var(--hand-columns,1) - 1) * 6px + 24px);gap:6px}.my-hand.overlapping-cards>.my-card:not(.character-card){left:calc(var(--row-offset,0px) + var(--mobile-overlap-offset,0px))}.my-card{width:68px;height:104px}.character-card-slot{flex-basis:68px;width:68px;height:104px}.card-badge{transform:scale(.88);transform-origin:top left}.card-badge.right{transform-origin:top right}.card-name{left:5px;right:5px}}
 
   /* ★ 追い出し確認ダイアログ */
   .dialog-backdrop{
@@ -1058,34 +1058,11 @@ function animateLostCard(sourceRect, transfer){
   target.style.opacity = '0';
 }
 
-function captureMyHandRects(){
-  return new Map(Array.from(myHandEl.querySelectorAll('[data-card-id]'), card => [
-    card.dataset.cardId, card.getBoundingClientRect()
-  ]));
-}
-
-function animateMyHandReflow(previousRects){
-  myHandEl.querySelectorAll('[data-card-id]').forEach(card => {
-    const previous = previousRects.get(card.dataset.cardId);
-    if (!previous) return;
-    const current = card.getBoundingClientRect();
-    const x = previous.left - current.left;
-    const y = previous.top - current.top;
-    if (Math.abs(x) < 1 && Math.abs(y) < 1) return;
-    // 除外カード追加で既存カードの並びが変わっても、旧位置から滑らかに詰め直す。
-    card.animate([
-      { transform:`translate(${x}px,${y}px)` },
-      { transform:'translate(0,0)' }
-    ], { duration:500, easing:'cubic-bezier(.22,.8,.25,1)' });
-  });
-}
-
 function subscribeRoom(){
   const roomRef = ref(db, `rooms/${state.roomCode}`);
   onValue(roomRef, snap => {
     const previousTransferAt = state.game?.lostCardTransfer?.movedAt;
     const excludedSourceRect = state.game?.excludedCard ? excludedCardSlot.getBoundingClientRect() : null;
-    const previousMyHandRects = captureMyHandRects();
     state.room = snap.val() || {};
     state.game = state.room.game || null;
     state.hands = state.room.hands || {};
@@ -1096,10 +1073,7 @@ function subscribeRoom(){
     renderYellowOneDecision();
     const transfer = state.game?.lostCardTransfer;
     if (transfer?.movedAt && transfer.movedAt !== previousTransferAt && excludedSourceRect) {
-      requestAnimationFrame(() => {
-        animateMyHandReflow(previousMyHandRects);
-        animateLostCard(excludedSourceRect, transfer);
-      });
+      requestAnimationFrame(() => animateLostCard(excludedSourceRect, transfer));
     }
     scheduleTrickClear();
     syncSeatUI();
@@ -1246,18 +1220,13 @@ function renderMyHand(){
   }
 
   let displayedNumberIndex = 0;
-  const lowerRowCount = Math.max(0, numberCardCount - 6);
-  // 重なり分の半幅だけ下段全体を右へ戻し、枚数追加時も中央位置を維持する。
-  const lowerRowOffset = Math.max(0, lowerRowCount - 1) * 13 / 2;
-  const mobileLowerRowOffset = Math.max(0, lowerRowCount - 1) * 9 / 2;
   displayedCards.forEach(({ normalized, cardIndex }) => {
     const card = createCardElement(normalized);
     if (normalized.kind !== 'character') {
       const rowIndex = numberCardCount >= 7 ? displayedNumberIndex % 6 : displayedNumberIndex;
       card.style.setProperty('--overlap-offset', `${rowIndex * -13}px`);
       card.style.setProperty('--mobile-overlap-offset', `${rowIndex * -9}px`);
-      card.style.setProperty('--row-offset', displayedNumberIndex < 6 ? '18px' : `${lowerRowOffset}px`);
-      card.style.setProperty('--mobile-row-offset', displayedNumberIndex < 6 ? '18px' : `${mobileLowerRowOffset}px`);
+      card.style.setProperty('--row-offset', displayedNumberIndex < 6 ? '18px' : '0px');
       card.style.setProperty('--card-stack-index', displayedNumberIndex);
       displayedNumberIndex += 1;
     }
