@@ -1758,8 +1758,8 @@ function renderPlayerCircle(players){
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
     // 獲得カードは本人分もネームタグの左端を基準にし、カード列がタグの下へ入り込まないようにする。
-    const captureX = x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
-    const captureY = isMe ? playY + 11 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
+    const captureX = x + ((isMe ? -44 : -24) - tag.offsetWidth / 2) / circleSize * 100;
+    const captureY = isMe ? playY + 1 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
@@ -1780,9 +1780,11 @@ function renderPlayerCircle(players){
     capturedTricks.forEach((capturedTrick, trickIndex) => {
       const bundle = document.createElement('div');
       bundle.className = 'capture-trick';
-      // 他プレイヤーの獲得が5つ以上なら、固定したキャラクターの右で25pxずつずらして重ねる。
-      const compactCapturedTricks = !isMe && capturedTricks.length >= 5;
-      const bundleLeft = isMe ? trickIndex * 44 : compactCapturedTricks ? 35 + trickIndex * 25 : (trickIndex + 1) * 35;
+      // 獲得が5つ以上なら本人分も25pxずつずらして重ねる。
+      const compactCapturedTricks = capturedTricks.length >= 5;
+      const bundleLeft = compactCapturedTricks
+        ? (isMe ? 0 : 35) + trickIndex * 25
+        : isMe ? trickIndex * 44 : (trickIndex + 1) * 35;
       bundle.style.left = `${bundleLeft}px`;
       if (!isMe) bundle.style.zIndex = String(trickIndex + 1);
       const cards = capturedTrick.cards || [];
