@@ -667,9 +667,18 @@ const CHARACTER_NAMES = {
 const WIN_LENGTH_LABELS = { short: '短い', long: '長い' };
 const WIN_GOAL_LABELS = { allwin: '「選んだ全てのキャラクターの目的をすべて達成」' };
 
+function toKanjiNumber(number){
+  if (!Number.isInteger(number) || number < 1 || number > 100) return String(number);
+  if (number === 100) return '百';
+  const numerals = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+  const tens = Math.floor(number / 10);
+  const ones = number % 10;
+  return `${tens > 1 ? numerals[tens] : ''}${tens ? '十' : ''}${numerals[ones]}`;
+}
+
 const STAGES = Array.from({ length: 17 }, (_, index) => ({
   number: index + 1,
-  chapterLabel: `第${index + 1}章`,
+  chapterLabel: `第${toKanjiNumber(index + 1)}章`,
   title: 'xxx',
   story: 'xxx',
   characters: ['xxx'],
