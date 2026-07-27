@@ -685,14 +685,20 @@ const STAGES = Array.from({ length: 17 }, (_, index) => ({
   winCondition: 'xxx',
   goal: 'xxx'
 }));
-Object.assign(STAGES[0], {
+function defineStage(number, stageData){
+  const stage = STAGES.find(item => item.number === number);
+  if (!stage) throw new RangeError(`ステージ${number}は定義範囲外です。`);
+  Object.assign(stage, stageData);
+}
+
+defineStage(1, {
   title: '待ちに待った誕生祝い',
   story: '袋小路屋敷のビルボ・バギンズ氏が近々、自身の111歳の誕生日を祝う、いつになく華やかなパーティを行うと発表してから、ホビット村はその噂と期待で持ちきりだ。',
   characters: ['frodo*,bilbo*', 'gandalf,pippin'],
   winCondition: 'short',
   goal: 'allwin'
 });
-Object.assign(STAGES[1], {
+defineStage(2, {
   title: 'ホビット庄で少し出遅れる',
   story: 'フロドはサムの隣りに腰を下して食べ始めました。「今日はどういうご予定？」とピピンがたずねました。「できるだけ速くバックル村まで歩くこと。」とフロドはそう答え、食べ物に集中しました。',
   characters: ['frodo*,sam*,merry*', 'gandalf,pippin'],
