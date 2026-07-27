@@ -656,22 +656,54 @@ const exchangeMessage = document.getElementById('exchangeMessage');
 const exchangeTargets = document.getElementById('exchangeTargets');
 const chapterCompleteBanner = document.getElementById('chapterCompleteBanner');
 
+const CHARACTER_NAMES = {
+  frodo: 'フロド',
+  sam: 'サム',
+  merry: 'メリー',
+  pippin: 'ピピン',
+  gandalf: 'ガンダルフ',
+  bilbo: 'ビルボ'
+};
+const WIN_LENGTH_LABELS = { short: '短い', long: '長い' };
+const WIN_GOAL_LABELS = { allwin: '「選んだ全てのキャラクターの目的をすべて達成」' };
+
+function toKanjiNumber(number){
+  if (!Number.isInteger(number) || number < 1 || number > 100) return String(number);
+  if (number === 100) return '百';
+  const numerals = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+  const tens = Math.floor(number / 10);
+  const ones = number % 10;
+  return `${tens > 1 ? numerals[tens] : ''}${tens ? '十' : ''}${numerals[ones]}`;
+}
+
 const STAGES = Array.from({ length: 17 }, (_, index) => ({
   number: index + 1,
-  chapterLabel: `第${index + 1}章`,
+  chapterLabel: `第${toKanjiNumber(index + 1)}章`,
   title: 'xxx',
   story: 'xxx',
   characters: ['xxx'],
   winCondition: 'xxx',
   goal: 'xxx'
 }));
-Object.assign(STAGES[0], {
-  chapterLabel: '第一章',
+function defineStage(number, stageData){
+  const stage = STAGES.find(item => item.number === number);
+  if (!stage) throw new RangeError(`ステージ${number}は定義範囲外です。`);
+  Object.assign(stage, stageData);
+}
+
+defineStage(1, {
   title: '待ちに待った誕生祝い',
   story: '袋小路屋敷のビルボ・バギンズ氏が近々、自身の111歳の誕生日を祝う、いつになく華やかなパーティを行うと発表してから、ホビット村はその噂と期待で持ちきりだ。',
-  characters: ['フロド*,ビルボ*,', 'ガンダルフ,ピピン'],
-  winCondition: '短い',
-  goal: '「選んだキャラクターの目的をすべて達成」'
+  characters: ['frodo*,bilbo*', 'gandalf,pippin'],
+  winCondition: 'short',
+  goal: 'allwin'
+});
+defineStage(2, {
+  title: 'ホビット庄で少し出遅れる',
+  story: 'フロドはサムの隣りに腰を下して食べ始めました。「今日はどういうご予定？」とピピンがたずねました。「できるだけ速くバックル村まで歩くこと。」とフロドはそう答え、食べ物に集中しました。',
+  characters: ['frodo*,sam*,merry*', 'gandalf,pippin'],
+  winCondition: 'short',
+  goal: 'allwin'
 });
 
 /* ★ 追加：ヘルプUI参照 */
@@ -1211,7 +1243,11 @@ function renderStageInformation(){
   stage.characters.forEach(characterLine => {
     const line = document.createElement('span');
     line.className = 'character-line';
-    line.textContent = characterLine;
+    line.textContent = characterLine.split(',').map(characterCode => {
+      const required = characterCode.endsWith('*');
+      const code = characterCode.replace(/\*+$/, '');
+      return `${CHARACTER_NAMES[code] || code}${required ? '*' : ''}`;
+    }).join(',');
     info.append(line);
   });
   winningconditionInfo.append(info);
@@ -1224,9 +1260,9 @@ function renderStageInformation(){
   goalHeading.className = 'goal-heading';
   goalHeading.textContent = '勝利条件：';
   const goalType = document.createElement('strong');
-  goalType.textContent = stage.winCondition || 'xxx';
+  goalType.textContent = WIN_LENGTH_LABELS[stage.winCondition] || stage.winCondition || 'xxx';
   const goalText = document.createElement('span');
-  goalText.textContent = stage.goal || 'xxx';
+  goalText.textContent = WIN_GOAL_LABELS[stage.goal] || stage.goal || 'xxx';
   goal.append(goalHeading, goalType, document.createElement('br'), goalText);
   winningconditionGoal.append(goal);
 }
@@ -2758,7 +2794,10 @@ async function dealInitialHands(stageNumber){
     .flatMap(line => line.split(/[、,]/))
     .map(name => name.trim())
     .filter(name => name && name !== 'xxx')
-    .map(label => ({ name: label.replace(/\*+$/, ''), required: /\*+$/.test(label) }));
+    .map(label => {
+      const code = label.replace(/\*+$/, '');
+      return { name: CHARACTER_NAMES[code] || code, required: /\*+$/.test(label) };
+    });
   await update(ref(db, `rooms/${state.roomCode}`), {
     hands,
     game: {
