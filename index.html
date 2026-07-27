@@ -114,6 +114,27 @@
   .my-card.playable{cursor:grab;touch-action:none;transform:scale(var(--playable-card-scale));}
   .my-card.drag-source{visibility:hidden;}
   @keyframes playableCardsPulse{50%{--playable-card-scale:1.07}}
+  /* 全員の勝利条件達成後は、盤面上でカードを強調するパルスを一斉に止める。 */
+  body.victory-complete .my-hand,
+  body.victory-complete .my-card,
+  body.victory-complete .character-choice,
+  body.victory-complete .excluded-card-slot{animation:none!important;}
+  .chapter-complete-banner{
+    position:fixed;left:0;top:50%;z-index:1200;box-sizing:border-box;
+    width:max-content;max-width:90vw;padding:13px 28px;
+    background:#000;color:#fff;font-size:clamp(24px,7vw,42px);font-weight:900;
+    line-height:1.2;letter-spacing:.12em;white-space:nowrap;pointer-events:none;
+    transform:translate(-100%,-50%);visibility:hidden;
+  }
+  .chapter-complete-banner.playing{
+    visibility:visible;
+    animation:chapterCompleteFlow 3s linear both;
+  }
+  @keyframes chapterCompleteFlow{
+    0%{transform:translate(-100%,-50%)}
+    33.333%,66.666%{transform:translate(calc(50vw - 50%),-50%)}
+    100%{transform:translate(100vw,-50%)}
+  }
   .drag-card{position:fixed;z-index:1000;pointer-events:none;transform:translate(-50%,-50%) scale(var(--drag-card-scale,1));opacity:.94;transform-origin:center;}
   .play-circle{position:absolute;width:64px;height:88px;border:0;border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:4;}
   .play-circle.drop-hint::before{content:'';position:absolute;inset:0;border-radius:inherit;background:rgba(125,211,252,.22);opacity:0;transition:opacity .15s;}
@@ -468,6 +489,8 @@
   </div>
 </main>
 
+<div id="chapterCompleteBanner" class="chapter-complete-banner" role="status" aria-live="assertive"></div>
+
 <!-- ★ 参加者：ホスト人数選択中ポップ -->
 <div id="hostSelectingPop" class="host-selecting-pop hidden">ホストが人数を選択中</div>
 
@@ -640,6 +663,7 @@ const yellowOneDecision = document.getElementById('yellowOneDecision');
 const exchangeDialog = document.getElementById('exchangeDialog');
 const exchangeMessage = document.getElementById('exchangeMessage');
 const exchangeTargets = document.getElementById('exchangeTargets');
+const chapterCompleteBanner = document.getElementById('chapterCompleteBanner');
 
 const STAGES = Array.from({ length: 17 }, (_, index) => ({
   number: index + 1,
@@ -901,6 +925,59 @@ function hasAchievedVictoryCondition(cardData, playerId){
   if (cardData.name === 'ガンダルフ') return trickCount >= 1;
   if (cardData.name === 'ビルボ') return trickCount >= 3;
   return false;
+}
+
+let chapterCompleteTimer = null;
+let scheduledVictoryAchievedAt = null;
+
+function allPlayersAchievedVictoryConditions(){
+  const playerIds = state.game?.playerOrder || [];
+  if (!playerIds.length || state.game?.phase === 'character-selection') return false;
+  return playerIds.every(playerId => {
+    const character = (state.hands?.[playerId]?.cards || []).find(card => card?.kind === 'character')
+      || state.game?.characterSelections?.[playerId];
+    return character && hasAchievedVictoryCondition(character, playerId);
+  });
+}
+
+async function setAllVictoryConditionsAchievedFlag(){
+  if (!state.roomCode || state.game?.allVictoryConditionsAchieved || !allPlayersAchievedVictoryConditions()) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    if (!game || game.allVictoryConditionsAchieved) return game;
+    game.allVictoryConditionsAchieved = true;
+    game.victoryAchievedAt = Date.now();
+    return game;
+  });
+}
+
+function scheduleChapterComplete(){
+  const achievedAt = Number(state.game?.victoryAchievedAt);
+  if (!state.game?.allVictoryConditionsAchieved || !achievedAt) {
+    clearTimeout(chapterCompleteTimer);
+    scheduledVictoryAchievedAt = null;
+    document.body.classList.remove('victory-complete');
+    chapterCompleteBanner.classList.remove('playing');
+    chapterCompleteBanner.textContent = '';
+    return;
+  }
+  if (scheduledVictoryAchievedAt === achievedAt) return;
+  clearTimeout(chapterCompleteTimer);
+  scheduledVictoryAchievedAt = achievedAt;
+  const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
+  chapterCompleteBanner.textContent = `${stage?.chapterLabel || `第${state.game.stageNumber}章`}　完`;
+  chapterCompleteBanner.classList.remove('playing');
+  const animationStartAt = achievedAt + 1000;
+  const elapsed = Date.now() - animationStartAt;
+  if (elapsed >= 3000) {
+    document.body.classList.add('victory-complete');
+    return;
+  }
+  const play = () => {
+    document.body.classList.add('victory-complete');
+    chapterCompleteBanner.style.animationDelay = `${-Math.max(0, Date.now() - animationStartAt)}ms`;
+    chapterCompleteBanner.classList.add('playing');
+  };
+  chapterCompleteTimer = setTimeout(play, Math.max(0, animationStartAt - Date.now()));
 }
 
 function createVictoryConditionIcon(cardData, playerId){
@@ -1338,6 +1415,8 @@ function subscribeRoom(){
     hostSelectingPop.classList.toggle('hidden', !waiting);
     renderHands();
     renderStageInformation();
+    scheduleChapterComplete();
+    void setAllVictoryConditionsAchievedFlag();
     renderYellowOneDecision();
     renderExchangeDialog();
     const exchangeOfferTransfer = state.game?.exchangeOfferTransfer;
