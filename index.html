@@ -150,6 +150,18 @@
   .excluded-card-slot{position:absolute;left:-39px;top:50px;width:54px;height:81px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;}
   .excluded-card-slot.hidden{display:none;}
   .excluded-card-slot>.my-card{transform:scale(.66);transform-origin:top left;}
+  .excluded-card-slot.gandalf-pick{pointer-events:auto;cursor:pointer;animation:excludedCardPulse 1.05s ease-in-out infinite;}
+  @keyframes excludedCardPulse{50%{transform:rotate(var(--excluded-tilt,0deg)) scale(1.12)}}
+  .lost-card-flight{position:fixed;z-index:1001;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
+  .yellow-one-decision{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:310;width:min(320px,calc(100vw - 32px));padding:16px;box-sizing:border-box;border-radius:16px;background:rgba(255,255,255,.96);box-shadow:0 18px 40px rgba(0,0,0,.35);text-align:center;}
+  .yellow-one-decision.hidden{display:none;}
+  .yellow-one-question{font-size:16px;font-weight:900;margin-bottom:12px;}
+  .yellow-one-actions{display:flex;justify-content:center;gap:12px;}
+  @property --hold-progress{syntax:'<number>';inherits:false;initial-value:0;}
+  .hold-decision{position:relative;min-width:92px;overflow:hidden;user-select:none;touch-action:none;}
+  .hold-decision::before{content:'';position:absolute;inset:0;background:#d3ad32;transform:scaleX(var(--hold-progress,0));transform-origin:left;z-index:0;}
+  .hold-decision>span{position:relative;z-index:1;}
+  .yellow-one-note{margin-top:10px;font-size:12px;font-weight:700;}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
@@ -485,6 +497,15 @@
   <div id="characterPickerRow" class="character-picker-row"></div>
 </section>
 
+<section id="yellowOneDecision" class="yellow-one-decision hidden" aria-live="assertive">
+  <div class="yellow-one-question">このトリックに勝利しますか。</div>
+  <div class="yellow-one-actions">
+    <button class="btn hold-decision" type="button" data-yellow-decision="yes"><span>はい</span></button>
+    <button class="btn hold-decision" type="button" data-yellow-decision="no"><span>いいえ</span></button>
+  </div>
+  <div class="yellow-one-note">＊長押しで決定。</div>
+</section>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
@@ -566,6 +587,7 @@ const ringcircle = document.getElementById('ringcircle');
 const excludedCardSlot = document.getElementById('excludedCardSlot');
 const characterPicker = document.getElementById('characterPicker');
 const characterPickerRow = document.getElementById('characterPickerRow');
+const yellowOneDecision = document.getElementById('yellowOneDecision');
 
 const STAGES = Array.from({ length: 17 }, (_, index) => ({
   number: index + 1,
@@ -943,6 +965,10 @@ function renderStageInformation(){
   excludedCardSlot.replaceChildren();
   const excludedCard = state.game?.excludedCard;
   excludedCardSlot.classList.toggle('hidden', !excludedCard);
+  const canGandalfPick = Boolean(excludedCard)
+    && state.game?.phase === 'gandalf-selection'
+    && state.game?.gandalfPlayerId === state.userId;
+  excludedCardSlot.classList.toggle('gandalf-pick', canGandalfPick);
   if (excludedCard) {
     excludedCardSlot.style.setProperty('--excluded-tilt', `${state.game.excludedCardTilt || 0}deg`);
     excludedCardSlot.appendChild(createCardElement(excludedCard));
@@ -983,9 +1009,50 @@ function renderStageInformation(){
   winningconditionGoal.append(goal);
 }
 
+async function takeExcludedCardAsGandalf(){
+  if (!state.roomCode || state.game?.phase !== 'gandalf-selection' || state.game?.gandalfPlayerId !== state.userId) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const game = room?.game;
+    if (!game?.excludedCard || game.phase !== 'gandalf-selection' || game.gandalfPlayerId !== state.userId) return;
+    room.hands ||= {};
+    room.hands[state.userId] ||= { cards:[] };
+    room.hands[state.userId].cards ||= [];
+    room.hands[state.userId].cards.push(game.excludedCard);
+    game.lostCardTransfer = { cardId:game.excludedCard.id, playerId:state.userId, movedAt:Date.now() };
+    delete game.excludedCard;
+    game.phase = 'playing';
+    game.turnPlayerId ||= game.playerOrder?.[0] || null;
+    return room;
+  });
+}
+
+excludedCardSlot.addEventListener('click', takeExcludedCardAsGandalf);
+
+function animateLostCard(sourceRect, transfer){
+  if (!sourceRect || !transfer?.cardId) return;
+  const target = transfer.playerId === state.userId
+    ? myHandEl.querySelector(`[data-card-id="${CSS.escape(transfer.cardId)}"]`)
+    : playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(transfer.playerId)}"] .mini-card:last-child`);
+  const targetRect = target?.getBoundingClientRect();
+  const cardData = state.hands?.[transfer.playerId]?.cards?.find(card => card.id === transfer.cardId);
+  if (!targetRect || !cardData) return;
+  const flight = createCardElement(cardData);
+  flight.classList.add('lost-card-flight');
+  flight.style.left = `${sourceRect.left}px`;
+  flight.style.top = `${sourceRect.top}px`;
+  flight.style.transform = `scale(${sourceRect.width / 82})`;
+  document.body.appendChild(flight);
+  flight.animate([
+    { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${sourceRect.width / 82})`, opacity:1 },
+    { left:`${targetRect.left}px`, top:`${targetRect.top}px`, transform:`scale(${targetRect.width / 82})`, opacity:1 }
+  ], { duration:800, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' }).finished.finally(() => flight.remove());
+}
+
 function subscribeRoom(){
   const roomRef = ref(db, `rooms/${state.roomCode}`);
   onValue(roomRef, snap => {
+    const previousTransferAt = state.game?.lostCardTransfer?.movedAt;
+    const excludedSourceRect = state.game?.excludedCard ? excludedCardSlot.getBoundingClientRect() : null;
     state.room = snap.val() || {};
     state.game = state.room.game || null;
     state.hands = state.room.hands || {};
@@ -993,10 +1060,65 @@ function subscribeRoom(){
     hostSelectingPop.classList.toggle('hidden', !waiting);
     renderHands();
     renderStageInformation();
+    renderYellowOneDecision();
+    const transfer = state.game?.lostCardTransfer;
+    if (transfer?.movedAt && transfer.movedAt !== previousTransferAt && excludedSourceRect) {
+      requestAnimationFrame(() => animateLostCard(excludedSourceRect, transfer));
+    }
     scheduleTrickClear();
     syncSeatUI();
   });
 }
+
+function renderYellowOneDecision(){
+  const pending = state.game?.pendingYellowOneDecision;
+  const visible = Boolean(pending && pending.playerId === state.userId);
+  yellowOneDecision.classList.toggle('hidden', !visible);
+}
+
+async function decideYellowOne(wins){
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const pending = room?.game?.pendingYellowOneDecision;
+    if (!pending || pending.playerId !== state.userId) return;
+    const winnerId = wins ? pending.playerId : pending.normalWinnerId;
+    room.game.lastWinnerId = winnerId;
+    room.game.tricksWon ||= {};
+    room.game.tricksWon[winnerId] = (room.game.tricksWon[winnerId] || 0) + 1;
+    const gatherAt = Date.now() + 250;
+    room.game.pendingCapture = {
+      winnerId, cards:pending.cards,
+      winningCardId:wins ? pending.yellowOneCardId : pending.normalWinningCardId,
+      gatherAt, captureAt:gatherAt + 700
+    };
+    room.game.turnPlayerId = winnerId;
+    room.game.trickNumber = (room.game.trickNumber || 1) + 1;
+    if ((room.game.playerOrder || []).every(id => !(room.hands?.[id]?.cards || []).some(card => card.kind !== 'character'))) room.game.finished = true;
+    delete room.game.pendingYellowOneDecision;
+    return room;
+  });
+}
+
+yellowOneDecision.querySelectorAll('.hold-decision').forEach(button => {
+  let timer = null;
+  let animation = null;
+  const cancel = () => {
+    clearTimeout(timer); timer = null;
+    animation?.cancel(); animation = null;
+    button.style.setProperty('--hold-progress', 0);
+  };
+  button.addEventListener('click', event => event.preventDefault());
+  button.addEventListener('pointerdown', event => {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    button.setPointerCapture(event.pointerId);
+    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:3000, fill:'forwards' });
+    timer = setTimeout(() => { cancel(); decideYellowOne(button.dataset.yellowDecision === 'yes'); }, 3000);
+  });
+  button.addEventListener('pointerup', cancel);
+  button.addEventListener('pointercancel', cancel);
+  button.addEventListener('lostpointercapture', cancel);
+});
 
 function scheduleTrickClear(){
   clearTimeout(trickClearTimer);
@@ -1098,7 +1220,9 @@ function renderMyHand(){
       card.style.setProperty('--card-stack-index', displayedNumberIndex);
       displayedNumberIndex += 1;
     }
-    const canPlay = normalized.kind !== 'character' && state.game && !state.game.pendingCapture && state.game.turnPlayerId === myId && canFollowSuit(normalized);
+    const canPlay = normalized.kind !== 'character' && state.game?.phase === 'playing'
+      && !state.game.pendingCapture && !state.game.pendingYellowOneDecision
+      && state.game.turnPlayerId === myId && canFollowSuit(normalized);
     if (canPlay) {
       hasPlayableCards = true;
       card.classList.add('playable');
@@ -1152,7 +1276,8 @@ function beginCardDrag(event, cardData, cardIndex, source){
 async function playCard(cardIndex, expectedCard){
   if (!state.roomCode) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
-    if (!room?.game || room.game.pendingCapture || room.game.turnPlayerId !== state.userId) return;
+    if (!room?.game || room.game.phase !== 'playing' || room.game.pendingCapture
+      || room.game.pendingYellowOneDecision || room.game.turnPlayerId !== state.userId) return;
     const hand = room.hands?.[state.userId]?.cards;
     const card = hand?.[cardIndex];
     if (!card || card.kind === 'character' || card.id !== expectedCard.id) return;
@@ -1176,20 +1301,29 @@ async function playCard(cardIndex, expectedCard){
       const lead = plays[0].card.color;
       const winnerPlay = plays.filter(p=>p.card.color===lead).reduce((best,p)=>p.card.number>best.card.number?p:best);
       const winnerId = Object.entries(room.game.trick).find(([,p])=>p===winnerPlay)?.[0] || state.userId;
-      room.game.lastWinnerId = winnerId;
-      room.game.tricksWon ||= {};
-      room.game.tricksWon[winnerId] = (room.game.tricksWon[winnerId] || 0) + 1;
-      const gatherAt = Date.now() + 2000;
-      room.game.pendingCapture = {
-        winnerId,
-        cards: plays.map(p => p.card),
-        winningCardId: winnerPlay.card.id,
-        gatherAt,
-        captureAt: gatherAt + 700
-      };
-      room.game.turnPlayerId = winnerId;
-      room.game.trickNumber = (room.game.trickNumber || 1) + 1;
-      if (order.every(id => !(room.hands[id]?.cards || []).some(card => card.kind !== 'character'))) room.game.finished = true;
+      const yellowOneEntry = Object.entries(room.game.trick)
+        .find(([, play]) => play.card.color === 'yellow' && play.card.number === 1);
+      if (yellowOneEntry) {
+        // 黄1所持者が決めるまで、場札はそのままにして回収を保留する。
+        room.game.pendingYellowOneDecision = {
+          playerId:yellowOneEntry[0], normalWinnerId:winnerId,
+          cards:plays.map(p => p.card), normalWinningCardId:winnerPlay.card.id,
+          yellowOneCardId:yellowOneEntry[1].card.id, requestedAt:Date.now()
+        };
+        room.game.turnPlayerId = null;
+      } else {
+        room.game.lastWinnerId = winnerId;
+        room.game.tricksWon ||= {};
+        room.game.tricksWon[winnerId] = (room.game.tricksWon[winnerId] || 0) + 1;
+        const gatherAt = Date.now() + 2000;
+        room.game.pendingCapture = {
+          winnerId, cards:plays.map(p => p.card), winningCardId:winnerPlay.card.id,
+          gatherAt, captureAt:gatherAt + 700
+        };
+        room.game.turnPlayerId = winnerId;
+        room.game.trickNumber = (room.game.trickNumber || 1) + 1;
+        if (order.every(id => !(room.hands[id]?.cards || []).some(card => card.kind !== 'character'))) room.game.finished = true;
+      }
     } else {
       const currentIndex = order.indexOf(state.userId);
       room.game.turnPlayerId = Array.from({ length: order.length - 1 }, (_, offset) => order[(currentIndex + offset + 1) % order.length])
@@ -1314,8 +1448,17 @@ async function chooseCharacter(characterName, source){
     }
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
-      room.game.phase = 'playing';
-      room.game.turnPlayerId ||= room.game.playerOrder[0];
+      const gandalfEntry = Object.entries(room.game.characterSelections)
+        .find(([, selected]) => selected.name === 'ガンダルフ');
+      if (gandalfEntry && room.game.excludedCard) {
+        // ガンダルフがロストカードを取るまでは、全プレイヤーのカードプレイを止める。
+        room.game.phase = 'gandalf-selection';
+        room.game.gandalfPlayerId = gandalfEntry[0];
+        room.game.turnPlayerId = null;
+      } else {
+        room.game.phase = 'playing';
+        room.game.turnPlayerId ||= room.game.playerOrder[0];
+      }
     }
     return room;
   });
@@ -1363,7 +1506,7 @@ function renderCharacterPicker(){
     const unavailable = violatesRingRule || (mustChooseRequired && !character.required);
     choice.disabled = alreadyChose || unavailable;
     // 選択できない場合も、フロドは暗くせず黄1との対応を見分けやすくする。
-    choice.classList.toggle('forced-unavailable', unavailable && character.name !== 'フロド');
+    choice.classList.toggle('forced-unavailable', unavailable && !hasYellowOne && character.name !== 'フロド');
     choice.dataset.characterName = character.name;
     const choiceCard = createCharacterCardElement(characterCardData(character, state.userId));
     choice.appendChild(choiceCard);
