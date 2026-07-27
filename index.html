@@ -82,7 +82,7 @@
   .player-tag .mini-card{
     position:absolute;left:50%;top:0;width:32px;height:44px;
     border-radius:6px;border:1px solid #bbb;
-    background:linear-gradient(135deg,#e5e7eb,#cbd5f5);
+    background:#fff url('tabicardura.jpg') center/cover no-repeat;
     font-size:10px;display:flex;align-items:center;justify-content:center;
     transform-origin:bottom center;
     box-shadow:0 2px 6px rgba(0,0,0,.15);
@@ -1205,13 +1205,34 @@ function renderHands(){
 }
 
 function characterCardData(character, playerId){
+  const characterDetails = {
+    'フロド': {
+      specialName:'指輪所持者',
+      victory:'指輪を2枚以上獲得する。',
+      effect:'黄1を所持している。黄1は交換できない。スタートプレイヤーになる。'
+    },
+    'ピピン': {
+      specialName:'愚か者',
+      victory:'トリック獲得数が最少（最少同数でもよい）。',
+      effect:'フロド/サム/メリーの誰かと交換する。'
+    },
+    'ガンダルフ': {
+      specialName:'灰色の魔法使い',
+      victory:'1トリック以上獲得。',
+      effect:'手札にロストカードを加える。フロドと交換する。'
+    },
+    'ビルボ': {
+      specialName:'変人',
+      victory:'3トリック以上獲得。',
+      effect:'無し'
+    }
+  };
+  const details = characterDetails[character.name] || {};
   return {
     kind:'character', name:character.name, required:character.required === true,
-    specialName:character.name === 'フロド' ? '指輪所持者' : '特殊名',
-    victory:character.name === 'フロド' ? '指輪を2枚以上獲得する。' : '',
-    effect:character.name === 'フロド'
-      ? '黄1を所持している。黄1は交換できない。スタートプレイヤーになる。'
-      : '特殊説明',
+    specialName:details.specialName || '特殊名',
+    victory:details.victory || '',
+    effect:details.effect || '特殊説明',
     id:`${playerId}-character-${character.name}`
   };
 }
@@ -1265,6 +1286,10 @@ async function chooseCharacter(characterName, source){
     if (room.game.characterSelections[state.userId]) return;
     const character = (room.game.availableCharacters || []).find(item => item.name === characterName);
     if (!character || Object.values(room.game.characterSelections).some(item => item.name === characterName)) return;
+    const hasYellowOne = (room.hands?.[state.userId]?.cards || [])
+      .some(card => card.color === 'yellow' && card.number === 1);
+    // 黄1の所持者は必ずフロドを、所持していないプレイヤーはフロド以外を選ぶ。
+    if ((characterName === 'フロド') !== hasYellowOne) return;
     const selectedNames = new Set(Object.values(room.game.characterSelections).map(item => item.name));
     const remainingRequiredCount = (room.game.availableCharacters || [])
       .filter(item => item.required && !selectedNames.has(item.name)).length;
@@ -1324,6 +1349,8 @@ function renderCharacterPicker(){
   const remainingRequiredCount = remainingCharacters.filter(character => character.required).length;
   const remainingPlayerCount = (game.playerOrder || []).length - Object.keys(selections).length;
   const mustChooseRequired = remainingRequiredCount > 0 && remainingRequiredCount >= remainingPlayerCount;
+  const hasYellowOne = (state.hands?.[state.userId]?.cards || [])
+    .some(card => card.color === 'yellow' && card.number === 1);
   if (remainingCharacters.length >= 5) {
     characterPickerRow.classList.add('two-rows');
     characterPickerRow.style.setProperty('--choice-columns', Math.ceil(remainingCharacters.length / 2));
@@ -1332,8 +1359,11 @@ function renderCharacterPicker(){
     const choice = document.createElement('button');
     choice.type = 'button';
     choice.className = 'character-choice';
-    choice.disabled = alreadyChose || (mustChooseRequired && !character.required);
-    choice.classList.toggle('forced-unavailable', mustChooseRequired && !character.required);
+    const violatesRingRule = character.name === 'フロド' ? !hasYellowOne : hasYellowOne;
+    const unavailable = violatesRingRule || (mustChooseRequired && !character.required);
+    choice.disabled = alreadyChose || unavailable;
+    // 選択できない場合も、フロドは暗くせず黄1との対応を見分けやすくする。
+    choice.classList.toggle('forced-unavailable', unavailable && character.name !== 'フロド');
     choice.dataset.characterName = character.name;
     const choiceCard = createCharacterCardElement(characterCardData(character, state.userId));
     choice.appendChild(choiceCard);
@@ -1343,7 +1373,8 @@ function renderCharacterPicker(){
       requiredDot.className = 'required-character-dot';
       requiredDot.setAttribute('aria-label', '必須キャラクター');
       choice.appendChild(requiredDot);
-      choice.classList.toggle('required-raised', mustChooseRequired);
+      // 黄1所持者には、選択可能なフロドだけを従来どおり浮かせる。
+      choice.classList.toggle('required-raised', hasYellowOne ? character.name === 'フロド' : mustChooseRequired);
     }
     choice.addEventListener('click', event => { event.stopPropagation(); chooseCharacter(character.name, choice); });
     characterPickerRow.appendChild(choice);
