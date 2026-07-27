@@ -153,15 +153,16 @@
   .excluded-card-slot.gandalf-pick{pointer-events:auto;cursor:pointer;animation:excludedCardPulse 1.05s ease-in-out infinite;}
   @keyframes excludedCardPulse{50%{transform:rotate(var(--excluded-tilt,0deg)) scale(1.12)}}
   .lost-card-flight{position:fixed;z-index:1001;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
-  .yellow-one-decision{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:310;width:min(320px,calc(100vw - 32px));padding:16px;box-sizing:border-box;border-radius:16px;background:rgba(255,255,255,.96);box-shadow:0 18px 40px rgba(0,0,0,.35);text-align:center;}
+  .yellow-one-decision{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:310;width:min(270px,calc(100vw - 32px));padding:10px 12px 25px;box-sizing:border-box;border-radius:13px;background:rgba(255,255,255,.96);box-shadow:0 18px 40px rgba(0,0,0,.35);text-align:center;}
   .yellow-one-decision.hidden{display:none;}
-  .yellow-one-question{font-size:16px;font-weight:900;margin-bottom:12px;}
-  .yellow-one-actions{display:flex;justify-content:center;gap:12px;}
+  .yellow-one-question{font-size:15px;font-weight:900;margin-bottom:8px;}
+  .yellow-one-actions{display:flex;justify-content:center;gap:8px;}
   @property --hold-progress{syntax:'<number>';inherits:false;initial-value:0;}
   .hold-decision{position:relative;min-width:92px;overflow:hidden;user-select:none;touch-action:none;}
+  .hold-decision[data-yellow-decision="yes"]{background:#111;color:#fff;border-color:#111;}
   .hold-decision::before{content:'';position:absolute;inset:0;background:#d3ad32;transform:scaleX(var(--hold-progress,0));transform-origin:left;z-index:0;}
   .hold-decision>span{position:relative;z-index:1;}
-  .yellow-one-note{margin-top:10px;font-size:12px;font-weight:700;}
+  .yellow-one-note{position:absolute;right:10px;bottom:6px;font-size:10px;font-weight:700;}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
@@ -1021,7 +1022,8 @@ async function takeExcludedCardAsGandalf(){
     game.lostCardTransfer = { cardId:game.excludedCard.id, playerId:state.userId, movedAt:Date.now() };
     delete game.excludedCard;
     game.phase = 'playing';
-    game.turnPlayerId ||= game.playerOrder?.[0] || null;
+    game.turnPlayerId = game.startingPlayerId || game.playerOrder?.[0] || null;
+    delete game.startingPlayerId;
     return room;
   });
 }
@@ -1045,7 +1047,34 @@ function animateLostCard(sourceRect, transfer){
   flight.animate([
     { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${sourceRect.width / 82})`, opacity:1 },
     { left:`${targetRect.left}px`, top:`${targetRect.top}px`, transform:`scale(${targetRect.width / 82})`, opacity:1 }
-  ], { duration:800, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' }).finished.finally(() => flight.remove());
+  ], { duration:800, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' }).finished.finally(() => {
+    flight.remove();
+    target.style.removeProperty('opacity');
+  });
+  // 到着までは追加カード本体を隠し、同じカードが二重に見えないようにする。
+  target.style.opacity = '0';
+}
+
+function captureMyHandRects(){
+  return new Map(Array.from(myHandEl.querySelectorAll('[data-card-id]'), card => [
+    card.dataset.cardId, card.getBoundingClientRect()
+  ]));
+}
+
+function animateMyHandReflow(previousRects){
+  myHandEl.querySelectorAll('[data-card-id]').forEach(card => {
+    const previous = previousRects.get(card.dataset.cardId);
+    if (!previous) return;
+    const current = card.getBoundingClientRect();
+    const x = previous.left - current.left;
+    const y = previous.top - current.top;
+    if (Math.abs(x) < 1 && Math.abs(y) < 1) return;
+    // 除外カード追加で既存カードの並びが変わっても、旧位置から滑らかに詰め直す。
+    card.animate([
+      { transform:`translate(${x}px,${y}px)` },
+      { transform:'translate(0,0)' }
+    ], { duration:500, easing:'cubic-bezier(.22,.8,.25,1)' });
+  });
 }
 
 function subscribeRoom(){
@@ -1053,6 +1082,7 @@ function subscribeRoom(){
   onValue(roomRef, snap => {
     const previousTransferAt = state.game?.lostCardTransfer?.movedAt;
     const excludedSourceRect = state.game?.excludedCard ? excludedCardSlot.getBoundingClientRect() : null;
+    const previousMyHandRects = captureMyHandRects();
     state.room = snap.val() || {};
     state.game = state.room.game || null;
     state.hands = state.room.hands || {};
@@ -1063,7 +1093,10 @@ function subscribeRoom(){
     renderYellowOneDecision();
     const transfer = state.game?.lostCardTransfer;
     if (transfer?.movedAt && transfer.movedAt !== previousTransferAt && excludedSourceRect) {
-      requestAnimationFrame(() => animateLostCard(excludedSourceRect, transfer));
+      requestAnimationFrame(() => {
+        animateMyHandReflow(previousMyHandRects);
+        animateLostCard(excludedSourceRect, transfer);
+      });
     }
     scheduleTrickClear();
     syncSeatUI();
@@ -1454,6 +1487,8 @@ async function chooseCharacter(characterName, source){
         // ガンダルフがロストカードを取るまでは、全プレイヤーのカードプレイを止める。
         room.game.phase = 'gandalf-selection';
         room.game.gandalfPlayerId = gandalfEntry[0];
+        // フロド等によって既に決まったスタートプレイヤーを、取得完了後まで保持する。
+        room.game.startingPlayerId = room.game.turnPlayerId || room.game.playerOrder[0];
         room.game.turnPlayerId = null;
       } else {
         room.game.phase = 'playing';
