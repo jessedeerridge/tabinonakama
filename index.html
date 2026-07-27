@@ -364,7 +364,7 @@
   /* ★ 設定ポップ（ホスト専用パネル） */
   .start-pop{
     position:fixed;right:16px;bottom:72px;background:#fff;border:1px solid #ddd;border-radius:12px;
-    box-shadow:0 12px 28px rgba(0,0,0,.16);padding:10px 12px;z-index:240;min-width:260px;
+    box-shadow:0 12px 28px rgba(0,0,0,.16);padding:10px 12px;z-index:330;min-width:260px;
     display:flex;flex-direction:column;gap:8px;
   }
   .start-pop.hidden{display:none;}
@@ -2209,6 +2209,12 @@ async function chooseCharacter(characterName, source){
 
 function renderCharacterPicker(){
   const game = state.game;
+  const canShowPicker = game?.phase === 'character-selection' && state.seatedTable !== null;
+  characterPicker.classList.toggle('hidden', !canShowPicker);
+  if (!canShowPicker) {
+    characterPickerRow.replaceChildren();
+    return;
+  }
   const selections = game?.characterSelections || {};
   const oldRects = new Map();
   characterPickerRow.querySelectorAll('.character-choice').forEach(choice => oldRects.set(choice.dataset.characterName, choice.getBoundingClientRect()));
@@ -2224,12 +2230,10 @@ function renderCharacterPicker(){
   });
   const alreadyChose = Boolean(selections[state.userId]);
   // 選択済みの本人にも、全員の選択が終わるまでは残りの候補を表示し続ける。
-  characterPicker.classList.toggle('hidden', game?.phase !== 'character-selection');
   characterPicker.classList.toggle('locked', alreadyChose);
   characterPickerRow.classList.remove('two-rows');
   characterPickerRow.style.removeProperty('--choice-columns');
   characterPickerRow.replaceChildren();
-  if (game?.phase !== 'character-selection') return;
   const chosenNames = new Set(Object.values(selections).map(item => item.name));
   const allCharacters = game.availableCharacters || [];
   const remainingCharacters = allCharacters.filter(character => !chosenNames.has(character.name));
@@ -2580,6 +2584,8 @@ function subscribePlayers(){
 
     await syncSeatUI();
     renderPlayerCircle(players);
+    // キャラクター選択中に着席・離席した場合も、座席確定後だけ候補を表示する。
+    renderCharacterPicker();
   });
 }
 
@@ -2907,6 +2913,7 @@ btnKickYes.addEventListener('click', async (e) => {
   pendingSeatPlayerIdToSteal = null;
 
   seatPop.classList.add('hidden');
+  renderCharacterPicker();
 });
 
 async function dealInitialHands(stageNumber){
