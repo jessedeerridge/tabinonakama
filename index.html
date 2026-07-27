@@ -131,6 +131,9 @@
   .capture-trick{position:absolute;top:0;width:38px;height:56px;}
   .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
   .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
+  .threat-card{--card-color:#171717;--detail-color:#171717;--panel-fill:#eee9dc;background:#302f2c url('shadow.jpg') center/cover no-repeat;filter:grayscale(1);}
+  .threat-card::after{content:'';position:absolute;inset:3px;border:1px solid rgba(255,255,255,.68);border-radius:6px;pointer-events:none;}
+  .threat-card .card-name{color:#111;letter-spacing:0;font-size:9px;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   .victory-condition-icon{width:15px;height:15px;border:0;border-radius:2px;background:#111;color:#fff;box-sizing:border-box;display:grid;place-items:center;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;}
   .victory-condition-icon.ring{background:#f2c94c;color:#111;}
@@ -150,7 +153,7 @@
   .stage-tab:hover,.stage-tab:focus-visible{background:#111;color:#fff;}
   .center-lower-card-area.hidden{display:none;}
   .center-lower-card-area{
-    position:fixed;left:50%;top:calc(68% - 89px);transform:translate(-50%,-50%);
+    position:fixed;left:50%;top:calc(68% - 101px);transform:translate(-50%,-50%);
     width:calc(100vw - 32px);display:flex;align-items:center;justify-content:space-between;
     z-index:2;pointer-events:none;
   }
@@ -162,7 +165,7 @@
   #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
   .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);}
   .ringcircle.on{background-image:url('ringcircleon.jpg');}
-  .excluded-card-slot{position:absolute;left:20px;top:80px;width:54px;height:81px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;}
+  .excluded-card-slot{position:absolute;left:20px;top:92px;width:54px;height:81px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;}
   .excluded-card-slot.hidden{display:none;}
   .excluded-card-slot>.my-card{transform:scale(.66);transform-origin:top left;}
   .excluded-card-slot.gandalf-pick{pointer-events:auto;cursor:pointer;animation:excludedCardPulse 1.05s ease-in-out infinite;}
@@ -209,6 +212,7 @@
   .stage-title,.character-heading,.character-line,.goal-heading{white-space:nowrap;}
   .stage-title{letter-spacing:normal;}
   .character-heading,.goal-heading{letter-spacing:-.08em;}
+  .character-heading{display:block;margin-top:2px;}
   .character-line{display:block;font-size:8px;letter-spacing:normal;}
   @media (max-width:520px){
     .center-lower-card-area{width:calc(100vw - 24px);}
@@ -271,6 +275,7 @@
     clip-path:polygon(0 10px,30% 6px,70% 6px,100% 10px,100% 100%,0 100%);
   }
   .character-effect-row{display:grid;grid-template-columns:6.6px 1fr;gap:.3px;align-items:start;}
+  .character-effect-row>span:last-child{white-space:pre-line;}
   .character-effect-icon{display:block;width:6.48px;height:6.48px;color:#111;}
   .character-effect-icon svg{display:block;width:100%;height:100%;fill:currentColor;}
   .character-effect-row.victory .character-effect-icon{width:5.76px;height:5.76px;}
@@ -702,6 +707,7 @@ defineStage(2, {
   title: 'ホビット庄で少し出遅れる',
   story: 'フロドはサムの隣りに腰を下して食べ始めました。「今日はどういうご予定？」とピピンがたずねました。「できるだけ速くバックル村まで歩くこと。」とフロドはそう答え、食べ物に集中しました。',
   characters: ['frodo*,sam*,merry*', 'gandalf,pippin'],
+  threats: [{ name:'黒の乗手', min:1, max:4 }],
   winCondition: 'short',
   goal: 'allwin'
 });
@@ -762,9 +768,10 @@ function createCardElement(cardData){
   if (cardData.kind === 'character') return createCharacterCardElement(cardData);
   const card = document.createElement('div');
   card.className = `my-card card-${cardData.color}`;
-  const isYellowOne = cardData.color === 'yellow' && cardData.number === 1;
+  if (cardData.kind === 'threat') card.classList.add('threat-card');
+  const isYellowOne = cardData.kind !== 'threat' && cardData.color === 'yellow' && cardData.number === 1;
   if (isYellowOne) card.classList.add('yellow-one');
-  card.setAttribute('aria-label', `${cardData.name} ${cardData.number}`);
+  card.setAttribute('aria-label', `${cardData.kind === 'threat' ? '脅威 ' : ''}${cardData.name} ${cardData.number}`);
   if (cardData.id) card.dataset.cardId = cardData.id;
 
   const createBadge = side => {
@@ -949,6 +956,16 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     .filter(card => card?.kind !== 'character').length));
   const victory = character.victory || characterCardData(character, playerId).victory;
   const isFinished = game.finished === true;
+
+  if (victory.includes('脅威カードと同じランク')) {
+    const threatRanks = new Set((game.threatCards?.[playerId] || []).map(card => Number(card.number)));
+    const hasMatchingHill = capturedTricks.some(trick => (trick.cards || [])
+      .some(card => card.color === 'orange' && threatRanks.has(Number(card.number))));
+    if (hasMatchingHill) return { status:'achieved' };
+    const matchingHillRemains = Object.values(room.hands || {}).some(hand => (hand?.cards || [])
+      .some(card => card.color === 'orange' && threatRanks.has(Number(card.number))));
+    return { status:(!isFinished && matchingHillRemains) ? 'pending' : 'failed' };
+  }
 
   if (victory.includes('指輪')) {
     const target = Number(victory.match(/\d+/)?.[0] || 1);
@@ -1239,7 +1256,7 @@ function renderStageInformation(){
   const characterHeading = document.createElement('strong');
   characterHeading.className = 'character-heading';
   characterHeading.textContent = 'キャラクター：';
-  info.append(heading, document.createElement('br'), title, document.createElement('br'), document.createElement('br'), characterHeading, document.createElement('br'));
+  info.append(heading, document.createElement('br'), title, characterHeading);
   stage.characters.forEach(characterLine => {
     const line = document.createElement('span');
     line.className = 'character-line';
@@ -1250,6 +1267,18 @@ function renderStageInformation(){
     }).join(',');
     info.append(line);
   });
+  if (stage.threats?.length) {
+    const threatHeading = document.createElement('strong');
+    threatHeading.className = 'character-heading';
+    threatHeading.textContent = '脅威：';
+    info.append(threatHeading);
+    stage.threats.forEach(threat => {
+      const line = document.createElement('span');
+      line.className = 'character-line';
+      line.textContent = `${threat.name}（${threat.min}~${threat.max}）`;
+      info.append(line);
+    });
+  }
   winningconditionInfo.append(info);
   fitSingleLineText(title, 9, 4);
 
@@ -1271,14 +1300,15 @@ function exchangeCandidates(game, sourceId){
   const characterName = game?.characterSelections?.[sourceId]?.name;
   const allowedNames = characterName === 'ガンダルフ'
     ? ['フロド']
-    : characterName === 'ピピン' ? ['フロド', 'サム', 'メリー'] : [];
+    : characterName === 'ピピン' ? ['フロド', 'サム', 'メリー']
+    : characterName === 'サム' ? ['フロド', 'メリー', 'ピピン'] : [];
   return (game?.playerOrder || []).filter(playerId => playerId !== sourceId
     && allowedNames.includes(game.characterSelections?.[playerId]?.name));
 }
 
 function beginNextExchange(game){
   game.exchangeQueue ||= (game.playerOrder || [])
-    .filter(playerId => ['ガンダルフ', 'ピピン'].includes(game.characterSelections?.[playerId]?.name)
+    .filter(playerId => ['ガンダルフ', 'ピピン', 'サム'].includes(game.characterSelections?.[playerId]?.name)
       && !game.completedExchanges?.[playerId]);
   while (game.exchangeQueue.length) {
     const sourceId = game.exchangeQueue.shift();
@@ -1289,7 +1319,8 @@ function beginNextExchange(game){
       targetId:candidates.length === 1 ? candidates[0] : null,
       selectingPlayerId:sourceId, selections:{}, requestedAt:Date.now()
     };
-    game.phase = candidates.length === 1 ? 'exchange-card-selection' : 'exchange-target-selection';
+    // 候補が複数でも、カードをどのプレイヤーへ落とすかで交換相手を同時に選ぶ。
+    game.phase = 'exchange-card-selection';
     game.turnPlayerId = null;
     return;
   }
@@ -1547,7 +1578,10 @@ function renderExchangeDialog(){
     });
   } else if (choosingCard) {
     const otherId = exchange.sourceId === state.userId ? exchange.targetId : exchange.sourceId;
-    exchangeMessage.textContent = `${playerName(otherId)}にあげるカードを選んでください。`;
+    const recipientText = otherId
+      ? playerName(otherId)
+      : (exchange.candidates || []).map(playerName).join('か');
+    exchangeMessage.textContent = `${recipientText}にあげるカードを選んでください。`;
     exchangeDialog.querySelector('.exchange-note').classList.add('hidden');
   }
 }
@@ -1564,15 +1598,20 @@ async function chooseExchangeTarget(targetId){
   });
 }
 
-async function chooseExchangeCard(cardId){
+async function chooseExchangeCard(cardId, droppedTargetId){
   if (!state.roomCode) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
     const game = room?.game;
     const exchange = game?.pendingExchange;
-    if (game?.phase !== 'exchange-card-selection' || !exchange?.targetId
+    if (game?.phase !== 'exchange-card-selection' || !exchange
       || (exchange.selectingPlayerId || exchange.sourceId) !== state.userId
       || (exchange.selectionAvailableAt && Date.now() < exchange.selectionAvailableAt)
       || exchange.selections?.[state.userId]) return;
+    if (!exchange.targetId && state.userId === exchange.sourceId) {
+      if (!exchange.candidates?.includes(droppedTargetId)) return;
+      exchange.targetId = droppedTargetId;
+    }
+    if (!exchange.targetId) return;
     const card = (room.hands?.[state.userId]?.cards || []).find(item => item.id === cardId);
     if (!card || card.kind === 'character' || (card.color === 'yellow' && card.number === 1)) return;
     exchange.selections ||= {};
@@ -1818,11 +1857,16 @@ function beginExchangeCardDrag(event, cardData, source){
   if (event.button !== undefined && event.button !== 0) return;
   event.preventDefault();
   const exchange = state.game?.pendingExchange;
-  const otherId = exchange?.sourceId === state.userId ? exchange.targetId : exchange?.sourceId;
-  const targetTag = playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(otherId || '')}"]`);
-  const target = targetTag?.querySelector('.exchange-hand-hint');
-  if (!target) return;
-  targetTag.classList.add('exchange-drag-target');
+  const targetIds = exchange?.sourceId === state.userId
+    ? (exchange.targetId ? [exchange.targetId] : exchange.candidates || [])
+    : [exchange?.sourceId].filter(Boolean);
+  const targets = targetIds.map(playerId => {
+    const tag = playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(playerId)}"]`);
+    return { playerId, tag, hint:tag?.querySelector('.exchange-hand-hint') };
+  }).filter(target => target.hint);
+  if (!targets.length) return;
+  // 交換候補が複数いる間は、ドラッグ先を選べるよう全候補のヒントを同時に点灯する。
+  targets.forEach(target => target.tag.classList.add('exchange-drag-target'));
   source.setPointerCapture(event.pointerId);
   source.classList.add('drag-source');
   const floating = createCardElement(cardData);
@@ -1836,23 +1880,26 @@ function beginExchangeCardDrag(event, cardData, source){
   const cancel = () => {
     floating.remove();
     source.classList.remove('drag-source');
-    targetTag.classList.remove('exchange-drag-target');
+    targets.forEach(target => target.tag.classList.remove('exchange-drag-target'));
   };
   const finish = currentEvent => {
     source.removeEventListener('pointermove', move);
     source.removeEventListener('pointerup', finish);
     source.removeEventListener('pointercancel', cancel);
-    const rect = target.getBoundingClientRect();
-    const dropped = currentEvent.clientX >= rect.left && currentEvent.clientX <= rect.right
-      && currentEvent.clientY >= rect.top && currentEvent.clientY <= rect.bottom;
-    if (dropped) {
+    const droppedTarget = targets.find(({ hint }) => {
+      const rect = hint.getBoundingClientRect();
+      return currentEvent.clientX >= rect.left && currentEvent.clientX <= rect.right
+        && currentEvent.clientY >= rect.top && currentEvent.clientY <= rect.bottom;
+    });
+    if (droppedTarget) {
+      const rect = droppedTarget.hint.getBoundingClientRect();
       exchangeDropPositions.set(cardData.id, {
         left:rect.left + rect.width / 2 - 27, top:rect.top + rect.height / 2 - 40.5,
         width:54, height:81
       });
     }
     cancel();
-    if (dropped) chooseExchangeCard(cardData.id);
+    if (droppedTarget) chooseExchangeCard(cardData.id, droppedTarget.playerId);
   };
   move(event);
   source.addEventListener('pointermove', move);
@@ -1987,7 +2034,12 @@ function characterCardData(character, playerId){
     'ピピン': {
       specialName:'愚か者',
       victory:'トリック獲得数が最少（最少同数でもよい）。',
-      effect:'フロド/サム/メリーの誰かと交換する。'
+      effect:'フロドかサムかメリーに手札を1枚渡し、1枚もらう。'
+    },
+    'サム': {
+      specialName:'庭師',
+      victory:'引いた脅威カードと同じランクの丘カードを勝ち取る。',
+      effect:'脅威カードを1枚引く。\nフロドかメリーかピピンに手札を1枚渡し、1枚もらう。'
     },
     'ガンダルフ': {
       specialName:'灰色の魔法使い',
@@ -2074,6 +2126,20 @@ async function chooseCharacter(characterName, source){
     room.hands[state.userId].cards ||= [];
     room.hands[state.userId].cards.unshift(characterCardData(character, state.userId));
     room.game.characterSelections[state.userId] = { ...character, selectedAt:Date.now() };
+    const selectedCard = characterCardData(character, state.userId);
+    if (selectedCard.effect.includes('脅威カードを1枚引く')) {
+      const stage = STAGES.find(item => item.number === Number(room.game.stageNumber));
+      const threat = stage?.threats?.[0];
+      if (threat) {
+        const rank = threat.min + Math.floor(Math.random() * (threat.max - threat.min + 1));
+        room.game.threatCards ||= {};
+        room.game.threatCards[state.userId] ||= [];
+        room.game.threatCards[state.userId].push({
+          kind:'threat', color:'threat', name:threat.name, number:rank,
+          id:`${state.userId}-threat-${Date.now()}-${rank}`
+        });
+      }
+    }
     if (characterName === 'フロド') {
       const currentHolder = Object.keys(room.hands).find(id => room.hands[id].cards.some(card => card.color === 'yellow' && card.number === 1));
       if (currentHolder && currentHolder !== state.userId) {
@@ -2493,20 +2559,23 @@ function renderPlayerCircle(players){
   const meIndex = players.findIndex(p => p.id === state.userId);
   const geometryFor = (player, idx) => {
     const k = (meIndex === -1) ? idx : (idx - meIndex + n) % n;
-    const angle = anchorAngle + step * k;
+    // 3人プレイの左右席は4人プレイの左右席と同じ座標に固定する。
+    const angle = n === 3 && k > 0
+      ? (k === 1 ? Math.PI : Math.PI * 2)
+      : anchorAngle + step * k;
     const isMe = player.id === state.userId;
     const isTopPlayer = Math.sin(angle) < -.85;
     const playRadius = isMe ? 30 : (isTopPlayer ? 17 : 24);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
     const otherPlayerLift = isMe ? 0 : 80 / circleHeight * 100;
-    // 12時位置のプレイヤーは、ネーム・手札・プレイ位置・獲得カードをまとめて15px下げる。
-    const topPlayerDrop = !isMe && isTopPlayer ? 25 / circleHeight * 100 : 0;
+    // 現在位置から12時席を15px、左右席を10px下げ、カードグループ全体へ同じ補正をかける。
+    const playerDrop = isMe ? 0 : (isTopPlayer ? 60 : 10) / circleHeight * 100;
     return {
       angle, isMe,
       x: 50 + radius * Math.cos(angle),
-      y: 50 + radius * Math.sin(angle) - otherPlayerLift + topPlayerDrop,
+      y: 50 + radius * Math.sin(angle) - otherPlayerLift + playerDrop,
       playX: 50 + playRadius * Math.cos(angle),
-      playY: 50 + playRadius * Math.sin(angle) - otherPlayerLift + topPlayerDrop
+      playY: 50 + playRadius * Math.sin(angle) - otherPlayerLift + playerDrop
     };
   };
   const winnerIndex = players.findIndex(p => p.id === state.game?.pendingCapture?.winnerId);
@@ -2558,9 +2627,12 @@ function renderPlayerCircle(players){
       tag.appendChild(miniHand);
     }
 
-    const exchangeHintVisible = p.id !== state.userId
-      && ['exchange-target-selection', 'exchange-card-selection'].includes(state.game?.phase)
-      && Boolean(state.game?.pendingExchange);
+    const pendingExchange = state.game?.pendingExchange;
+    const exchangeHintIds = pendingExchange?.sourceId === state.userId
+      ? (pendingExchange.targetId ? [pendingExchange.targetId] : pendingExchange.candidates || [])
+      : pendingExchange?.targetId === state.userId ? [pendingExchange.sourceId] : [];
+    const exchangeHintVisible = state.game?.phase === 'exchange-card-selection'
+      && exchangeHintIds.includes(p.id);
     if (exchangeHintVisible) {
       const hint = document.createElement('div');
       hint.className = 'exchange-hand-hint';
@@ -2639,8 +2711,8 @@ function renderPlayerCircle(players){
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
     // 他プレイヤーの公開キャラクターを獲得カード列の先頭に置く。
+    const character = handData?.cards?.find(card => card?.kind === 'character');
     if (!isMe) {
-      const character = handData?.cards?.find(card => card?.kind === 'character');
       if (character && Date.now() >= (characterAnimationUntil.get(p.id) || 0)) {
         const characterBundle = document.createElement('div');
         characterBundle.className = 'capture-trick character-capture';
@@ -2652,6 +2724,22 @@ function renderPlayerCircle(players){
         capture.appendChild(characterBundle);
       }
     }
+    const threatCards = state.game?.threatCards?.[p.id] || [];
+    const characterOffsetCount = !isMe && character ? 1 : 0;
+    // 脅威カードは獲得カード列の先頭（他プレイヤーは公開キャラクターの直後）へ、重ねずに並べる。
+    threatCards.forEach((threatCard, threatIndex) => {
+      const threatBundle = document.createElement('div');
+      threatBundle.className = 'capture-trick threat-capture';
+      threatBundle.style.left = `${(characterOffsetCount + threatIndex) * 40}px`;
+      threatBundle.style.zIndex = String(characterOffsetCount + threatIndex + 1);
+      const holder = document.createElement('div');
+      holder.className = 'capture-card';
+      holder.style.setProperty('--stack-rotate', '0deg');
+      holder.appendChild(createCardElement(threatCard));
+      threatBundle.appendChild(holder);
+      capture.appendChild(threatBundle);
+    });
+    const leadingCaptureOffset = (characterOffsetCount + threatCards.length) * 40;
     // 黄カードを横へ広げた分は、詰め表示でも次のトリックとの間隔に加える。
     // 各トリックの黄カード枚数は最大でも少数なので、全体を広げすぎず重なりも判別できる。
     const compactYellowOffsets = [];
@@ -2667,8 +2755,8 @@ function renderPlayerCircle(players){
       // 獲得が5つ以上なら本人分も25pxずつずらして重ねる。
       const compactCapturedTricks = capturedTricks.length >= 5;
       const bundleLeft = compactCapturedTricks
-        ? (isMe ? 0 : 40) + trickIndex * 25 + compactYellowOffsets[trickIndex]
-        : isMe ? trickIndex * 44 : 40 + trickIndex * 35;
+        ? leadingCaptureOffset + trickIndex * 25 + compactYellowOffsets[trickIndex]
+        : leadingCaptureOffset + trickIndex * (isMe ? 44 : 35);
       bundle.style.left = `${bundleLeft}px`;
       if (!isMe) bundle.style.zIndex = String(trickIndex + 1);
       const cards = capturedTrick.cards || [];
