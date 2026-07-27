@@ -96,6 +96,7 @@
   .hand-row{display:flex;justify-content:center;gap:10px;min-height:122px;}
   /* カード自体の82:122比率を保ったまま、手札全体だけを画面幅に合わせて縮小する。 */
   .hand-row>.my-card,.hand-row>.character-card-slot{zoom:var(--hand-card-scale);}
+  .hand-row>.my-card{flex:0 0 82px;}
   .hand-row-upper{position:relative;top:30px;z-index:1;}
   .hand-row-lower{position:relative;z-index:2;}
   .hand-row:empty{display:none;}
@@ -273,7 +274,8 @@
   .card-zoom-frame{position:fixed;inset:0;pointer-events:none;}
   .card-zoom-item{position:absolute;width:var(--zoom-card-width);height:var(--zoom-card-height);transform:translate(-50%,-50%);}
   .card-zoom-card{position:relative;width:var(--zoom-card-width);height:var(--zoom-card-height);}
-  .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:var(--zoom-base-width);height:var(--zoom-base-height);transform:scale(var(--zoom-scale));transform-origin:top left;}
+  /* キャラクターカードは常に82x122の原版全体を拡縮し、欄や文字だけが別倍率にならないようにする。 */
+  .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(var(--zoom-scale));transform-origin:top left;}
   .character-picker{position:fixed;inset:60px 0 0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding-top:clamp(120px,calc(50vh - 160px),260px);box-sizing:border-box;pointer-events:none;}
   .character-picker.hidden{display:none;}
   .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
@@ -285,7 +287,7 @@
   .character-choice.forced-unavailable{filter:brightness(.55) saturate(.7);}
   .character-choice.chosen-placeholder{visibility:hidden;pointer-events:none;}
   .character-picker.locked .character-choice{cursor:default;}
-  .character-choice>.my-card{position:absolute;left:0;top:0;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
+  .character-choice>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(var(--choice-scale));transform-origin:top left;pointer-events:none;}
   .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;box-sizing:border-box;border:2px solid #10233f;border-radius:50%;background:transparent url('definitechara.jpg') center/cover no-repeat;z-index:5;pointer-events:none;}
   .character-choice.required-raised{transform:translateY(-5px);}
   .character-choice.ring-required-pulse{animation:ringRequiredPulse 1.05s ease-in-out infinite;}
@@ -819,8 +821,8 @@ function openCardZoom(sourceCard){
   // 各カードを、それぞれのプレイヤーの手札位置で控えめに拡大する。
   const scale = Math.min(1.5, Math.max(1.25, window.innerWidth / 380));
   // 表示中の元カードと同じ基準寸法からカード全体を拡大し、文字や各欄の比率を維持する。
-  const baseWidth = sourceCard.offsetWidth || 82;
-  const baseHeight = sourceCard.offsetHeight || 122;
+  const baseWidth = 82;
+  const baseHeight = 122;
   const items = playerCharacters.map(({ player, card }) => {
     const item = document.createElement('div');
     item.className = 'card-zoom-item';
@@ -857,6 +859,7 @@ window.addEventListener('resize', () => {
   if (!cardZoomBackdrop.classList.contains('hidden')) positionZoomCards();
   if (!helpBackdrop.classList.contains('hidden')) updateCardListScale();
   renderMyHand();
+  updateCharacterChoiceScales();
 });
 
 function createCharacterEffectRow(type, text){
@@ -1834,7 +1837,7 @@ function animateCharacterSelection(playerId, character, sourceRect){
   const flightCard = createCharacterCardElement(characterCardData(character, playerId));
   flight.appendChild(flightCard);
   document.body.appendChild(flight);
-  const baseWidth = flightCard.offsetWidth || 82;
+  const baseWidth = 82;
   const handScale = currentHandCardScale();
   const destinationWidth = isMe ? 82 * handScale : 38;
   const destinationHeight = isMe ? 122 * handScale : 56;
@@ -1976,7 +1979,13 @@ function renderCharacterPicker(){
     }
     choice.addEventListener('click', event => { event.stopPropagation(); chooseCharacter(character.name, choice); });
     characterPickerRow.appendChild(choice);
-    choice.style.setProperty('--choice-scale', choice.getBoundingClientRect().width / (choiceCard.offsetWidth || 82));
+    choice.style.setProperty('--choice-scale', choice.getBoundingClientRect().width / 82);
+  });
+}
+
+function updateCharacterChoiceScales(){
+  characterPickerRow.querySelectorAll('.character-choice').forEach(choice => {
+    choice.style.setProperty('--choice-scale', choice.getBoundingClientRect().width / 82);
   });
 }
 
