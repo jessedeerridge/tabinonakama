@@ -251,8 +251,8 @@
   .card-zoom-backdrop.hidden{display:none;}
   .card-zoom-frame{position:fixed;inset:0;pointer-events:none;}
   .card-zoom-item{position:absolute;width:var(--zoom-card-width);height:var(--zoom-card-height);transform:translate(-50%,-50%);}
-  .card-zoom-card{position:relative;width:var(--zoom-card-width);height:calc(122px * var(--zoom-scale));}
-  .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(var(--zoom-scale));transform-origin:top left;}
+  .card-zoom-card{position:relative;width:var(--zoom-card-width);height:var(--zoom-card-height);}
+  .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:var(--zoom-base-width);height:var(--zoom-base-height);transform:scale(var(--zoom-scale));transform-origin:top left;}
   .character-picker{position:fixed;inset:60px 0 0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding-top:clamp(120px,calc(50vh - 160px),260px);box-sizing:border-box;pointer-events:none;}
   .character-picker.hidden{display:none;}
   .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
@@ -330,7 +330,7 @@
 
   /* ★ 追加：ヘルプ一覧ポップ */
   .help-pop-backdrop{
-    position:fixed;inset:0;background:rgba(0,0,0,.1);
+    position:fixed;inset:0;background:rgba(0,0,0,.2);
     display:flex;align-items:flex-start;justify-content:center;
     z-index:310;
     padding:clamp(28px,7vh,60px) 12px 16px;
@@ -350,12 +350,12 @@
   }
   .help-pop-title{width:100%;font-weight:800;font-size:14px;text-align:center;}
   .help-pop-body{padding:12px;overflow:auto;max-height:calc(70vh - 48px);}
-  .card-list-row{display:flex;justify-content:center;width:max-content;min-width:100%;box-sizing:border-box;gap:5px;margin:0 0 2px;}
-  .card-list-item{position:relative;width:62px;height:93px;flex:0 0 62px;opacity:.2;}
+  .card-list-row{display:grid;grid-template-columns:repeat(8,62px);justify-content:center;width:max-content;min-width:100%;box-sizing:border-box;gap:5px;margin:0 0 2px;}
+  .card-list-item{position:relative;width:62px;height:93px;opacity:.45;}
   .card-list-item.played{opacity:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));}
   .card-list-item>.my-card{position:absolute;left:0;top:0;transform:scale(.76);transform-origin:top left;pointer-events:none;}
   /* 画面幅が狭くても倍率は維持し、カード本体のモバイル幅にだけ枠を合わせる。 */
-  @media (max-width:520px){.card-list-row{gap:3px}.card-list-item{width:52px;height:80px;flex-basis:52px}}
+  @media (max-width:520px){.card-list-row{grid-template-columns:repeat(8,52px);gap:3px}.card-list-item{width:52px;height:80px}}
   .role-row{
     display:flex;gap:12px;align-items:flex-start;
     padding:10px 0;
@@ -762,8 +762,10 @@ function createCharacterCardElement(cardData){
 
 function positionZoomCards(){
   const scale = Number(cardZoomFrame.style.getPropertyValue('--zoom-scale')) || 1;
-  const halfWidth = 82 * scale / 2;
-  const halfHeight = 122 * scale / 2;
+  const baseWidth = Number(cardZoomFrame.style.getPropertyValue('--zoom-base-width').replace('px', '')) || 82;
+  const baseHeight = Number(cardZoomFrame.style.getPropertyValue('--zoom-base-height').replace('px', '')) || 122;
+  const halfWidth = baseWidth * scale / 2;
+  const halfHeight = baseHeight * scale / 2;
   cardZoomFrame.querySelectorAll('.card-zoom-item').forEach(item => {
     const playerId = item.dataset.playerId;
     const hand = playerId === state.userId
@@ -788,6 +790,9 @@ function openCardZoom(sourceCard){
 
   // 各カードを、それぞれのプレイヤーの手札位置で控えめに拡大する。
   const scale = Math.min(1.5, Math.max(1.25, window.innerWidth / 380));
+  // 表示中の元カードと同じ基準寸法からカード全体を拡大し、文字や各欄の比率を維持する。
+  const baseWidth = sourceCard.offsetWidth || 82;
+  const baseHeight = sourceCard.offsetHeight || 122;
   const items = playerCharacters.map(({ player, card }) => {
     const item = document.createElement('div');
     item.className = 'card-zoom-item';
@@ -803,8 +808,10 @@ function openCardZoom(sourceCard){
     return item;
   });
   cardZoomFrame.replaceChildren(...items);
-  cardZoomFrame.style.setProperty('--zoom-card-width', `${82 * scale}px`);
-  cardZoomFrame.style.setProperty('--zoom-card-height', `${122 * scale}px`);
+  cardZoomFrame.style.setProperty('--zoom-base-width', `${baseWidth}px`);
+  cardZoomFrame.style.setProperty('--zoom-base-height', `${baseHeight}px`);
+  cardZoomFrame.style.setProperty('--zoom-card-width', `${baseWidth * scale}px`);
+  cardZoomFrame.style.setProperty('--zoom-card-height', `${baseHeight * scale}px`);
   cardZoomFrame.style.setProperty('--zoom-scale', scale);
   cardZoomBackdrop.classList.remove('hidden');
   cardZoomBackdrop.setAttribute('aria-hidden', 'false');
