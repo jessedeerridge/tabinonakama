@@ -2204,7 +2204,7 @@ function renderPlayerCircle(players){
     const playRadius = isMe ? 30 : (isTopPlayer ? 17 : 24);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
     const otherPlayerLift = isMe ? 0 : 80 / circleHeight * 100;
-    // 12時位置のプレイヤーは、ネーム・手札・プレイ位置・獲得カードをまとめて15px下げる。
+    // 12時位置の他プレイヤーは、ネーム・手札・プレイ位置・獲得カードをまとめて下げる。
     const topPlayerDrop = !isMe && isTopPlayer ? 25 / circleHeight * 100 : 0;
     return {
       angle, isMe,
@@ -2336,9 +2336,17 @@ function renderPlayerCircle(players){
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
-    // 自分の獲得カードはネームタグの寸法や移動に影響されない、盤面基準の定位置に置く。
-    const captureX = isMe ? 50 - 210 / circleSize * 100 : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
-    const captureY = isMe ? 92 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
+    // 自分の獲得カードは、現在の見た目を保った盤面基準の定位置に置く。
+    // 他プレイヤー用のネームタグ基準計算とは分け、タグを下げても一緒に動かないようにする。
+    let captureX;
+    let captureY;
+    if (isMe) {
+      captureX = 50 - 210 / circleSize * 100;
+      captureY = 92;
+    } else {
+      captureX = x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
+      captureY = y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
+    }
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
     const oldCount = renderedCaptureCounts.get(p.id);
@@ -2380,7 +2388,7 @@ function renderPlayerCircle(players){
           : 0;
         const rotation = cardData.color === 'yellow' ? -2 + yellowIndex * 5 : -2;
         holder.style.left = cardData.color === 'yellow' ? `${yellowIndex * 4}px` : '0';
-        holder.style.top = cardData.color === 'yellow' ? `${yellowIndex * 14}px` : '0';
+        holder.style.top = cardData.color === 'yellow' ? `${yellowIndex * 10}px` : '0';
         holder.style.setProperty('--stack-rotate', `${rotation}deg`);
         holder.appendChild(createCardElement(cardData));
         const captureKey = `${p.id}:${trickIndex}`;
