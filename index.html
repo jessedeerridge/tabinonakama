@@ -123,6 +123,8 @@
   .played-card-slot.gathered{animation:none;transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt));}
   @keyframes gatherCard{from{transform:translate(0,0) rotate(var(--tilt))}to{transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt))}}
   .capture-circle{position:absolute;width:38px;height:56px;transform:translate(-50%,-50%);z-index:3;}
+  /* 自分の獲得カードだけはプレイヤー円の外に固定し、ネームタグの配置変更から切り離す。 */
+  .capture-circle.mine{position:fixed;}
   .capture-trick{position:absolute;top:0;width:38px;height:56px;}
   .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
   .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
@@ -852,6 +854,7 @@ function closeCardZoom(){
 cardZoomBackdrop.addEventListener('click', closeCardZoom);
 window.addEventListener('resize', () => {
   if (!cardZoomBackdrop.classList.contains('hidden')) positionZoomCards();
+  positionMyCaptureCircle();
 });
 
 function createCharacterEffectRow(type, text){
@@ -2189,6 +2192,7 @@ function subscribePlayers(){
 
 function renderPlayerCircle(players){
   playerCircle.innerHTML = '';
+  lobby.querySelector('.capture-circle.mine')?.remove();
   if (!players.length) return;
 
   const n = players.length;
@@ -2331,16 +2335,22 @@ function renderPlayerCircle(players){
     playerCircle.appendChild(play);
 
     const capture = document.createElement('div');
-    capture.className = 'capture-circle';
+    capture.className = `capture-circle${isMe ? ' mine' : ''}`;
     capture.dataset.playerId = p.id;
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
-    // 自分の獲得カードはネームタグの寸法や移動に影響されない、盤面基準の定位置に置く。
+    // 自分の獲得カードはネームタグではなく、画面上の固定座標に置く。
     const captureX = isMe ? 50 - 210 / circleSize * 100 : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
     const captureY = isMe ? 92 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
-    capture.style.left = `${captureX}%`;
-    capture.style.top = `${captureY}%`;
+    if (isMe) {
+      const circleRect = playerCircle.getBoundingClientRect();
+      capture.style.left = `${circleRect.left + captureX * circleRect.width / 100}px`;
+      capture.style.top = `${circleRect.top + captureY * circleRect.height / 100}px`;
+    } else {
+      capture.style.left = `${captureX}%`;
+      capture.style.top = `${captureY}%`;
+    }
     const oldCount = renderedCaptureCounts.get(p.id);
     // 他プレイヤーの公開キャラクターを獲得カード列の先頭に置く。
     if (!isMe) {
@@ -2405,7 +2415,8 @@ function renderPlayerCircle(players){
       capture.appendChild(bundle);
     });
     renderedCaptureCounts.set(p.id, capturedTricks.length);
-    playerCircle.appendChild(capture);
+    // 自分の獲得カードはプレイヤー円の外に出し、他プレイヤー分だけを円内に残す。
+    (isMe ? lobby : playerCircle).appendChild(capture);
   });
 
   const active = players.find(p=>p.id===state.game?.turnPlayerId);
@@ -2413,6 +2424,14 @@ function renderPlayerCircle(players){
     const scores = players.map(p => `${p.name} ${state.game.tricksWon?.[p.id] || 0}`).join(' / ');
     gameStatus.textContent = `ゲーム終了　獲得トリック: ${scores}`;
   } else gameStatus.textContent = '';
+}
+
+function positionMyCaptureCircle(){
+  const capture = lobby.querySelector('.capture-circle.mine');
+  if (!capture) return;
+  const circleRect = playerCircle.getBoundingClientRect();
+  capture.style.left = `${circleRect.left + circleRect.width / 2 - 210}px`;
+  capture.style.top = `${circleRect.top + circleRect.height * .92}px`;
 }
 
 kickDialog.addEventListener('click', (e) => {
