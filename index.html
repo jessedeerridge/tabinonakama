@@ -2565,7 +2565,6 @@ function renderPlayerCircle(players){
       : anchorAngle + step * k;
     const isMe = player.id === state.userId;
     const isTopPlayer = Math.sin(angle) < -.85;
-    const playRadius = isMe ? 30 : (isTopPlayer ? 17 : 24);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
     const otherPlayerLift = isMe ? 0 : 80 / circleHeight * 100;
     // 現在位置から12時席を15px、左右席を10px下げ、カードグループ全体へ同じ補正をかける。
@@ -2574,8 +2573,11 @@ function renderPlayerCircle(players){
       angle, isMe,
       x: 50 + radius * Math.cos(angle),
       y: 50 + radius * Math.sin(angle) - otherPlayerLift + playerDrop,
-      playX: 50 + playRadius * Math.cos(angle),
-      playY: 50 + playRadius * Math.sin(angle) - otherPlayerLift + playerDrop
+      // 他プレイヤーのプレイ位置は12時席と同じく、ネーム直下の手札側へ揃える。
+      playX: isMe ? 50 + 30 * Math.cos(angle) : 50 + radius * Math.cos(angle),
+      playY: isMe
+        ? 50 + 30 * Math.sin(angle)
+        : 50 + radius * Math.sin(angle) - otherPlayerLift + playerDrop + radius - 17
     };
   };
   const winnerIndex = players.findIndex(p => p.id === state.game?.pendingCapture?.winnerId);
