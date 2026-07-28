@@ -157,6 +157,20 @@
   .victory-condition-suffix{margin-left:1px;font-size:7px;font-weight:800;line-height:15px;}
   .victory-condition-icon.achieved{opacity:.35;}
   .victory-condition-icon.word .victory-condition-square{width:24px;}
+  .victory-condition-icon.multiline{height:auto;flex-direction:column;gap:1px;line-height:12px;}
+  .victory-condition-line{display:flex;align-items:center;justify-content:center;gap:2px;height:15px;}
+  .victory-condition-label{font-size:7px;font-weight:900;line-height:10px;white-space:nowrap;}
+  .victory-condition-square.green{background:#559344;color:#111;}
+  .victory-condition-square.orange{background:#d98236;color:#111;}
+  .victory-condition-square.yellow{background:#f2c94c;color:#111;}
+  .victory-condition-square.red{background:#c94c47;color:#fff;}
+  .victory-condition-square.gray{background:#a9aca8;color:#111;}
+  .victory-condition-square.wide{width:24px;font-size:8px;}
+  .victory-condition-trick{position:relative;width:23px;height:20px;display:inline-block;}
+  .victory-condition-trick .victory-condition-square{position:absolute;left:0;top:0;z-index:3;}
+  .victory-condition-trick::before,.victory-condition-trick::after{content:'';position:absolute;width:15px;height:15px;border-radius:2px;background:#111;}
+  .victory-condition-trick::before{left:4px;top:2px;z-index:2;}
+  .victory-condition-trick::after{left:8px;top:4px;z-index:1;}
   .character-card-unit{position:relative;flex:0 0 82px;width:82px;height:122px;}
   .character-card-unit>.character-card{width:82px;height:122px;}
   .character-card-unit>.victory-condition-icon{position:absolute;left:50%;top:var(--victory-icon-top,127px);z-index:4;transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
@@ -202,6 +216,10 @@
   .yellow-one-note{position:absolute;right:10px;bottom:6px;font-size:10px;font-weight:700;}
   .exchange-dialog{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:315;width:max-content;max-width:calc(100vw - 24px);box-sizing:border-box;padding:10px 12px 24px;border:1px solid #bbb;border-radius:12px;background:#fff;color:#111;box-shadow:0 12px 28px rgba(0,0,0,.28);text-align:center;}
   .exchange-dialog.hidden{display:none;}
+  .strider-choice-dialog.hidden{display:none;}
+  .strider-choice-dialog{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:316;width:max-content;max-width:calc(100vw - 24px);padding:12px 12px 26px;border:1px solid #777;border-radius:12px;background:#fff;box-shadow:0 12px 28px rgba(0,0,0,.28);text-align:center;}
+  .strider-choice-actions{display:flex;gap:8px;justify-content:center;margin-top:9px;}
+  .strider-choice-note{position:absolute;right:12px;bottom:7px;font-size:10px;font-weight:700;}
   .exchange-message{max-width:300px;font-size:14px;font-weight:900;line-height:1.35;}
   .exchange-targets{display:flex;justify-content:center;gap:6px;margin-top:8px;overflow-x:auto;}
   .exchange-target{flex:0 0 auto;min-width:88px;background:#fff;color:#111;border-color:#777;}
@@ -610,6 +628,15 @@
   <div class="exchange-note">＊2秒クリックで決定。</div>
 </section>
 
+<section id="striderChoiceDialog" class="strider-choice-dialog hidden" aria-live="assertive">
+  <div id="striderChoiceQuestion" class="exchange-message"></div>
+  <div class="strider-choice-actions">
+    <button class="btn hold-decision" type="button" data-strider-choice="more"><span></span></button>
+    <button class="btn hold-decision" type="button" data-strider-choice="less"><span></span></button>
+  </div>
+  <div class="strider-choice-note">＊2秒長押しで決定。</div>
+</section>
+
 <div id="chapterCompleteBanner" class="chapter-complete-banner" role="status" aria-live="assertive"></div>
 
 <script type="module">
@@ -697,6 +724,8 @@ const yellowOneDecision = document.getElementById('yellowOneDecision');
 const exchangeDialog = document.getElementById('exchangeDialog');
 const exchangeMessage = document.getElementById('exchangeMessage');
 const exchangeTargets = document.getElementById('exchangeTargets');
+const striderChoiceDialog = document.getElementById('striderChoiceDialog');
+const striderChoiceQuestion = document.getElementById('striderChoiceQuestion');
 const chapterCompleteBanner = document.getElementById('chapterCompleteBanner');
 
 const CHARACTER_NAMES = {
@@ -1067,7 +1096,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   const victory = character.victory || characterCardData(character, playerId).victory;
   const isFinished = game.finished === true;
 
-  if (victory.includes('脅威カードと同じランク')) {
+  if (victory.includes('脅威カードと同じランク') || (character.name === 'サム' && victory.includes('脅威カードと同じ数字'))) {
     const threatRanks = new Set((game.threatCards?.[playerId] || []).map(card => Number(card.number)));
     const hasMatchingHill = capturedTricks.some(trick => (trick.cards || [])
       .some(card => card.color === 'orange' && threatRanks.has(Number(card.number))));
@@ -1168,57 +1197,93 @@ function createVictoryConditionIcon(cardData, playerId){
   const icon = document.createElement('span');
   icon.className = 'victory-condition-icon';
   const victory = cardData.victory || '';
-  const numbers = [...victory.matchAll(/\d+/g)].map(match => match[0]);
-  const threatRank = victory.includes('脅威カードと同じランク')
-    ? state.game?.threatCards?.[playerId]?.[0]?.number : null;
-  const number = threatRank || numbers[0];
-  const isRingGoal = victory.includes('指輪');
-  if (isRingGoal) icon.classList.add('ring');
-  if (threatRank != null) icon.classList.add('hill');
+  const name = cardData.name || '';
+  const threatNumber = state.game?.threatCards?.[playerId]?.[0]?.number;
   const achieved = hasAchievedVictoryCondition(cardData, playerId);
   icon.classList.toggle('achieved', achieved);
-  const word = victory.includes('最少') ? 'min' : (victory.includes('最大') || victory.includes('最多')) ? 'max' : '';
-  icon.classList.toggle('word', Boolean(word));
-  const makeSquares = count => {
-    const squares = document.createElement('span');
-    squares.className = 'victory-condition-squares';
-    for (let index = 0; index < count; index++) {
-      const square = document.createElement('span');
-      square.className = 'victory-condition-square';
-      squares.appendChild(square);
-    }
-    return squares;
+
+  const square = (text = '', color = 'black') => {
+    const item = document.createElement('span');
+    item.className = `victory-condition-square ${color}`;
+    item.textContent = text;
+    if (String(text).length > 2) item.classList.add('wide');
+    return item;
   };
-  if (numbers.length > 1 && victory.includes('か')) {
-    icon.classList.add('choice');
-    numbers.forEach((value, index) => {
-      if (index) {
-        const separator = document.createElement('span');
-        separator.className = 'victory-condition-or';
-        separator.textContent = 'or';
-        icon.appendChild(separator);
-      }
-      const option = document.createElement('span');
-      option.className = 'victory-condition-option';
-      option.appendChild(makeSquares(Number(value)));
-      icon.appendChild(option);
-    });
-  } else if (threatRank != null) {
-    const square = makeSquares(1);
-    square.firstElementChild.textContent = number;
-    icon.appendChild(square);
-  } else if (numbers.length) {
-    icon.appendChild(makeSquares(Number(numbers[0])));
-    if (victory.includes('以上')) {
-      const suffix = document.createElement('span');
-      suffix.className = 'victory-condition-suffix';
-      suffix.textContent = '以上';
-      icon.appendChild(suffix);
-    }
+  const label = text => {
+    const item = document.createElement('span');
+    item.className = 'victory-condition-label';
+    item.textContent = text;
+    return item;
+  };
+  const line = (...children) => {
+    const item = document.createElement('span');
+    item.className = 'victory-condition-line';
+    item.append(...children);
+    return item;
+  };
+  const coloredTrick = color => {
+    const stack = document.createElement('span');
+    stack.className = 'victory-condition-trick';
+    stack.appendChild(square('', color));
+    return stack;
+  };
+  const appendOr = (left, right) => {
+    const separator = document.createElement('span');
+    separator.className = 'victory-condition-or';
+    separator.textContent = 'or';
+    icon.append(left, separator, right);
+  };
+
+  if (name === '馳夫') {
+    const choice = state.game?.striderChoices?.[playerId];
+    const arrow = choice === 'more' ? '↑' : choice === 'less' ? '↓' : '↑/↓';
+    icon.append(square(String(threatNumber ?? 'x')), square(arrow));
+  } else if (name === 'ギルドール・イングロリオン') {
+    icon.classList.add('multiline');
+    icon.append(line(label('last play')), line(square('', 'green')));
+  } else if (name === 'ゴールドベリ') {
+    icon.append(label('3連'), square());
+  } else if (name === '山の下さん') {
+    icon.append(label('毎'), square('', 'yellow'));
+  } else if (name === 'トム・ボンバディル') {
+    icon.append(label('last'), square(), square(), square());
+  } else if (name === 'バーリマン・バタバー') {
+    icon.append(square(), label('in last 3'));
+  } else if (name === 'グロルフィンデル') {
+    icon.append(label('all'), square('', 'red'));
+  } else if (name === 'エルロンド') {
+    icon.classList.add('multiline');
+    icon.append(line(label('all player')), line(square('', 'yellow')));
+  } else if (name === 'グローイン') {
+    icon.append(label('most'), square('', 'gray'));
+  } else if (name === 'アルウェン') {
+    icon.append(label('most'), square('', 'green'));
+  } else if (name === 'ボロミア') {
+    icon.classList.add('multiline');
+    icon.append(line(label('last'), square()), line(square('1', 'yellow'), label('✕')));
+  } else if (name === 'グワイヒア') {
+    icon.append(coloredTrick('gray'), coloredTrick('gray'));
+  } else if (name === 'ラダガスト') {
+    icon.append(coloredTrick('green'), coloredTrick('green'));
+  } else if (name === '飛蔭（とびかげ）') {
+    icon.append(coloredTrick('orange'), coloredTrick('orange'));
+  } else if (name === 'サム') {
+    icon.append(square(String(threatNumber ?? 'x'), 'orange'));
+  } else if (victory.includes('脅威カードと同じ数字')) {
+    const matchingSquare = () => square(String(threatNumber ?? 'x'));
+    icon.append(matchingSquare());
+    if (victory.includes('2枚以上')) icon.append(matchingSquare(), label('以上'));
+  } else if (victory.includes('ちょうど1もしくは2')) {
+    appendOr(square('1'), square('2'));
+  } else if (victory.includes('最も少ない')) {
+    icon.append(square('min'));
+  } else if (victory.includes('最も多く')) {
+    icon.append(square('most'));
   } else {
-    const square = makeSquares(1);
-    square.firstElementChild.textContent = word;
-    icon.appendChild(square);
+    const number = victory.match(/\d+/)?.[0] || '';
+    const color = victory.includes('指輪') ? 'yellow' : 'black';
+    icon.append(square(number, color));
+    if (victory.includes('以上')) icon.append(label('以上'));
   }
   const status = achieved ? '（達成済み）' : '';
   icon.setAttribute('aria-label', `勝利条件：${victory}${status}`);
@@ -1503,6 +1568,7 @@ function exchangeCandidates(game, sourceId){
   const characterName = game?.characterSelections?.[sourceId]?.name;
   const allowedNames = characterName === 'ガンダルフ'
     ? ['フロド']
+    : characterName === '馳夫' ? ['フロド']
     : characterName === 'ピピン' ? ['フロド', 'サム', 'メリー']
     : characterName === 'サム' ? ['フロド', 'メリー', 'ピピン']
     : characterName === 'メリー' ? ['フロド', 'サム', 'ピピン'] : [];
@@ -1512,7 +1578,7 @@ function exchangeCandidates(game, sourceId){
 
 function beginNextExchange(game){
   game.exchangeQueue ||= (game.playerOrder || [])
-    .filter(playerId => ['ガンダルフ', 'ピピン', 'サム', 'メリー'].includes(game.characterSelections?.[playerId]?.name)
+    .filter(playerId => ['ガンダルフ', '馳夫', 'ピピン', 'サム', 'メリー'].includes(game.characterSelections?.[playerId]?.name)
       && !game.completedExchanges?.[playerId]);
   while (game.exchangeQueue.length) {
     const sourceId = game.exchangeQueue.shift();
@@ -1533,6 +1599,19 @@ function beginNextExchange(game){
   game.phase = 'playing';
   game.turnPlayerId = game.startingPlayerId || game.playerOrder?.[0] || null;
   delete game.startingPlayerId;
+}
+
+function continueAfterCharacterEffects(game){
+  const gandalfEntry = Object.entries(game.characterSelections || {})
+    .find(([, selected]) => selected.name === 'ガンダルフ');
+  if (gandalfEntry && game.excludedCard) {
+    game.phase = 'gandalf-selection';
+    game.gandalfPlayerId = gandalfEntry[0];
+    game.startingPlayerId ||= game.turnPlayerId || game.playerOrder?.[0];
+    game.turnPlayerId = null;
+    return;
+  }
+  beginNextExchange(game);
 }
 
 async function takeExcludedCardAsGandalf(){
@@ -1710,6 +1789,7 @@ function subscribeRoom(){
     renderStageInformation();
     renderYellowOneDecision();
     renderExchangeDialog();
+    renderStriderChoice();
     renderChapterComplete();
     const exchangeOfferTransfer = state.game?.exchangeOfferTransfer;
     if (exchangeOfferTransfer?.movedAt && exchangeOfferTransfer.movedAt !== lastAnimatedExchangeOfferAt) {
@@ -1766,6 +1846,34 @@ function attachTwoSecondHold(button, action){
   button.addEventListener('pointercancel', cancel);
   button.addEventListener('lostpointercapture', cancel);
 }
+
+async function chooseStriderComparison(choice){
+  if (!state.roomCode || !['more', 'less'].includes(choice)) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const game = room?.game;
+    if (game?.phase !== 'strider-comparison' || game.striderPlayerId !== state.userId) return;
+    game.striderChoices ||= {};
+    game.striderChoices[state.userId] = choice;
+    delete game.striderPlayerId;
+    continueAfterCharacterEffects(game);
+    return room;
+  });
+}
+
+function renderStriderChoice(){
+  const game = state.game;
+  const visible = game?.phase === 'strider-comparison' && game.striderPlayerId === state.userId;
+  striderChoiceDialog.classList.toggle('hidden', !visible);
+  if (!visible) return;
+  const threatNumber = game.threatCards?.[state.userId]?.[0]?.number ?? 'x';
+  striderChoiceQuestion.textContent = `脅威カードの数字は${threatNumber}です。`;
+  striderChoiceDialog.querySelector('[data-strider-choice="more"] span').textContent = `${threatNumber}より多く`;
+  striderChoiceDialog.querySelector('[data-strider-choice="less"] span').textContent = `${threatNumber}より少なく`;
+}
+
+striderChoiceDialog.querySelectorAll('.hold-decision').forEach(button => {
+  attachTwoSecondHold(button, () => chooseStriderComparison(button.dataset.striderChoice));
+});
 
 function renderExchangeDialog(){
   const exchange = state.game?.pendingExchange;
@@ -2414,19 +2522,15 @@ async function chooseCharacter(characterName, source){
     }
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
-      const gandalfEntry = Object.entries(room.game.characterSelections)
-        .find(([, selected]) => selected.name === 'ガンダルフ');
-      if (gandalfEntry && room.game.excludedCard) {
-        // ガンダルフがロストカードを取るまでは、全プレイヤーのカードプレイを止める。
-        room.game.phase = 'gandalf-selection';
-        room.game.gandalfPlayerId = gandalfEntry[0];
-        // フロド等によって既に決まったスタートプレイヤーを、取得完了後まで保持する。
-        room.game.startingPlayerId = room.game.turnPlayerId || room.game.playerOrder[0];
+      room.game.startingPlayerId = room.game.turnPlayerId || room.game.playerOrder[0];
+      const striderEntry = Object.entries(room.game.characterSelections)
+        .find(([, selected]) => selected.name === '馳夫');
+      if (striderEntry) {
+        room.game.phase = 'strider-comparison';
+        room.game.striderPlayerId = striderEntry[0];
         room.game.turnPlayerId = null;
       } else {
-        room.game.startingPlayerId = room.game.turnPlayerId || room.game.playerOrder[0];
-        room.game.turnPlayerId = null;
-        beginNextExchange(room.game);
+        continueAfterCharacterEffects(room.game);
       }
     }
     return room;
