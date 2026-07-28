@@ -203,7 +203,7 @@
   .center-lower-card-area{
     position:fixed;left:16px;top:calc(68% - 101px);transform:translateY(-80px);
     width:calc(100vw - 32px);display:flex;align-items:center;justify-content:space-between;
-    z-index:2;pointer-events:none;
+    z-index:4;pointer-events:none;
   }
   /* キャラクター候補とは別の固定レイヤーで、選択中だけ場札一式を画面上部にまとめる。 */
   .center-lower-card-area.character-selection-layout{
@@ -395,7 +395,7 @@
   .character-card-slot{position:relative;flex:0 0 82px;width:82px;height:122px;visibility:hidden;pointer-events:none;}
   .hand-row>.character-card{width:82px;height:122px;flex:0 0 82px;}
   @property --flight-scale{syntax:'<number>';inherits:true;initial-value:1;}
-  /* 選択後の飛行カードは場札レイヤー(z-index:2)の背後を通る。 */
+  /* 選択後の飛行カードと着地先は、場札レイヤー(z-index:4)の背後に置く。 */
   .character-flight{position:fixed;z-index:1;pointer-events:none;margin:0;will-change:left,top,width,height,opacity;}
   .character-flight>.my-card{position:absolute;left:0;top:0;transform:scale(var(--flight-scale));transform-origin:top left;}
   /* 端末別にカード寸法を変えない。全画面で同じ基準カードを等倍縮小し、比率と装飾を維持する。 */
