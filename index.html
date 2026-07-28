@@ -286,6 +286,9 @@
     --character-frame:#aeb8c5;
     border-color:#aeb8c5;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;
   }
+  .character-card.character-green{--character-frame:#559344;border-color:#559344;box-shadow:0 4px 12px rgba(30,80,30,.25),inset 0 0 0 2px #d9efcf;}
+  .character-card.character-light-green{--character-frame:#9bc875;border-color:#9bc875;box-shadow:0 4px 12px rgba(50,90,35,.22),inset 0 0 0 2px #eff9df;}
+  .character-card.character-red{--character-frame:#c94c47;border-color:#c94c47;box-shadow:0 4px 12px rgba(100,25,25,.25),inset 0 0 0 2px #f7d4cf;}
   .character-card .character-label{
     position:absolute;left:auto;right:-4px;top:1px;width:max-content;min-width:0;max-width:calc(100% + 4px);padding:0 4.5px 0 16px;
     box-sizing:border-box;background:var(--character-frame);color:#3f3021;font-size:9px;font-weight:900;isolation:isolate;
@@ -919,8 +922,9 @@ function createCardElement(cardData){
 function createCharacterCardElement(cardData){
   const card = document.createElement('div');
   card.className = 'my-card character-card zoomable-character';
+  const frameClass = { '金':'character-gold', '銀':'character-silver', '緑':'character-green', '薄緑':'character-light-green', '赤':'character-red' }[cardData.frameColor];
   const isGoldCharacter = ['フロド', 'ビルボ'].includes(cardData.name);
-  card.classList.add(isGoldCharacter ? 'character-gold' : 'character-silver');
+  card.classList.add(frameClass || (isGoldCharacter ? 'character-gold' : 'character-silver'));
   card.style.backgroundImage = `url("${encodeURIComponent(cardData.name)}.jpg")`;
   card.setAttribute('aria-label', `キャラクター ${cardData.name}`);
   card.setAttribute('role', 'button');
@@ -2261,53 +2265,53 @@ function exchangeEffectText(character){
 function characterCardData(character, playerId){
   const characterDetails = {
     'フロド': {
-      specialName:'指輪所持者', victory:(state.game?.playerOrder?.length === 3 ? '指輪カードを4枚以上獲得する。' : '指輪カードを2枚以上獲得する。'), effect:'〈1の指輪〉を受け取ったプレイヤーが〈フロド〉になる。〈1の指輪〉は交換できない。最初のトリックをリードする。', cardNumber:'1.02', ranks:['黒塗り','金']
+      specialName:'指輪所持者', victory:(state.game?.playerOrder?.length === 3 ? '指輪カードを4枚以上獲得する。' : '指輪カードを2枚以上獲得する。'), effect:'〈1の指輪〉を受け取ったプレイヤーが〈フロド〉になる。〈1の指輪〉は交換できない。最初のトリックをリードする。', cardNumber:'1.02', rank:'黒塗り', frameColor:'金'
     },
     'ピピン': {
-      specialName:'ばか者', victory:'トリックに勝った回数が最も少ない。', cardNumber:'1.05', ranks:['塗り無し','銀']
+      specialName:'ばか者', victory:'トリックに勝った回数が最も少ない。', cardNumber:'1.05', rank:'塗り無し', frameColor:'銀'
     },
     'サム': {
-      specialName:'庭師', victory:'脅威カードと同じ数字の丘を獲得する。', effect:'脅威カードを1枚引く。', cardNumber:'2.02', ranks:['塗り無し','金']
+      specialName:'庭師', victory:'脅威カードと同じ数字の丘を獲得する。', effect:'脅威カードを1枚引く。', cardNumber:'2.02', rank:'塗り無し', frameColor:'金'
     },
     'メリー': {
-      specialName:'勇敢な', victory:'ちょうど1もしくは2トリック獲得。', cardNumber:'2.03', ranks:['塗り無し','銀']
+      specialName:'勇敢な', victory:'ちょうど1もしくは2トリック獲得。', cardNumber:'2.03', rank:'塗り無し', frameColor:'銀'
     },
     'ガンダルフ': {
       specialName:'灰色の魔法使い',
       victory:'1トリック以上獲得。',
-      effect:'失われしカードを手札に加える。〈フロド〉と交換する。', cardNumber:'1.04', ranks:['黒塗り','銀']
+      effect:'失われしカードを手札に加える。〈フロド〉と交換する。', cardNumber:'1.04', rank:'黒塗り', frameColor:'銀'
     },
     'ビルボ': {
       specialName:'変人',
       victory:'3トリック以上獲得。',
-      effect:'なし', cardNumber:'1.03', ranks:['塗り無し','金']
+      effect:'なし', cardNumber:'1.03', rank:'塗り無し', frameColor:'金'
     },
-    '農夫マゴット':{specialName:'勇気ある',victory:'脅威カードと同じ数字のカードを2枚以上獲得する。',effect:'脅威カードを1枚引く。〈ピピン〉か〈メリー〉と交換する。',cardNumber:'2.10', ranks:['黒','銀']},
-    'ギルドール・イングロリオン':{specialName:'上のエルフ',victory:'最後のトリックで森をプレイする。（勝たなくてもよい）',effect:'〈フロド〉と交換する。',cardNumber:'2.09', ranks:['黒','緑']},
-    'ゴールドベリ':{specialName:'川の娘',victory:'3回連続でトリック獲得（4回以上は不可）。',effect:'ラウンド中、自分の手札を全員に公開する（全員があなたの手札について話し合ってもよい）。',cardNumber:'2.19', ranks:['黒','銀']},
-    '山の下さん':{specialName:'正体を隠した',victory:'1トリック以上獲得。勝利したすべてのトリックで指輪カードを1枚以上獲得しないといけない。',effect:'最初のトリックをリードする。',cardNumber:'2.21', ranks:['塗り無し','金']},
-    '“でぶちゃん”のボルジャー':{specialName:'用心深い',victory:'ちょうど1トリック獲得。',effect:'他のキャラクター全員にカード1枚ずつ渡す。代わりのカードは貰わない。プレイできるトリック数は他より少ない。',cardNumber:'2.12', ranks:['黒','薄緑']},
-    'トム・ボンバディル':{specialName:'家の主',victory:'ラウンド終了時、残った手札の中の1つと同じスートを3枚獲得する。',effect:'失われしカードを全て手札に加える。〈フロド〉と交換する。',cardNumber:'2.16', ranks:['黒','薄緑']},
-    'バーリマン・バタバー':{specialName:'わすれんぼ',victory:'最後の3トリックの内に1トリック以上獲得。',effect:'任意のキャラクターと交換する。',cardNumber:'2.22', ranks:['黒','銀']},
-    '馳夫':{specialName:'野伏',victory:'準備時に引いた脅威カードの数字に比べて、宣言した「多い」もしくは「少ない」数のトリックに勝利する。',effect:'脅威カードを1枚引き、その数字より「多い」、もしくは「少ない」と宣言する。〈フロド〉と交換する。',cardNumber:'2.24', ranks:['塗り無し','銀']},
-    'グロルフィンデル':{specialName:'エルフの将',victory:'トリックに勝利して、すべての影（1〜8）を獲得する。',effect:'失われしカードを手札に加える。他のキャラクター全員と同時に交換を行う。最初のトリックをリードする。',cardNumber:'2.28', ranks:['黒','赤']},
-    '小馬のビル':{specialName:'たくましい',victory:'ちょうど1トリック獲得。',effect:'〈サム〉と〈フロド〉の2人と同時に1枚ずつ交換する。',cardNumber:'2.29', ranks:['黒','銀']},
-    'エルロンド':{specialName:'半エルフ',victory:'各キャラクターは自分の目的のほかに、トリックに勝利して、指輪カードを1枚以上獲得しないといけない。',effect:'全員が同時に右隣にカードを1枚渡す。最初のトリックをリードする。',cardNumber:'2.35', ranks:['黒','金']},
-    'グローイン':{specialName:'ビルボの仲間',victory:'最も多く山カードを獲得する。',effect:'〈ビルボ〉か〈ギムリ〉と交換する。',cardNumber:'2.37', ranks:['黒','銀']},
-    'アルウェン':{specialName:'夕星姫',victory:'最も多く森カードを獲得する。',effect:'〈エルロンド〉か〈アラゴルン〉と交換する。',cardNumber:'2.36', ranks:['黒','緑']},
-    'ビルボ・バギンズ':{specialName:'寿命を延ばされた',victory:'3トリック以上獲得。〈ビルボ〉が勝利した場合、他のプレイヤーを次のリードプレイヤーに指名してもよい。〈ビルボ〉が〈一つの指輪〉を勝利して獲得した場合、即座に全員敗北となる。',effect:'なし',cardNumber:'2.38', ranks:['黒','金']},
-    'アラゴルン':{specialName:'イシルドゥアの世継',victory:'脅威カードの数字と同じ回数だけトリック獲得。',effect:'脅威デッキから任意のカードを1枚選んでよい。任意のキャラクターと交換する。',cardNumber:'2.40', ranks:['塗り無し','薄緑']},
-    'ボロミア':{specialName:'ゴンドールの大将',victory:'最後のトリックに勝利する。もし〈ボロミア〉が〈1の指輪〉を獲得した場合、その章は即座に敗北となる。',effect:'〈フロド〉以外の任意のキャラクターと交換する。',cardNumber:'2.41', ranks:['塗り無し','銀']},
-    'グワイヒア':{specialName:'風早彦',victory:'山がプレイされているトリックを2トリック獲得。',effect:'〈ガンダルフ〉と交換する。その後、再び〈ガンダルフ〉と交換する。',cardNumber:'2.46', ranks:['黒','銀']},
-    'ラダガスト':{specialName:'茶色の魔法使い',victory:'森がプレイされているトリックを2トリック獲得。',effect:'手札から1枚選び、表向きにして脇に置く。そのカードは最後のトリックでプレイする。その後、最初のトリックのカードをプレイする。',cardNumber:'2.48', ranks:['黒','緑']},
-    '飛蔭（とびかげ）':{specialName:'馬の王者',victory:'丘がプレイされているトリックを2トリック獲得。',effect:'手札を1枚選び、裏向きでこのカードの下に入れる。任意のタイミング、もしくは手札がなくなったとき、そのカードを手札に戻す。',cardNumber:'2.47', ranks:['黒','金']}
+    '農夫マゴット':{specialName:'勇気ある',victory:'脅威カードと同じ数字のカードを2枚以上獲得する。',effect:'脅威カードを1枚引く。〈ピピン〉か〈メリー〉と交換する。',cardNumber:'2.10', rank:'黒', frameColor:'銀'},
+    'ギルドール・イングロリオン':{specialName:'上のエルフ',victory:'最後のトリックで森をプレイする。（勝たなくてもよい）',effect:'〈フロド〉と交換する。',cardNumber:'2.09', rank:'黒', frameColor:'緑'},
+    'ゴールドベリ':{specialName:'川の娘',victory:'3回連続でトリック獲得（4回以上は不可）。',effect:'ラウンド中、自分の手札を全員に公開する（全員があなたの手札について話し合ってもよい）。',cardNumber:'2.19', rank:'黒', frameColor:'銀'},
+    '山の下さん':{specialName:'正体を隠した',victory:'1トリック以上獲得。勝利したすべてのトリックで指輪カードを1枚以上獲得しないといけない。',effect:'最初のトリックをリードする。',cardNumber:'2.21', rank:'塗り無し', frameColor:'金'},
+    '“でぶちゃん”のボルジャー':{specialName:'用心深い',victory:'ちょうど1トリック獲得。',effect:'他のキャラクター全員にカード1枚ずつ渡す。代わりのカードは貰わない。プレイできるトリック数は他より少ない。',cardNumber:'2.12', rank:'黒', frameColor:'薄緑'},
+    'トム・ボンバディル':{specialName:'家の主',victory:'ラウンド終了時、残った手札の中の1つと同じスートを3枚獲得する。',effect:'失われしカードを全て手札に加える。〈フロド〉と交換する。',cardNumber:'2.16', rank:'黒', frameColor:'薄緑'},
+    'バーリマン・バタバー':{specialName:'わすれんぼ',victory:'最後の3トリックの内に1トリック以上獲得。',effect:'任意のキャラクターと交換する。',cardNumber:'2.22', rank:'黒', frameColor:'銀'},
+    '馳夫':{specialName:'野伏',victory:'準備時に引いた脅威カードの数字に比べて、宣言した「多い」もしくは「少ない」数のトリックに勝利する。',effect:'脅威カードを1枚引き、その数字より「多い」、もしくは「少ない」と宣言する。〈フロド〉と交換する。',cardNumber:'2.24', rank:'塗り無し', frameColor:'銀'},
+    'グロルフィンデル':{specialName:'エルフの将',victory:'トリックに勝利して、すべての影（1〜8）を獲得する。',effect:'失われしカードを手札に加える。他のキャラクター全員と同時に交換を行う。最初のトリックをリードする。',cardNumber:'2.28', rank:'黒', frameColor:'赤'},
+    '小馬のビル':{specialName:'たくましい',victory:'ちょうど1トリック獲得。',effect:'〈サム〉と〈フロド〉の2人と同時に1枚ずつ交換する。',cardNumber:'2.29', rank:'黒', frameColor:'銀'},
+    'エルロンド':{specialName:'半エルフ',victory:'各キャラクターは自分の目的のほかに、トリックに勝利して、指輪カードを1枚以上獲得しないといけない。',effect:'全員が同時に右隣にカードを1枚渡す。最初のトリックをリードする。',cardNumber:'2.35', rank:'黒', frameColor:'金'},
+    'グローイン':{specialName:'ビルボの仲間',victory:'最も多く山カードを獲得する。',effect:'〈ビルボ〉か〈ギムリ〉と交換する。',cardNumber:'2.37', rank:'黒', frameColor:'銀'},
+    'アルウェン':{specialName:'夕星姫',victory:'最も多く森カードを獲得する。',effect:'〈エルロンド〉か〈アラゴルン〉と交換する。',cardNumber:'2.36', rank:'黒', frameColor:'緑'},
+    'ビルボ・バギンズ':{specialName:'寿命を延ばされた',victory:'3トリック以上獲得。〈ビルボ〉が勝利した場合、他のプレイヤーを次のリードプレイヤーに指名してもよい。〈ビルボ〉が〈一つの指輪〉を勝利して獲得した場合、即座に全員敗北となる。',effect:'なし',cardNumber:'2.38', rank:'黒', frameColor:'金'},
+    'アラゴルン':{specialName:'イシルドゥアの世継',victory:'脅威カードの数字と同じ回数だけトリック獲得。',effect:'脅威デッキから任意のカードを1枚選んでよい。任意のキャラクターと交換する。',cardNumber:'2.40', rank:'塗り無し', frameColor:'薄緑'},
+    'ボロミア':{specialName:'ゴンドールの大将',victory:'最後のトリックに勝利する。もし〈ボロミア〉が〈1の指輪〉を獲得した場合、その章は即座に敗北となる。',effect:'〈フロド〉以外の任意のキャラクターと交換する。',cardNumber:'2.41', rank:'塗り無し', frameColor:'銀'},
+    'グワイヒア':{specialName:'風早彦',victory:'山がプレイされているトリックを2トリック獲得。',effect:'〈ガンダルフ〉と交換する。その後、再び〈ガンダルフ〉と交換する。',cardNumber:'2.46', rank:'黒', frameColor:'銀'},
+    'ラダガスト':{specialName:'茶色の魔法使い',victory:'森がプレイされているトリックを2トリック獲得。',effect:'手札から1枚選び、表向きにして脇に置く。そのカードは最後のトリックでプレイする。その後、最初のトリックのカードをプレイする。',cardNumber:'2.48', rank:'黒', frameColor:'緑'},
+    '飛蔭（とびかげ）':{specialName:'馬の王者',victory:'丘がプレイされているトリックを2トリック獲得。',effect:'手札を1枚選び、裏向きでこのカードの下に入れる。任意のタイミング、もしくは手札がなくなったとき、そのカードを手札に戻す。',cardNumber:'2.47', rank:'黒', frameColor:'金'}
   };
   const details = characterDetails[character.name] || {};
   const exchangeEffect = exchangeEffectText(character);
   const effect = [details.effect, exchangeEffect].filter(Boolean).join('\n');
   return {
     kind:'character', name:character.name, required:character.required === true,
-    specialName:details.specialName || '特殊名', cardNumber:details.cardNumber, ranks:details.ranks,
+    specialName:details.specialName || '特殊名', cardNumber:details.cardNumber, rank:details.rank, frameColor:details.frameColor,
     victory:details.victory || '',
     effect:effect || '特殊説明',
     id:`${playerId}-character-${character.name}`
