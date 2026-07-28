@@ -101,7 +101,7 @@
   /* 行全体を一度だけ拡縮し、キャラカード内の欄・文字・余白も原版と完全に同じ比率に保つ。 */
   .hand-row>.my-card{flex:0 0 82px;}
   .hand-row-upper{position:relative;top:46px;z-index:1;}
-  .hand-row-lower{position:relative;z-index:2;}
+  .hand-row-lower{position:relative;top:var(--lower-row-offset,40px);z-index:2;}
   .hand-row:empty{display:none;}
   /* 実際の占有幅を詰めるため、下段の末尾にも余分な空白が残らない。 */
   .my-hand.overlapping-cards .hand-row>.my-card:not(.character-card)+.my-card:not(.character-card){margin-left:-13px;z-index:calc(2 + var(--card-stack-index,0));}
@@ -1993,6 +1993,8 @@ function renderMyHand(){
   const naturalWidth = upperCardCount * 82 + Math.max(0, upperCardCount - 1) * 10 - overlapReduction + characterSpacing;
   const handScale = Math.min(1, Math.max(.25, (window.innerWidth - 24) / Math.max(82, naturalWidth)));
   myHandEl.style.setProperty('--hand-card-scale', handScale);
+  // 上段の表示倍率にかかわらず、下段との見た目上の間隔を4pxに保つ。
+  myHandEl.style.setProperty('--lower-row-offset', `${122 * handScale - 82}px`);
   // 行全体が縮小されても、勝利条件の四角は常に15px、カードとの間隔は常に5pxに保つ。
   myHandEl.style.setProperty('--victory-icon-scale', 1 / handScale);
   myHandEl.style.setProperty('--victory-icon-top', `${122 + 5 / handScale}px`);
