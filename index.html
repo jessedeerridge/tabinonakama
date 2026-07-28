@@ -192,6 +192,12 @@
     position:fixed;left:50%;top:calc(68% - 101px);transform:translate(-50%,-50%);
     width:calc(100vw - 32px);display:flex;align-items:center;justify-content:space-between;
     z-index:2;pointer-events:none;
+    transition:top .8s cubic-bezier(.22,.8,.25,1),width .8s cubic-bezier(.22,.8,.25,1),transform .8s cubic-bezier(.22,.8,.25,1),gap .8s cubic-bezier(.22,.8,.25,1);
+  }
+  /* キャラクター選択中は章に必要な4要素を上部へまとめ、2枚のカードを横並びにする。
+     除外カードとコインは勝利条件カード上の所定位置に載せたまま一緒に移動する。 */
+  .center-lower-card-area.character-selection-layout{
+    top:72px;width:max-content;gap:16px;transform:translateX(-50%);z-index:314;
   }
   .center-lower-card{
     position:relative;box-sizing:border-box;border:0;border-radius:10px;overflow:hidden;
@@ -199,6 +205,12 @@
   }
   #arasujisquare{width:112px;height:160px;background-image:url('arasujisquare.jpg');}
   #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
+  @media (max-width:360px){
+    .center-lower-card-area.character-selection-layout{gap:8px;transform:translateX(-50%) scale(.92);transform-origin:top center;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .center-lower-card-area{transition:none;}
+  }
   .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);z-index:2;}
   .ringcircle.on{background-image:url('ringcircleon.jpg');}
   .excluded-card-slot{position:absolute;left:20px;top:93px;width:38px;height:56px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;z-index:2;}
@@ -1511,6 +1523,7 @@ function updateWinningConditionOverflow(){
 function renderStageInformation(){
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
   centerLowerCardArea.classList.toggle('hidden', !stage);
+  centerLowerCardArea.classList.toggle('character-selection-layout', state.game?.phase === 'character-selection');
   if (!stage) return;
 
   arasujisquareBar.textContent = stage.chapterLabel;
