@@ -148,11 +148,11 @@
   .threat-card .card-name::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
   /* character-card の共通規則より詳細度を上げ、通常の脅威カードと同じ茶枠・黒塗りを保つ。 */
-  .character-card.special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(255,244,220,.72);}
+  .character-card.special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505;}
   .character-card.special-threat-card .character-label{left:-4px;right:auto;width:max-content;min-width:0;max-width:calc(100% + 4px);height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .character-card.special-threat-card .character-label::before{background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .character-card.special-threat-card .character-special{left:-4px;right:auto;top:17px;width:max-content;max-width:calc(100% + 4px);padding:2px 12px 2px 6px;text-align:left;}
-  .character-card.special-threat-card .character-effect{min-height:70px;padding-top:12px;color:#27231f;}
+  .character-card.special-threat-card .character-effect{min-height:52px;padding:10px 5px 5px;color:#27231f;}
   .character-card.special-threat-card .character-effect::before{background:#fff8e8;}
   .character-card.special-threat-card .character-effect-icon{color:#111;}
   .character-card.special-threat-card.concealed{background:#fff url('tabicardura.jpg') center/cover no-repeat;border-color:#10233f;box-shadow:0 4px 12px rgba(0,0,0,.18);}
@@ -177,7 +177,7 @@
   .victory-condition-label{font-size:10px;font-weight:900;line-height:12px;white-space:nowrap;}
   .victory-condition-side-label{height:30px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:12px;}
   .victory-condition-square.white{
-    border:1px solid #142b4a;background-color:#edf2f7;color:#142b4a;font-size:14px;font-weight:900;line-height:15px;text-align:center;
+    border:1px solid #142b4a;background-color:#edf2f7;color:#142b4a;font-size:14px;font-weight:900;line-height:1;text-align:center;display:flex;align-items:center;justify-content:center;padding:0;
     background-image:repeating-linear-gradient(135deg,transparent 0,transparent 3px,rgba(20,43,74,.28) 3px,rgba(20,43,74,.28) 4px);
   }
   .victory-condition-square.black{
@@ -205,7 +205,6 @@
   .character-card-unit{position:relative;flex:0 0 82px;width:82px;height:122px;}
   .character-card-unit>.character-card{width:82px;height:122px;}
   .character-card-unit>.victory-condition-icon{position:absolute;left:50%;top:var(--victory-icon-top,127px);z-index:4;transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
-  .character-card-unit>.threat-condition-icon{position:absolute;left:50%;top:calc(var(--victory-icon-top,127px) + 18px);z-index:4;transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
   .character-capture>.victory-condition-icon{position:absolute;left:50%;top:61px;z-index:2;transform:translateX(-50%);}
   .character-capture>.threat-condition-icon{position:absolute;left:50%;top:79px;z-index:2;transform:translateX(-50%);}
   .threat-capture>.threat-condition-icon{position:absolute;left:50%;top:61px;z-index:3;transform:translateX(-50%);}
@@ -3169,8 +3168,6 @@ function renderMyHand(){
       const characterUnit = document.createElement('div');
       characterUnit.className = 'character-card-unit';
       characterUnit.append(card, createVictoryConditionIcon(normalized, myId));
-      const threatConditionIcon = createThreatConditionIcon(myId);
-      if (threatConditionIcon) characterUnit.appendChild(threatConditionIcon);
       cardRow.appendChild(characterUnit);
     } else cardRow.appendChild(card);
   });
