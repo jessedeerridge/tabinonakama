@@ -149,12 +149,12 @@
   .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
   /* character-card の共通規則より詳細度を上げ、通常の脅威カードと同じ茶枠・黒塗りを保つ。 */
   .character-card.special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(255,244,220,.72);}
-  .character-card.special-threat-card .character-label{left:-4px;right:auto;width:64px;max-width:64px;height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
+  .character-card.special-threat-card .character-label{left:-4px;right:auto;width:max-content;min-width:0;max-width:calc(100% + 4px);height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .character-card.special-threat-card .character-label::before{background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
-  .character-card.special-threat-card .character-special{left:-4px;right:auto;top:17px;width:72px;max-width:72px;padding:2px 12px 2px 6px;text-align:left;}
-  .character-card.special-threat-card .character-effect{min-height:70px;padding-top:12px;color:#fff;}
-  .character-card.special-threat-card .character-effect::before{background:#050505;}
-  .character-card.special-threat-card .character-effect-icon{color:#fff;}
+  .character-card.special-threat-card .character-special{left:-4px;right:auto;top:17px;width:max-content;max-width:calc(100% + 4px);padding:2px 12px 2px 6px;text-align:left;}
+  .character-card.special-threat-card .character-effect{min-height:70px;padding-top:12px;color:#27231f;}
+  .character-card.special-threat-card .character-effect::before{background:#fff8e8;}
+  .character-card.special-threat-card .character-effect-icon{color:#111;}
   .character-card.special-threat-card.concealed{background:#fff url('tabicardura.jpg') center/cover no-repeat;border-color:#10233f;box-shadow:0 4px 12px rgba(0,0,0,.18);}
   .character-card.special-threat-card.concealed>*{display:none;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
@@ -191,6 +191,7 @@
   .victory-condition-square.yellow{background:#f2c94c;color:#111;}
   .victory-condition-square.red{background:#c94c47;color:#fff;}
   .victory-condition-square.gray{background:#a9aca8;color:#111;}
+  .victory-condition-square.orange,.victory-condition-square.gray{border:.5px solid #142b4a;}
   .victory-condition-square.wide{width:24px;font-size:8px;}
   .victory-condition-trick{position:relative;width:23px;height:20px;display:inline-block;}
   .victory-condition-trick .victory-condition-square{position:absolute;left:0;top:5px;z-index:3;}
@@ -1187,9 +1188,11 @@ function createSpecialThreatCardElement(cardData){
   const upper = document.createElement('span');
   upper.className = 'character-label';
   upper.textContent = cardData.type;
+  fitCharacterName(upper);
   const lower = document.createElement('span');
   lower.className = 'character-label character-special';
   lower.textContent = cardData.name;
+  fitCharacterName(lower);
   const effect = document.createElement('div');
   effect.className = 'character-effect';
   effect.appendChild(createCharacterEffectRow('special', cardData.effect));
