@@ -204,6 +204,15 @@
     position:fixed;left:50%;top:calc(68% - 101px);transform:translate(-50%,-50%);
     width:calc(100vw - 32px);display:flex;align-items:center;justify-content:space-between;
     z-index:2;pointer-events:none;
+    transition:top 1.35s cubic-bezier(.22,.72,.22,1),width 1.35s cubic-bezier(.22,.72,.22,1),transform 1.35s cubic-bezier(.22,.72,.22,1);
+    will-change:top,width,transform;
+  }
+  /* キャラクター候補とは別の固定レイヤーで、選択中だけ場札一式を画面上部にまとめる。 */
+  .center-lower-card-area.character-selection-layout{
+    top:70px;width:288px;transform:translate(-50%,0);
+  }
+  @media (prefers-reduced-motion:reduce){
+    .center-lower-card-area{transition-duration:.01ms;}
   }
   .center-lower-card{
     position:relative;box-sizing:border-box;border:0;border-radius:10px;overflow:hidden;
@@ -1552,6 +1561,7 @@ function updateWinningConditionOverflow(){
 function renderStageInformation(){
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
   centerLowerCardArea.classList.toggle('hidden', !stage);
+  centerLowerCardArea.classList.toggle('character-selection-layout', state.game?.phase === 'character-selection');
   if (!stage) return;
 
   arasujisquareBar.textContent = stage.chapterLabel;
