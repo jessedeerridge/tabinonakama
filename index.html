@@ -152,7 +152,7 @@
   .character-card.special-threat-card .character-label{left:-4px;right:auto;width:max-content;min-width:0;max-width:calc(100% + 4px);height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .character-card.special-threat-card .character-label::before{background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .character-card.special-threat-card .character-special{left:-4px;right:auto;top:17px;width:max-content;max-width:calc(100% + 4px);padding:2px 12px 2px 6px;text-align:left;}
-  .character-card.special-threat-card .character-effect{min-height:52px;padding:10px 5px 5px;color:#27231f;}
+  .character-card.special-threat-card .character-effect{min-height:44px;padding:9px 5px 4px;color:#27231f;}
   .character-card.special-threat-card .character-effect::before{background:#fff8e8;}
   .character-card.special-threat-card .character-effect-icon{color:#111;}
   .character-card.special-threat-card.concealed{background:#fff url('tabicardura.jpg') center/cover no-repeat;border-color:#10233f;box-shadow:0 4px 12px rgba(0,0,0,.18);}
@@ -191,7 +191,7 @@
   .victory-condition-square.yellow{background:#f2c94c;color:#111;}
   .victory-condition-square.red{background:#c94c47;color:#fff;}
   .victory-condition-square.gray{background:#a9aca8;color:#111;}
-  .victory-condition-square.orange,.victory-condition-square.gray{border:.5px solid #142b4a;}
+  .victory-condition-square.orange,.victory-condition-square.gray,.victory-condition-square.yellow{border:.5px solid #142b4a;}
   .victory-condition-square.wide{width:24px;font-size:8px;}
   .victory-condition-trick{position:relative;width:23px;height:20px;display:inline-block;}
   .victory-condition-trick .victory-condition-square{position:absolute;left:0;top:5px;z-index:3;}
@@ -1564,29 +1564,29 @@ function createVictoryConditionIcon(cardData, playerId){
     else icon.append(square());
     if (choice) icon.append(arrow(choice));
   } else if (name === 'ギルドール・イングロリオン') {
-    icon.append(sideLabel('last', 'play'), square('', 'green'));
+    icon.append(sideLabel('LAST', 'PLAY'), square('', 'green'));
   } else if (name === 'ゴールドベリ') {
     icon.append(label('3連'), square());
   } else if (name === '山の下さん') {
     icon.append(label('毎'), square('', 'yellow'));
   } else if (name === 'トム・ボンバディル') {
-    icon.append(label('last'), square('?', 'white'), square('?', 'white'), square('?', 'white'));
+    icon.append(label('LAST'), square('?', 'white'), square('?', 'white'), square('?', 'white'));
   } else if (name === 'バーリマン・バタバー') {
-    icon.append(square(), label('in last 3'));
+    icon.append(square(), label('IN LAST 3'));
   } else if (name === 'グロルフィンデル') {
-    icon.append(label('all'), square('', 'red'));
+    icon.append(label('ALL'), square('', 'red'));
   } else if (name === 'エルロンド') {
     icon.classList.add('multiline');
-    icon.append(line(label('all player')), line(square('', 'yellow')));
+    icon.append(line(label('ALL PLAYER')), line(square('', 'yellow')));
   } else if (name === 'グローイン') {
-    icon.append(label('most'), square('', 'gray'));
+    icon.append(label('MOST'), square('', 'gray'));
   } else if (name === 'アルウェン') {
-    icon.append(label('most'), square('', 'green'));
+    icon.append(label('MOST'), square('', 'green'));
   } else if (name === 'ボロミア') {
     icon.classList.add('multiline');
     const fail = label('✕');
     fail.classList.add('victory-condition-fail');
-    icon.append(line(label('last'), square()), line(fail, square('1', 'yellow')));
+    icon.append(line(label('LAST'), square()), line(fail, square('1', 'yellow')));
   } else if (name === 'グワイヒア') {
     icon.append(coloredTrick('gray'), coloredTrick('gray'));
   } else if (name === 'ラダガスト') {
@@ -1607,9 +1607,9 @@ function createVictoryConditionIcon(cardData, playerId){
     const twoTricks = line(...countSquares(2));
     appendOr(oneTrick, twoTricks);
   } else if (victory.includes('最も少ない')) {
-    icon.append(label('min'), square());
+    icon.append(label('MIN'), square());
   } else if (victory.includes('最も多く')) {
-    icon.append(label('max'), square());
+    icon.append(label('MAX'), square());
   } else {
     // 補足文に「指輪」が登場するビルボなどは黒のまま。枚数目標が指輪カードの場合だけ黄色にする。
     const color = /指輪カードを\d+枚/.test(victory) ? 'yellow' : 'black';
@@ -1644,7 +1644,7 @@ function createThreatConditionIcon(playerId, threatName){
     square.textContent = '8';
     icon.setAttribute('aria-label', '8を獲得してはいけない');
   } else {
-    icon.append('play', '✕', square);
+    icon.append('✕START', square);
     icon.setAttribute('aria-label', restriction.name === '恐怖' ? '丘でリードできない' : '指輪でリードできない');
   }
   return icon;
