@@ -231,7 +231,7 @@
   .event-stage-layout:not(.character-selection-layout) .event-card-row .event-card:first-child{display:none;}
   .event-card-modal-backdrop{position:fixed;inset:0;z-index:490;display:grid;place-items:center;background:rgba(0,0,0,.18);cursor:pointer;}
   .event-card-modal-backdrop.hidden{display:none;}
-  .event-card-modal-row{display:flex;align-items:flex-start;gap:14px;height:160px;cursor:default;}
+  .event-card-modal-row{display:flex;align-items:flex-start;gap:14px;height:160px;cursor:default;transform:translateY(20px);}
   .event-card-modal-row .event-card{flex:0 0 112px;width:112px;height:160px;box-shadow:0 16px 38px rgba(0,0,0,.45);}
   .event-stage-layout:not(.character-selection-layout) #winningconditionsquare{cursor:pointer;}
   .center-lower-card{
@@ -1711,7 +1711,19 @@ function renderStageInformation(){
       text.append(gap, secondaryHeading);
     }
     if (eventCard?.afterText) text.appendChild(document.createTextNode(eventCard.afterText));
-    if (eventCard) fitBlockText(text, 10, 3, .1);
+    if (eventCard) {
+      // ミニ表示で隠している面も原寸で計測し、拡大した2面の文字比率を元カードと揃える。
+      const isHiddenFace = getComputedStyle(card).display === 'none';
+      if (isHiddenFace) {
+        card.style.display = 'block';
+        card.style.visibility = 'hidden';
+      }
+      fitBlockText(text, 10, 3, .1);
+      if (isHiddenFace) {
+        card.style.removeProperty('display');
+        card.style.removeProperty('visibility');
+      }
+    }
   });
   // 非表示中の要素で文字サイズを計測せず、初期表示カードの組版をそのまま拡大表示へ複製する。
   const sourceEventCards = eventCardRow.querySelectorAll('.event-card');
