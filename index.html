@@ -62,7 +62,7 @@
   .player-circle{
     position:relative;width:min(76vw,420px);height:min(76vw,420px);
     margin:8px auto 0;border-radius:50%;
-    box-sizing:border-box;border:none;
+    box-sizing:border-box;border:none;z-index:5;
   }
   .player-circle::before{content:'';}
   .player-tag{
@@ -93,7 +93,7 @@
   @keyframes turnHandPulse{50%{transform:translate(-50%,3px) scale(1.1)}}
 
   /* 自分の手札表示（大きめ横並び） */
-  .my-hand-wrapper{margin-top:17px;text-align:center;}
+  .my-hand-wrapper{position:relative;z-index:6;margin-top:17px;text-align:center;}
   .my-hand-title{display:none;}
   /* 手札が1段になっても中央寄せされるゲーム盤全体の高さを変えず、プレイヤーサークルを固定する。 */
   .my-hand{--hand-card-scale:1;display:flex;width:min(calc(100vw - 8px),calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px));height:254px;box-sizing:border-box;flex-direction:column;align-items:center;gap:10px;margin:6px auto 0;padding:0 12px;}
@@ -119,7 +119,7 @@
   .my-card.drag-source{visibility:hidden;}
   @keyframes playableCardsPulse{50%{--playable-card-scale:1.07}}
   .drag-card{position:fixed;z-index:1000;pointer-events:none;transform:translate(-50%,-50%) scale(var(--drag-card-scale,1));opacity:.94;transform-origin:center;}
-  .play-circle{position:absolute;width:64px;height:88px;border:0;border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:4;}
+  .play-circle{position:absolute;width:64px;height:88px;border:0;border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:6;}
   .play-circle.drop-hint::before{content:'';position:absolute;inset:0;border-radius:inherit;background:rgba(125,211,252,.22);opacity:0;transition:opacity .15s;}
   .player-circle.dragging .play-circle.drop-hint::before{opacity:1;}
   .played-card-slot{position:relative;width:54px;height:81px;transform:rotate(var(--tilt));animation:cardArrive .35s ease-out both;}
@@ -131,7 +131,7 @@
   .played-card-slot.gathering{animation:gatherCard .7s ease-in-out both;}
   .played-card-slot.gathered{animation:none;transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt));}
   @keyframes gatherCard{from{transform:translate(0,0) rotate(var(--tilt))}to{transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt))}}
-  .capture-circle{position:absolute;width:38px;height:56px;transform:translate(-50%,-50%);z-index:3;}
+  .capture-circle{position:absolute;width:38px;height:56px;transform:translate(-50%,-50%);z-index:6;}
   .capture-trick{position:absolute;top:0;width:38px;height:56px;}
   .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
   .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
@@ -209,12 +209,32 @@
   .center-lower-card-area.character-selection-layout{
     left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
   }
+  .center-lower-card-area.event-stage-layout{left:50%;width:475px;flex-direction:row;justify-content:center;gap:0;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/475));transform-origin:top center;}
+  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:475px;transform:translateX(-50%);}
+  .center-lower-card-area.event-stage-layout:not(.character-selection-layout){top:calc(68% - 101px);transform:translate(-50%,-80px);}
+  .event-stage-layout>.center-card-row{display:contents;}
+  .event-stage-layout #arasujisquare{order:1;}
+  .event-stage-layout #winningconditionsquare{order:2;}
+  .event-stage-layout .event-card-row>.event-card:nth-child(2){order:3;}
+  .event-stage-layout .event-card-row>.event-card:nth-child(1){order:4;}
+  .event-stage-layout>.center-lower-card,.event-stage-layout>.center-card-row>.center-lower-card{margin-left:-7px;}
+  .event-stage-layout #arasujisquare{margin-left:0;}
+  .center-card-row{width:100%;display:flex;align-items:center;justify-content:space-between;}
+  .event-card-row{display:none;}
+  .event-stage-layout .event-card-row{display:contents;}
   .center-lower-card{
     position:relative;box-sizing:border-box;border:0;border-radius:10px;overflow:hidden;
     background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;flex:0 0 auto;
   }
   #arasujisquare{width:112px;height:160px;background-image:url('arasujisquare.jpg');}
   #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
+  .event-card{width:112px;height:160px;background-image:url('eventback.jpg');}
+  .event-card-title{position:absolute;left:13%;right:13%;top:calc(8% - 6px);height:16%;display:grid;place-items:center;text-align:center;font-size:10px;font-weight:900;line-height:1.05;}
+  .event-card-text{position:absolute;left:50%;top:58%;width:95px;height:112px;transform:translate(-50%,-50%) translateY(-2px);display:block;padding:2px;box-sizing:border-box;overflow:hidden;white-space:pre-line;text-align:left;font-size:10px;line-height:1.08;}
+  .event-card-text strong{display:block;margin-bottom:2px;font-weight:900;}
+  .event-card-gap{display:block;height:3px;}
+  .event-card-hammer{display:inline-block;width:8px;height:8px;margin-right:2px;vertical-align:-1px;color:#111;}
+  .event-card-hammer svg{display:block;width:100%;height:100%;fill:currentColor;}
   .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);z-index:2;}
   .ringcircle.on{background-image:url('ringcircleon.jpg');}
   .excluded-card-slot{position:absolute;left:20px;top:93px;width:38px;height:56px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;z-index:2;}
@@ -543,15 +563,21 @@
     <div id="playerCircle" class="player-circle"></div>
 
     <div id="centerLowerCardArea" class="center-lower-card-area hidden">
-      <div id="arasujisquare" class="center-lower-card">
-        <div id="arasujisquareBar" class="arasujisquare-bar"></div>
-        <div id="arasujisquareStory" class="arasujisquare-center"></div>
+      <div id="eventCardRow" class="center-card-row event-card-row" aria-label="イベントカード">
+        <div class="center-lower-card event-card"><div class="event-card-title"></div><div class="event-card-text"></div></div>
+        <div class="center-lower-card event-card"><div class="event-card-title"></div><div class="event-card-text"></div></div>
       </div>
-      <div id="winningconditionsquare" class="center-lower-card">
-        <div id="ringcircle" class="ringcircle"></div>
-        <div id="excludedCardSlot" class="excluded-card-slot hidden"></div>
-        <div id="winningconditionInfo" class="winningcondition-half left"></div>
-        <div id="winningconditionGoal" class="winningcondition-half right"></div>
+      <div class="center-card-row">
+        <div id="arasujisquare" class="center-lower-card">
+          <div id="arasujisquareBar" class="arasujisquare-bar"></div>
+          <div id="arasujisquareStory" class="arasujisquare-center"></div>
+        </div>
+        <div id="winningconditionsquare" class="center-lower-card">
+          <div id="ringcircle" class="ringcircle"></div>
+          <div id="excludedCardSlot" class="excluded-card-slot hidden"></div>
+          <div id="winningconditionInfo" class="winningcondition-half left"></div>
+          <div id="winningconditionGoal" class="winningcondition-half right"></div>
+        </div>
       </div>
     </div>
 
@@ -735,6 +761,7 @@ const cardZoomFrame = document.getElementById('cardZoomFrame');
 const centerLowerCardArea = document.getElementById('centerLowerCardArea');
 const arasujisquareBar = document.getElementById('arasujisquareBar');
 const arasujisquareStory = document.getElementById('arasujisquareStory');
+const eventCardRow = document.getElementById('eventCardRow');
 const winningconditionInfo = document.getElementById('winningconditionInfo');
 const winningconditionGoal = document.getElementById('winningconditionGoal');
 const ringcircle = document.getElementById('ringcircle');
@@ -833,11 +860,36 @@ defineStage(4, {
 });
 defineStage(5, {
   title: '古森', story: '道の跡はどこにもなく、木々が絶えず行く手をふさいでいるように感じられた。ピピンは突然、もう耐えられないと思い、何の前触れもなく大声を上げた。「おい!　おい!」彼は叫んだ。「僕は何もしないって! ただ通してくれよ!」',
-  characters: ['frodo*,tom_bombadil*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈柳じじい〉カードの〈イベント：古森〉の記述に従う。'
+  characters: ['frodo*,tom_bombadil*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈柳じじい〉カードの〈イベント：古森〉の記述に従う。',
+  eventCards: [
+    {
+      title:'柳じじい', heading:'イベント：古森',
+      hammer:true, text:'森カード8枚と〈柳じじい(森9)〉を混ぜて、古森デッキを作る。そのあと、',
+      playerText:{ 3:'各プレイヤーに手札9枚、失われしたカード2枚 配る', 4:'各プレイヤーに手札7枚、失われたカード1枚 配る' }, playerTextSeparator:'\n',
+      secondaryHeading:'柳じじい',
+      afterText:'各トリックの前に古森デッキから1枚を公開する。このトリックでプレイされたカードの数字より森カードの数字が高い場合は、柳じじいがトリックを獲得する。（同数は除く）\nその後、前のリードプレイヤーが最初にプレイする。<1の指輪>は、古森デッキのどのカードにも勝てる。'
+    },
+    {
+      title:'柳じじい',
+      text:'フロドとサムは、まずピピンが\n横たわっていた木の幹を叩いた。\n次に、哀れなメリーを捕らえてし\nる、まるで顎のように裂けた木の\n割れ目をこじ開けようと、必死に\n力を込めた。それはまったくの無\n駄だった。'
+    }
+  ]
 });
 defineStage(6, {
   title: '霧の塚山丘陵', story: '行く手の両側から、霧を通して闇が迫り始めた。彼は、ついに丘の隙間――塚山の北門へと近づいているのだと察した。そこを抜けさえすれば、自由になれるのだ。',
-  characters: ['frodo*,tom_bombadil*,goldberry*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈塚人〉カードの〈イベント：霧の塚山丘陵〉の記述に従う。'
+  characters: ['frodo*,tom_bombadil*,goldberry*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈塚人〉カードの〈イベント：霧の塚山丘陵〉の記述に従う。',
+  eventCards: [
+    {
+      title:'塚人', heading:'イベント：霧の塚山丘陵', hammer:true,
+      text:'指輪カードを除いた山札から',
+      playerText:{ 3:'10枚とり、塚デッキを作る。その後、山札に指輪カードを戻して、各プレイヤーに手札9枚配る。', 4:'5枚とり、塚デッキを作る。その後、山札に指輪カードを戻して、各プレイヤーに手札8枚配る。' }, playerTextSeparator:'',
+      afterPlayerText:'その後、「トム・ボンバディル」は塚デッキから5枚引き、手札に加える。'
+    },
+    {
+      title:'塚人',
+      text:'彼が正気を取り戻したとき、一瞬、恐怖の感覚しか思い出せなかった。だが突如として、逃げ場のない状況にあることを悟った。そう、彼は塚の中にいた。塚人にさらわれたのだ。そして人々がひそひそ語たる、塚人の恐ろしい呪文の支配下にすでに落ちているのかもしれなかった。'
+    }
+  ]
 });
 defineStage(7, {
   title: '躍る小馬亭で', story: 'アーチの上にはランプが灯り、その下では、大きな看板が揺れていた。そこには、太った白い小馬が後ろ足で立ち上がる姿が描かれていた。扉の上には、白い文字で「バーリマン・バタバーの躍る小馬亭」と記されていた。低い窓のほとんどは厚いカーテンで覆われていたが、その向こうからは明かりが漏れていた。',
@@ -849,7 +901,11 @@ defineStage(8, {
 });
 defineStage(9, {
   title: '浅瀬への逃走', story: '意識が薄れる中、フロドは最後に叫び声を聞いた。そして、岸辺でためらう黒の乗手たちの向こうに、白く輝く姿が見えたような気がした。その背後では、小さな影のような存在が走り、炎を振りかざしていた。世界を覆う灰色の霧の中で、その炎は赤くきらめいた。',
-  characters: ['glorfindel*', 'frodo,sam,merry,pippin', 'strider,bill'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'long', goal:'everywin', additionalElements:'各ラウンドでは〈グロルフィンデル〉を使う（フロドは1回のみでよい）。\n〈九人組〉カードの〈イベント：浅瀬への逃走〉の記述に従う。'
+  characters: ['glorfindel*', 'frodo,sam,merry,pippin', 'strider,bill'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'long', goal:'everywin', additionalElements:'各ラウンドでは〈グロルフィンデル〉を使う（フロドは1回のみでよい）。\n〈九人組〉カードの〈イベント：浅瀬への逃走〉の記述に従う。',
+  eventCards: [
+    { title:'九人組\nイベント：浅瀬への逃走', text:'キャラクターを選ぶ際、対応する黒の乗手を一緒に受け取ります。\nフロド：《魔王》　メリー：《黒の息》　ピピン：《幽鬼》　馳夫：《見える者》　サム：《恐怖》\n《グロルフィンデル》と《小馬のビル》は受け取りません。' },
+    { title:'九人組', text:'下流の水際には九人の黒の乗手が立ち、顔を上げたその威圧的な姿に、フロドの心は怯えた。もし彼らが一度でも渡ってしまえば、浅瀬から裂け谷へ続く長く不確かな道を逃げることは、まったく無意味に思えた。' }
+  ]
 });
 defineStage(10, {
   title: '裂け谷での休息', story: '「ここはどこだ? 今は何時だ?」フロドは天井に向かって声を上げた。「ここはエルロンドの館、そして今は朝の十時だ」誰かが答えた。「知りたいのであれば、今日は十月二十四日の朝である」「ガンダルフ!」フロドは驚いて身を起こした。そこには、老魔法使いが窓辺の椅子に腰かけていた。',
@@ -871,7 +927,11 @@ defineStage(12, {
   threats: [],
   winCondition: 'short',
   goal: 'allwin',
-  additionalElements: '〈多彩なるサルマン〉を〈ガンダルフ〉に渡す。'
+  additionalElements: '〈多彩なるサルマン〉を〈ガンダルフ〉に渡す。',
+  eventCards: [
+    { title:'多彩なるサルマン\nイベント：サルマン', text:'最初のトリックをリードする。\n\n足止め\n★すべての数字（1～8）を1枚以上、勝利して獲得する。' },
+    { title:'多彩なるサルマン', text:'「旅路は終わり、ここで永遠の安息を得るがよい。そして、私は賢者サルマン、指輪作りのサルマン、多彩なるサルマンなのだからな！」' }
+  ]
 });
 
 /* ★ 追加：ヘルプUI参照 */
@@ -1532,12 +1592,12 @@ function fitSingleLineText(element, maxSize, minSize = 4){
   }
 }
 
-function fitBlockText(element, maxSize, minSize = 4){
+function fitBlockText(element, maxSize, minSize = 4, step = .25){
   element.style.fontSize = `${maxSize}px`;
   if (element.scrollHeight <= element.clientHeight && element.scrollWidth <= element.clientWidth) return;
   let size = maxSize;
   while (size > minSize && (element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth)) {
-    size = Math.max(minSize, size - .25);
+    size = Math.max(minSize, size - step);
     element.style.fontSize = `${size}px`;
   }
 }
@@ -1558,12 +1618,59 @@ function renderStageInformation(){
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
   const wasHidden = centerLowerCardArea.classList.contains('hidden');
   const wasCharacterSelection = centerLowerCardArea.classList.contains('character-selection-layout');
-  const cards = Array.from(centerLowerCardArea.querySelectorAll(':scope > .center-lower-card'));
+  const cards = Array.from(centerLowerCardArea.querySelectorAll('.center-lower-card'));
   const previousRects = cards.map(card => card.getBoundingClientRect());
   centerLowerCardArea.classList.toggle('hidden', !stage);
   const isCharacterSelection = state.game?.phase === 'character-selection';
   centerLowerCardArea.classList.toggle('character-selection-layout', isCharacterSelection);
+  centerLowerCardArea.classList.toggle('event-stage-layout', Boolean(stage?.eventCards?.length));
   if (!stage) return;
+
+  const eventCards = stage.eventCards || [];
+  eventCardRow.querySelectorAll('.event-card').forEach((card, index) => {
+    const eventCard = eventCards[index];
+    card.querySelector('.event-card-title').textContent = eventCard?.title || '';
+    const text = card.querySelector('.event-card-text');
+    text.replaceChildren();
+    if (eventCard?.heading) {
+      const heading = document.createElement('strong');
+      heading.textContent = eventCard.heading;
+      text.appendChild(heading);
+    }
+    if (eventCard?.hammer) {
+      const hammer = document.createElement('span');
+      hammer.className = 'event-card-hammer';
+      hammer.innerHTML = HAMMER_ICON_SVG;
+      text.appendChild(hammer);
+    }
+    if (eventCard?.text) {
+      const textParts = (index === 1 ? eventCard.text.replace(/\r?\n/g, '') : eventCard.text).split(/\r?\n\r?\n/);
+      textParts.forEach((cardText, partIndex) => {
+        if (partIndex) {
+          const gap = document.createElement('span');
+          gap.className = 'event-card-gap';
+          text.appendChild(gap);
+        }
+        text.appendChild(document.createTextNode(cardText));
+      });
+    }
+    const playerText = eventCard?.playerText?.[Number(state.room?.maxPlayers)];
+    if (playerText) text.appendChild(document.createTextNode(`${eventCard.playerTextSeparator ?? '\n\n'}${playerText}`));
+    if (eventCard?.afterPlayerText) {
+      const gap = document.createElement('span');
+      gap.className = 'event-card-gap';
+      text.append(gap, document.createTextNode(eventCard.afterPlayerText));
+    }
+    if (eventCard?.secondaryHeading) {
+      const secondaryHeading = document.createElement('strong');
+      secondaryHeading.textContent = eventCard.secondaryHeading;
+      const gap = document.createElement('span');
+      gap.className = 'event-card-gap';
+      text.append(gap, secondaryHeading);
+    }
+    if (eventCard?.afterText) text.appendChild(document.createTextNode(eventCard.afterText));
+    if (eventCard) fitBlockText(text, 10, 3, .1);
+  });
 
   // 配置を先に着地点へ確定し、各カードを直前の座標から補間することで逆方向への移動を防ぐ。
   if (!wasHidden && wasCharacterSelection !== isCharacterSelection
