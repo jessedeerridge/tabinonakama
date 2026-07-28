@@ -958,6 +958,9 @@ const CARD_DECK = CARD_TYPES.flatMap(type =>
 // 長い特殊カード名を、カード幅に合わせて一行に収める。
 const cardNameFitObserver = new ResizeObserver(entries => {
   entries.forEach(({ target }) => {
+    // Firebase の通知ごとにカード要素を作り直すため、監視を継続すると削除済みの
+    // 要素が蓄積する。寸法が確定した最初の通知だけを使い、すぐ監視から外す。
+    cardNameFitObserver.unobserve(target);
     target.style.fontSize = '9px';
     const styles = getComputedStyle(target);
     const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
