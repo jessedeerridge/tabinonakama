@@ -1070,6 +1070,10 @@ function hasSpecialThreat(game, playerId, name){
   return (game?.threatCards?.[playerId] || []).some(card => card.kind === 'special-threat' && card.name === name);
 }
 
+function threatNumberForPlayer(game, playerId){
+  return (game?.threatCards?.[playerId] || []).find(card => card.kind === 'threat' && Number.isFinite(Number(card.number)))?.number;
+}
+
 // 山札は各カード1枚ずつ（黄のみ1〜5、ほかの色は1〜8）。
 const CARD_TYPES = [
   { color: 'red', name: '影', max: 8 },
@@ -1480,7 +1484,7 @@ function createVictoryConditionIcon(cardData, playerId){
   icon.className = 'victory-condition-icon';
   const victory = cardData.victory || '';
   const name = cardData.name || '';
-  const threatNumber = state.game?.threatCards?.[playerId]?.[0]?.number;
+  const threatNumber = threatNumberForPlayer(state.game, playerId);
   const waitsForThreat = ['農夫マゴット', 'サム', '馳夫', 'アラゴルン'].includes(name);
   if (waitsForThreat && threatNumber == null) {
     icon.classList.add('awaiting-threat');
@@ -1551,7 +1555,9 @@ function createVictoryConditionIcon(cardData, playerId){
       icon.appendChild(numberSquare);
     }
   } else if (hasSpecialThreat(state.game, playerId, '見えざる者') && !achieved) {
-    icon.append(square('?'));
+    const choice = state.game?.striderChoices?.[playerId];
+    icon.append(label('?'), square());
+    if (choice) icon.append(arrow(choice));
   } else if (name === '馳夫') {
     const choice = state.game?.striderChoices?.[playerId];
     if (threatNumber != null) icon.append(...countSquares(Number(threatNumber)));
@@ -1601,9 +1607,9 @@ function createVictoryConditionIcon(cardData, playerId){
     const twoTricks = line(...countSquares(2));
     appendOr(oneTrick, twoTricks);
   } else if (victory.includes('最も少ない')) {
-    icon.append(square('min'));
+    icon.append(label('min'), square());
   } else if (victory.includes('最も多く')) {
-    icon.append(square('most'));
+    icon.append(label('max'), square());
   } else {
     // 補足文に「指輪」が登場するビルボなどは黒のまま。枚数目標が指輪カードの場合だけ黄色にする。
     const color = /指輪カードを\d+枚/.test(victory) ? 'yellow' : 'black';
@@ -2725,7 +2731,7 @@ function renderStriderChoice(){
   const visible = game?.phase === 'strider-comparison' && game.striderPlayerId === state.userId;
   striderChoiceDialog.classList.toggle('hidden', !visible);
   if (!visible) return;
-  const threatNumber = game.threatCards?.[state.userId]?.[0]?.number ?? 'x';
+  const threatNumber = threatNumberForPlayer(game, state.userId) ?? 'x';
   striderChoiceQuestion.textContent = `脅威カードの数字は${threatNumber}です。`;
   striderChoiceDialog.querySelector('[data-strider-choice="more"] span').textContent = `${threatNumber}より多く`;
   striderChoiceDialog.querySelector('[data-strider-choice="less"] span').textContent = `${threatNumber}より少なく`;
