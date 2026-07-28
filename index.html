@@ -220,17 +220,17 @@
   .event-card-row{display:none;}
   .event-stage-layout.character-selection-layout .event-card-row{display:contents;}
   .event-stage-layout:not(.character-selection-layout) .event-card-row{
-    position:absolute;right:-8px;top:-48px;width:102px;height:100px;display:block;
+    position:absolute;right:-4px;top:-18px;width:32px;height:36px;display:block;
     z-index:5;pointer-events:auto;cursor:pointer;transform:rotate(3deg);transform-origin:center;
   }
   .event-stage-layout:not(.character-selection-layout) .event-card-row .event-card{
-    position:absolute;right:0;top:0;transform:scale(.6);transform-origin:top right;
+    position:absolute;right:0;top:0;transform:scale(.2);transform-origin:top right;
     box-shadow:0 5px 14px rgba(0,0,0,.28);
   }
-  .event-stage-layout:not(.character-selection-layout) .event-card-row .event-card:first-child{right:32px;}
-  .event-card-modal-backdrop{position:fixed;inset:0;z-index:490;display:grid;place-items:center;background:rgba(0,0,0,.62);cursor:pointer;}
+  .event-stage-layout:not(.character-selection-layout) .event-card-row .event-card:nth-child(2){display:none;}
+  .event-card-modal-backdrop{position:fixed;inset:0;z-index:490;display:grid;place-items:center;background:rgba(0,0,0,.18);cursor:pointer;}
   .event-card-modal-backdrop.hidden{display:none;}
-  .event-card-modal-row{display:flex;gap:14px;cursor:default;transform:scale(min(1.35,calc((100vw - 80px)/238)));}
+  .event-card-modal-row{display:flex;gap:14px;cursor:default;}
   .event-card-modal-row .event-card{box-shadow:0 16px 38px rgba(0,0,0,.45);}
   .event-stage-layout:not(.character-selection-layout) #winningconditionsquare{cursor:pointer;}
   .center-lower-card{
@@ -1668,8 +1668,7 @@ function renderStageInformation(){
   if (!stage) return;
 
   const eventCards = stage.eventCards || [];
-  [...eventCardRow.querySelectorAll('.event-card'), ...eventCardModalRow.querySelectorAll('.event-card')].forEach((card, cardIndex) => {
-    const index = cardIndex % 2;
+  eventCardRow.querySelectorAll('.event-card').forEach((card, index) => {
     const eventCard = eventCards[index];
     card.querySelector('.event-card-title').textContent = eventCard?.title || '';
     const text = card.querySelector('.event-card-text');
@@ -1712,6 +1711,11 @@ function renderStageInformation(){
     }
     if (eventCard?.afterText) text.appendChild(document.createTextNode(eventCard.afterText));
     if (eventCard) fitBlockText(text, 10, 3, .1);
+  });
+  // 非表示中の要素で文字サイズを計測せず、初期表示カードの組版をそのまま拡大表示へ複製する。
+  const sourceEventCards = eventCardRow.querySelectorAll('.event-card');
+  eventCardModalRow.querySelectorAll('.event-card').forEach((card, index) => {
+    card.innerHTML = sourceEventCards[index].innerHTML;
   });
 
   // 配置を先に着地点へ確定し、各カードを直前の座標から補間することで逆方向への移動を防ぐ。
