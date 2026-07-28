@@ -204,15 +204,10 @@
     position:fixed;left:16px;top:calc(68% - 101px);transform:translateY(-80px);
     width:calc(100vw - 32px);display:flex;align-items:center;justify-content:space-between;
     z-index:2;pointer-events:none;
-    transition:left 1.35s cubic-bezier(.22,.72,.22,1),top 1.35s cubic-bezier(.22,.72,.22,1),width 1.35s cubic-bezier(.22,.72,.22,1),transform 1.35s cubic-bezier(.22,.72,.22,1);
-    will-change:left,top,width,transform;
   }
   /* キャラクター候補とは別の固定レイヤーで、選択中だけ場札一式を画面上部にまとめる。 */
   .center-lower-card-area.character-selection-layout{
     left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
-  }
-  @media (prefers-reduced-motion:reduce){
-    .center-lower-card-area{transition-duration:.01ms;}
   }
   .center-lower-card{
     position:relative;box-sizing:border-box;border:0;border-radius:10px;overflow:hidden;
@@ -369,7 +364,7 @@
   .card-zoom-card{position:relative;width:var(--zoom-card-width);height:var(--zoom-card-height);}
   /* キャラクターカードは常に82x122の原版全体を拡縮し、欄や文字だけが別倍率にならないようにする。 */
   .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(var(--zoom-scale));transform-origin:top left;}
-  .character-picker{position:fixed;inset:0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding-top:clamp(120px,calc(50vh - 160px),260px);box-sizing:border-box;pointer-events:none;}
+  .character-picker{position:fixed;inset:0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding-top:clamp(120px,calc(50vh - 160px),260px);box-sizing:border-box;pointer-events:none;transform:translateY(-15px);}
   .character-picker.hidden{display:none;}
   .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
   .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
@@ -1560,9 +1555,31 @@ function updateWinningConditionOverflow(){
 
 function renderStageInformation(){
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
+  const wasHidden = centerLowerCardArea.classList.contains('hidden');
+  const wasCharacterSelection = centerLowerCardArea.classList.contains('character-selection-layout');
+  const cards = Array.from(centerLowerCardArea.querySelectorAll(':scope > .center-lower-card'));
+  const previousRects = cards.map(card => card.getBoundingClientRect());
   centerLowerCardArea.classList.toggle('hidden', !stage);
-  centerLowerCardArea.classList.toggle('character-selection-layout', state.game?.phase === 'character-selection');
+  const isCharacterSelection = state.game?.phase === 'character-selection';
+  centerLowerCardArea.classList.toggle('character-selection-layout', isCharacterSelection);
   if (!stage) return;
+
+  // 配置を先に着地点へ確定し、各カードを直前の座標から補間することで逆方向への移動を防ぐ。
+  if (!wasHidden && wasCharacterSelection !== isCharacterSelection
+      && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    requestAnimationFrame(() => {
+      cards.forEach((card, index) => {
+        const previous = previousRects[index];
+        const current = card.getBoundingClientRect();
+        if (!previous?.width || !current.width) return;
+        card.getAnimations().forEach(animation => animation.cancel());
+        card.animate([
+          { transform:`translate(${previous.left - current.left}px,${previous.top - current.top}px)` },
+          { transform:'translate(0,0)' }
+        ], { duration:1350, easing:'cubic-bezier(.22,.72,.22,1)' });
+      });
+    });
+  }
 
   arasujisquareBar.textContent = stage.chapterLabel;
   fitSingleLineText(arasujisquareBar, 11, 5);
