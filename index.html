@@ -234,7 +234,9 @@
   .winningcondition-half{display:flex;align-items:center;padding:2px;overflow:hidden;font-size:9px;line-height:1.25;text-align:left;}
   .winningcondition-content{width:100%;}
   .additional-elements{display:block;margin-top:3px;font-size:8px;line-height:1.15;}
-  .additional-elements-mark{margin-right:2px;font-weight:900;}
+  .additional-elements-mark{display:inline-block;width:7px;height:7px;margin-right:2px;vertical-align:-1px;color:#111;}
+  .additional-elements-mark svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:.9;stroke-linejoin:round;}
+  .additional-elements-mark path{fill:currentColor;stroke:none;}
   .winningcondition-content strong{font-weight:900;}
   .chapter-heading,.stage-title,.character-heading,.character-line,.goal-heading{white-space:nowrap;}
   .stage-title{font-size:8px;letter-spacing:normal;}
@@ -771,11 +773,11 @@ defineStage(4, {
 });
 defineStage(5, {
   title: '古森', story: '道の跡はどこにもなく、木々が絶えず行く手をふさいでいるように感じられた。ピピンは突然、もう耐えられないと思い、何の前触れもなく大声を上げた。「おい!　おい!」彼は叫んだ。「僕は何もしないって! ただ通してくれよ!」',
-  characters: ['frodo*,tom_bombadil*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈柳じじい〉カードの〈イベント：古森〉の記述にしたがう。'
+  characters: ['frodo*,tom_bombadil*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈柳じじい〉カードの〈イベント：古森〉の記述に従う。'
 });
 defineStage(6, {
   title: '霧の塚山丘陵', story: '行く手の両側から、霧を通して闇が迫り始めた。彼は、ついに丘の隙間――塚山の北門へと近づいているのだと察した。そこを抜けさえすれば、自由になれるのだ。',
-  characters: ['frodo*,tom_bombadil*,goldberry*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈塚人〉カードの〈イベント：霧の塚山丘陵〉の記述にしたがう。'
+  characters: ['frodo*,tom_bombadil*,goldberry*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈塚人〉カードの〈イベント：霧の塚山丘陵〉の記述に従う。'
 });
 defineStage(7, {
   title: '躍る小馬亭で', story: 'アーチの上にはランプが灯り、その下では、大きな看板が揺れていた。そこには、太った白い小馬が後ろ足で立ち上がる姿が描かれていた。扉の上には、白い文字で「バーリマン・バタバーの躍る小馬亭」と記されていた。低い窓のほとんどは厚いカーテンで覆われていたが、その向こうからは明かりが漏れていた。',
@@ -787,7 +789,7 @@ defineStage(8, {
 });
 defineStage(9, {
   title: '浅瀬への逃走', story: '意識が薄れる中、フロドは最後に叫び声を聞いた。そして、岸辺でためらう黒の乗手たちの向こうに、白く輝く姿が見えたような気がした。その背後では、小さな影のような存在が走り、炎を振りかざしていた。世界を覆う灰色の霧の中で、その炎は赤くきらめいた。',
-  characters: ['glorfindel*', 'frodo,sam,merry,pippin', 'strider,bill'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'long', goal:'everywin', additionalElements:'各ラウンドでは〈グロルフィンデル〉を使う（フロドは1回のみでよい）。\n〈九人組〉カードの〈イベント：浅瀬への逃走〉の記述にしたがう。'
+  characters: ['glorfindel*', 'frodo,sam,merry,pippin', 'strider,bill'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'long', goal:'everywin', additionalElements:'各ラウンドでは〈グロルフィンデル〉を使う（フロドは1回のみでよい）。\n〈九人組〉カードの〈イベント：浅瀬への逃走〉の記述に従う。'
 });
 defineStage(10, {
   title: '裂け谷での休息', story: '「ここはどこだ? 今は何時だ?」フロドは天井に向かって声を上げた。「ここはエルロンドの館、そして今は朝の十時だ」誰かが答えた。「知りたいのであれば、今日は十月二十四日の朝である」「ガンダルフ!」フロドは驚いて身を起こした。そこには、老魔法使いが窓辺の椅子に腰かけていた。',
@@ -1019,6 +1021,8 @@ window.addEventListener('resize', () => {
   updateCharacterChoiceScales();
 });
 
+const HAMMER_ICON_SVG = '<svg viewBox="0 0 20 20" aria-hidden="true"><g transform="rotate(35 10 10)"><rect x="7" y="7" width="2" height="11"/><path d="M3 3Q10 3.5 17 6Q10 8.5 3 9Q5 6 3 3Z"/></g></svg>';
+
 function createCharacterEffectRow(type, text){
   const row = document.createElement('div');
   row.className = `character-effect-row ${type}`;
@@ -1026,7 +1030,7 @@ function createCharacterEffectRow(type, text){
   icon.className = 'character-effect-icon';
   icon.innerHTML = type === 'victory'
     ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 0c1.1 5.4 4.6 8.9 10 10-5.4 1.1-8.9 4.6-10 10C8.9 14.6 5.4 11.1 0 10 5.4 8.9 8.9 5.4 10 0Z"/></svg>'
-    : '<svg viewBox="0 0 20 20" aria-hidden="true"><g transform="rotate(35 10 10)"><rect x="7" y="7" width="2" height="11"/><path d="M3 3Q10 3.5 17 6Q10 8.5 3 9Q5 6 3 3Z"/></g></svg>';
+    : HAMMER_ICON_SVG;
   const description = document.createElement('span');
   description.textContent = text;
   row.append(icon, description);
@@ -1460,7 +1464,7 @@ function renderStageInformation(){
     additional.className = 'additional-elements';
     const mark = document.createElement('span');
     mark.className = 'additional-elements-mark';
-    mark.textContent = '🔨';
+    mark.innerHTML = HAMMER_ICON_SVG;
     const text = document.createElement('span');
     text.textContent = stage.additionalElements;
     additional.append(mark, text);
