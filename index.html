@@ -238,9 +238,9 @@
   .additional-elements-mark svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:.9;stroke-linejoin:round;}
   .additional-elements-mark path{fill:currentColor;stroke:none;}
   .winningcondition-content strong{font-weight:900;}
-  .chapter-heading,.stage-title,.character-heading,.character-line,.goal-heading{white-space:nowrap;}
+  .chapter-heading,.stage-title,.character-heading,.character-line,.goal-heading,.goal-type{white-space:nowrap;}
   .stage-title{font-size:8px;letter-spacing:normal;}
-  .chapter-heading,.character-heading,.goal-heading{font-size:8px;letter-spacing:-.08em;}
+  .chapter-heading,.character-heading,.goal-heading,.goal-type{font-size:8px;letter-spacing:-.08em;}
   .character-heading{display:block;margin-top:2px;}
   .character-line{display:block;font-size:8px;letter-spacing:normal;}
   @media (max-width:520px){
@@ -1455,6 +1455,7 @@ function renderStageInformation(){
   goalHeading.className = 'goal-heading';
   goalHeading.textContent = '勝利条件：';
   const goalType = document.createElement('strong');
+  goalType.className = 'goal-type';
   goalType.textContent = WIN_LENGTH_LABELS[stage.winCondition] || stage.winCondition || 'xxx';
   const goalText = document.createElement('span');
   goalText.textContent = WIN_GOAL_LABELS[stage.goal] || stage.goal || 'xxx';
