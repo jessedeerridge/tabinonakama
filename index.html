@@ -1823,7 +1823,8 @@ function renderStageInformation(){
   // 非表示中の要素で文字サイズを計測せず、初期表示カードの組版をそのまま拡大表示へ複製する。
   const sourceEventCards = eventCardRow.querySelectorAll('.event-card');
   eventCardModalRow.querySelectorAll('.event-card').forEach((card, index) => {
-    card.innerHTML = sourceEventCards[index].innerHTML;
+    // 拡大表示は左にあらすじ面、右にルール面を並べる。
+    card.innerHTML = sourceEventCards[sourceEventCards.length - 1 - index].innerHTML;
   });
 
   // 配置を先に着地点へ確定し、各カードを直前の座標から補間することで逆方向への移動を防ぐ。
