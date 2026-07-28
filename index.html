@@ -689,8 +689,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
-  getDatabase, ref, set, get, update, onDisconnect, onValue, remove, runTransaction,
-  query, orderByChild, startAt
+  getDatabase, ref, set, get, update, onDisconnect, onValue, remove, runTransaction
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
 // ▼ Firebase 設定
@@ -2847,7 +2846,6 @@ let entranceRooms = [];
 const visibleRoomCount = 5;
 let activeEntranceCode = null;
 let entranceExpiryTimer = null;
-let unsubscribeEntranceRooms = null;
 roomList.style.maxHeight = `${visibleRoomCount * 86}px`;
 
 function scheduleEntranceRoomExpiry(){
@@ -2952,11 +2950,8 @@ async function createUniqueRoom(name){
     if (result.committed) return code;
   }
 }
-const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
-// rooms 直下を無条件で監視すると、ゲーム中の手札・場札を含む全ルームが更新のたびに
-// スマホへ再送される。入口に必要な直近のルームだけを監視し、入室後は必ず解除する。
-const entranceRoomsQuery = query(ref(db, 'rooms'), orderByChild('createdAt'), startAt(sixHoursAgo));
-unsubscribeEntranceRooms = onValue(entranceRoomsQuery, snapshot => {
+onValue(ref(db, 'rooms'), snapshot => {
+  const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
   entranceRooms = Object.entries(snapshot.val() || {}).map(([code, room]) => {
     const people = room.players || room.users || {};
     const entries = Object.entries(people).filter(([, person]) => String(person?.name || '').trim());
@@ -2994,13 +2989,6 @@ async function enterRoom(roomCode, userName){
   });
   const roomData = joinResult.snapshot.val() || {};
   state.isHost = (roomData.hostId === state.userId);
-
-  // 入室画面用の全体監視をゲーム画面へ持ち越さない。特にiOS Safariでは、長時間の
-  // 大きなスナップショット受信とDOM再描画がメモリ圧迫によるタブ再読み込みにつながる。
-  unsubscribeEntranceRooms?.();
-  unsubscribeEntranceRooms = null;
-  clearTimeout(entranceExpiryTimer);
-  entranceExpiryTimer = null;
 
   updateHostUI();
 
