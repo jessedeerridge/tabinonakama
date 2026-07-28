@@ -93,14 +93,14 @@
   @keyframes turnHandPulse{50%{transform:translate(-50%,3px) scale(1.1)}}
 
   /* 自分の手札表示（大きめ横並び） */
-  .my-hand-wrapper{margin-top:23px;text-align:center;}
+  .my-hand-wrapper{margin-top:20px;text-align:center;}
   .my-hand-title{display:none;}
   /* 手札が1段になっても中央寄せされるゲーム盤全体の高さを変えず、プレイヤーサークルを固定する。 */
   .my-hand{--hand-card-scale:1;display:flex;width:min(calc(100vw - 8px),calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px));height:254px;box-sizing:border-box;flex-direction:column;align-items:center;gap:10px;margin:6px auto 0;padding:0 12px;}
   .hand-row{display:flex;justify-content:center;gap:10px;min-height:122px;transform:scale(var(--hand-card-scale));transform-origin:top center;}
   /* 行全体を一度だけ拡縮し、キャラカード内の欄・文字・余白も原版と完全に同じ比率に保つ。 */
   .hand-row>.my-card{flex:0 0 82px;}
-  .hand-row-upper{position:relative;top:46px;z-index:1;}
+  .hand-row-upper{position:relative;top:46px;z-index:3;}
   .hand-row-lower{position:relative;top:var(--lower-row-offset,40px);z-index:2;}
   .hand-row:empty{display:none;}
   /* 実際の占有幅を詰めるため、下段の末尾にも余分な空白が残らない。 */
@@ -159,7 +159,7 @@
   .victory-condition-icon.word .victory-condition-square{width:24px;}
   .character-card-unit{position:relative;flex:0 0 82px;width:82px;height:122px;}
   .character-card-unit>.character-card{width:82px;height:122px;}
-  .character-card-unit>.victory-condition-icon{position:absolute;left:50%;top:var(--victory-icon-top,127px);transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
+  .character-card-unit>.victory-condition-icon{position:absolute;left:50%;top:var(--victory-icon-top,127px);z-index:4;transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
   .character-capture>.victory-condition-icon{position:absolute;left:50%;top:61px;z-index:2;transform:translateX(-50%);}
   @keyframes captureArrive{from{transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
