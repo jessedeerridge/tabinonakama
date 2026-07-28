@@ -289,6 +289,7 @@
     clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);
   }
   .character-card .character-special{top:17px;max-width:43px;padding:2.4px 4px 2.4px 18px;font-size:6px;line-height:1.2;}
+  .character-card .character-special.wide{width:48px;max-width:48px;}
   .character-card .character-effect{
     position:absolute;left:-4px;right:-4px;bottom:-4px;min-height:64px;padding:12px 5px 6px;
     box-sizing:border-box;background:var(--character-frame);isolation:isolate;
@@ -1149,6 +1150,9 @@ function appendWrappedCharacterName(element, value){
     return;
   }
   const firstLineLength = Math.ceil(characters.length / 2);
+  // 4文字の特殊名、または一行が4文字になる特殊名は、欄にも少し余裕を持たせる。
+  if (characters.length === 4 || firstLineLength === 4) element.classList.add('wide');
+
   element.append(
     document.createTextNode(characters.slice(0, firstLineLength).join('')),
     document.createElement('br'),
@@ -2139,10 +2143,10 @@ function characterCardData(character, playerId){
     'フロド': {
       specialName:'指輪所持者',
       victory:'指輪を2枚以上獲得する。',
-      effect:'黄1を所持している。黄1は交換できない。スタートプレイヤーになる。'
+      effect:'<1つの指輪>を所持している。これは交換できない。最初にプレイする。'
     },
     'ピピン': {
-      specialName:'愚か者',
+      specialName:'ばか者',
       victory:'トリック獲得数が最少（最少同数でもよい）。',
       effect:''
     },
@@ -2159,7 +2163,7 @@ function characterCardData(character, playerId){
     'ガンダルフ': {
       specialName:'灰色の魔法使い',
       victory:'1トリック以上獲得。',
-      effect:'手札にロストカードを加える。フロドと交換する。'
+      effect:'失われしカードを手札に加える。フロドと交換する。'
     },
     'ビルボ': {
       specialName:'変人',
