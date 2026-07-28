@@ -209,11 +209,13 @@
   .center-lower-card-area.character-selection-layout{
     left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
   }
-  .center-lower-card-area.event-stage-layout{left:calc(50% - 144px);width:288px;flex-direction:column;justify-content:flex-start;gap:8px;}
-  .center-lower-card-area.event-stage-layout:not(.character-selection-layout){top:calc(68% - 181px);transform:translateY(-80px);}
+  .center-lower-card-area.event-stage-layout{left:50%;width:520px;flex-direction:row;justify-content:center;gap:8px;transform:translateX(-50%) scale(min(1,calc((100vw - 8px)/520)));transform-origin:top center;}
+  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:520px;transform:translateX(-50%) scale(min(1,calc((100vw - 8px)/520)));}
+  .center-lower-card-area.event-stage-layout:not(.character-selection-layout){top:calc(68% - 101px);transform:translate(-50%,-80px) scale(min(1,calc((100vw - 8px)/520)));}
+  .event-stage-layout>.center-card-row{display:contents;}
   .center-card-row{width:100%;display:flex;align-items:center;justify-content:space-between;}
-  .event-card-row{display:none;justify-content:center;gap:12px;}
-  .event-stage-layout .event-card-row{display:flex;}
+  .event-card-row{display:none;}
+  .event-stage-layout .event-card-row{display:contents;}
   .center-lower-card{
     position:relative;box-sizing:border-box;border:0;border-radius:10px;overflow:hidden;
     background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;flex:0 0 auto;
@@ -226,7 +228,6 @@
   .event-card-text strong{display:block;margin-bottom:2px;font-weight:900;}
   .event-card-hammer{display:inline-block;width:8px;height:8px;margin-right:2px;vertical-align:-1px;color:#111;}
   .event-card-hammer svg{display:block;width:100%;height:100%;fill:currentColor;}
-  .event-card-footer{position:absolute;left:10px;right:10px;bottom:7px;display:flex;justify-content:space-between;align-items:end;font-size:6px;font-weight:700;line-height:1;}
   .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);z-index:2;}
   .ringcircle.on{background-image:url('ringcircleon.jpg');}
   .excluded-card-slot{position:absolute;left:20px;top:93px;width:38px;height:56px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;z-index:2;}
@@ -556,8 +557,8 @@
 
     <div id="centerLowerCardArea" class="center-lower-card-area hidden">
       <div id="eventCardRow" class="center-card-row event-card-row" aria-label="イベントカード">
-        <div class="center-lower-card event-card"><div class="event-card-title"></div><div class="event-card-text"></div><div class="event-card-footer"></div></div>
-        <div class="center-lower-card event-card"><div class="event-card-title"></div><div class="event-card-text"></div><div class="event-card-footer"></div></div>
+        <div class="center-lower-card event-card"><div class="event-card-title"></div><div class="event-card-text"></div></div>
+        <div class="center-lower-card event-card"><div class="event-card-title"></div><div class="event-card-text"></div></div>
       </div>
       <div class="center-card-row">
         <div id="arasujisquare" class="center-lower-card">
@@ -855,13 +856,15 @@ defineStage(5, {
   characters: ['frodo*,tom_bombadil*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈柳じじい〉カードの〈イベント：古森〉の記述に従う。',
   eventCards: [
     {
-      title:'柳じじい', heading:'イベント：古森', number:'2.14', rank:'無し',
+      title:'柳じじい', heading:'イベント：古森',
       hammer:true, text:'森カード8枚と〈柳じじい〉のカードを裏向きでシャッフルし、古森デッキを作る。\nそのあと、次のように配る。',
-      playerText:{ 3:'各プレイヤーに手札9枚、失われしたカード2枚', 4:'各プレイヤーに手札7枚、失われしたカード1枚' }
+      playerText:{ 3:'各プレイヤーに手札9枚、失われしたカード2枚', 4:'各プレイヤーに手札7枚、失われしたカード1枚' },
+      secondaryHeading:'柳じじい',
+      afterText:'各トリックで、リードプレイヤーがプレイする前に古森デッキから1枚を公開する。\nすべてのプレイヤーがプレイした後、勝利したカードよりも森カードの数字が高い場合（同数は除く）、このトリックは勝者となる（柳じじいの勝利）。その後、同じリードプレイヤーが最初にプレイする。〈1の指輪〉は、古森デッキのどのカードにも勝てる。'
     },
     {
-      title:'柳じじい', heading:'柳じじい', number:'2.14', rank:'無し',
-      text:'各トリックで、リードプレイヤーがプレイする前に古森デッキから1枚を公開する。\nすべてのプレイヤーがプレイした後、勝利したカードよりも森カードの数字が高い場合（同数は除く）、このトリックは勝者となる（柳じじいの勝利）。その後、同じリードプレイヤーが最初にプレイする。〈1の指輪〉は、古森デッキのどのカードにも勝てる。\n\n柳じじぃ\nフロドとサムは、まずピピンが横たわっていた木の幹を叩いた。次に、哀れなメリーを捕らえている、まるで顎のように裂けた木の割れ目をこじ開けようと、必死に力を込めた。それはまったくの無駄だった。'
+      title:'柳じじい', heading:'柳じじぃ',
+      text:'フロドとサムは、まずピピンが\n横たわっていた木の幹を叩いた。\n次に、哀れなメリーを捕らえてし\nる、まるで顎のように裂けた木の\n割れ目をこじ開けようと、必死に\n力を込めた。それはまったくの無\n駄だった。'
     }
   ]
 });
@@ -870,13 +873,13 @@ defineStage(6, {
   characters: ['frodo*,tom_bombadil*,goldberry*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈塚人〉カードの〈イベント：霧の塚山丘陵〉の記述に従う。',
   eventCards: [
     {
-      title:'塚人', heading:'イベント：霧の塚山丘陵', hammer:true, number:'2.18', rank:'無し',
+      title:'塚人', heading:'イベント：霧の塚山丘陵', hammer:true,
       text:'メインデッキから指輪カード5枚を取り、脇に置く。残ったカードを裏向きでシャッフルし、3人なら10枚、4人なら5枚を取り、塚デッキを作る。その後、メインデッキに指輪カードを戻してシャッフルし、次のように配る。',
       playerText:{ 3:'各手札9枚', 4:'各手札8枚' },
       afterPlayerText:'その後、「トム・ボンバディル」は塚デッキから5枚引き、手札に加える。'
     },
     {
-      title:'塚人', heading:'塚人', number:'2.18', rank:'無し',
+      title:'塚人', heading:'塚人',
       text:'彼が正気を取り戻したとき、\n一瞬、恐怖の感覚しか思い出せ\nなかった。だが突如として、自\n分が閉じ込められ、逃げ場のな\nい状況にまでなぐちった。そう、\n彼は塚の中にいた。塚人にさら\nわれたのだ。そして人々がひそ\nひそ語たる、塚人の恐ろしい\n呪文の支配下にすでに落ちてい\nるのかもしれなかった。'
     }
   ]
@@ -1637,15 +1640,12 @@ function renderStageInformation(){
     const playerText = eventCard?.playerText?.[Number(state.room?.maxPlayers)];
     if (playerText) text.appendChild(document.createTextNode(`\n\n${playerText}`));
     if (eventCard?.afterPlayerText) text.appendChild(document.createTextNode(`\n\n${eventCard.afterPlayerText}`));
-    const footer = card.querySelector('.event-card-footer');
-    footer.replaceChildren();
-    if (eventCard?.number) {
-      const number = document.createElement('span');
-      number.textContent = eventCard.number;
-      const rank = document.createElement('span');
-      rank.textContent = `rank　${eventCard.rank || '無し'}`;
-      footer.append(number, rank);
+    if (eventCard?.secondaryHeading) {
+      const secondaryHeading = document.createElement('strong');
+      secondaryHeading.textContent = eventCard.secondaryHeading;
+      text.append(document.createTextNode('\n\n'), secondaryHeading);
     }
+    if (eventCard?.afterText) text.appendChild(document.createTextNode(eventCard.afterText));
     if (eventCard) fitBlockText(text, 8, 4);
   });
 
