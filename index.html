@@ -147,10 +147,13 @@
   .threat-card .card-name{left:0;right:auto;bottom:5px;width:66px;height:19px;padding-right:9px;box-sizing:border-box;background:#4a2f20;color:#fff;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);font-size:9px;line-height:19px;letter-spacing:0;white-space:nowrap;}
   .threat-card .card-name::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
-  .special-threat-card{--character-frame:#171717;--character-panel:#eee9db;background:#302f2c url('kyoi.jpg') center/cover no-repeat;cursor:pointer;}
-  .special-threat-card .character-label{color:#111;}
-  .special-threat-card .character-special{top:17px;max-width:62px;width:max-content;}
-  .special-threat-card .character-effect{min-height:70px;padding-top:12px;}
+  .special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(255,244,220,.72);}
+  .special-threat-card .character-label{left:-4px;right:auto;width:64px;max-width:64px;height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
+  .special-threat-card .character-label::before{background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
+  .special-threat-card .character-special{left:-4px;right:auto;top:17px;width:72px;max-width:72px;padding:2px 12px 2px 6px;text-align:left;}
+  .special-threat-card .character-effect{min-height:70px;padding-top:12px;color:#fff;}
+  .special-threat-card .character-effect::before{background:#050505;}
+  .special-threat-card .character-effect-icon{color:#fff;}
   .special-threat-card.concealed{background:#fff url('tabicardura.jpg') center/cover no-repeat;border-color:#10233f;box-shadow:0 4px 12px rgba(0,0,0,.18);}
   .special-threat-card.concealed>*{display:none;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
@@ -199,7 +202,10 @@
   .character-card-unit{position:relative;flex:0 0 82px;width:82px;height:122px;}
   .character-card-unit>.character-card{width:82px;height:122px;}
   .character-card-unit>.victory-condition-icon{position:absolute;left:50%;top:var(--victory-icon-top,127px);z-index:4;transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
+  .character-card-unit>.threat-condition-icon{position:absolute;left:50%;top:calc(var(--victory-icon-top,127px) + 18px);z-index:4;transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
   .character-capture>.victory-condition-icon{position:absolute;left:50%;top:61px;z-index:2;transform:translateX(-50%);}
+  .character-capture>.threat-condition-icon{position:absolute;left:50%;top:79px;z-index:2;transform:translateX(-50%);}
+  .threat-condition-icon{height:15px;display:flex;align-items:center;justify-content:center;gap:2px;font:900 9px/15px system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;pointer-events:none;}
   @keyframes captureArrive{from{transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .stage-dialog{position:fixed;inset:0;z-index:320;display:grid;place-items:center;background:rgba(0,0,0,.38);}
@@ -1183,17 +1189,7 @@ function createSpecialThreatCardElement(cardData){
   lower.textContent = cardData.name;
   const effect = document.createElement('div');
   effect.className = 'character-effect';
-  const effectRow = createCharacterEffectRow('special', cardData.effect);
-  const description = effectRow.lastElementChild;
-  const effectSquare = (color, number = '') => {
-    const item = document.createElement('span'); item.className = `victory-condition-square ${color}`; item.textContent = number; return item;
-  };
-  if (cardData.name === '恐怖' || cardData.name === 'モルグルの刃') {
-    description.replaceChildren(document.createTextNode('play ✕ '), effectSquare(cardData.name === '恐怖' ? 'orange' : 'yellow'));
-  } else if (cardData.name === '黒の息') {
-    description.replaceChildren(document.createTextNode('✕ '), effectSquare('black', '8'));
-  }
-  effect.appendChild(effectRow);
+  effect.appendChild(createCharacterEffectRow('special', cardData.effect));
   card.append(upper, lower, effect);
   if (!cardData.concealed) {
     card.setAttribute('role', 'button'); card.tabIndex = 0;
@@ -1619,6 +1615,26 @@ function createVictoryConditionIcon(cardData, playerId){
   const status = achieved ? '（達成済み）' : '';
   icon.setAttribute('aria-label', `勝利条件：${victory}${status}`);
   icon.title = `勝利条件：${victory}${status}`;
+  return icon;
+}
+
+function createThreatConditionIcon(playerId){
+  const threats = state.game?.threatCards?.[playerId] || [];
+  const restriction = threats.find(card => ['恐怖', 'モルグルの刃', '黒の息'].includes(card.name));
+  if (!restriction) return null;
+  const icon = document.createElement('span');
+  icon.className = 'threat-condition-icon';
+  const square = document.createElement('span');
+  const squareColor = restriction.name === '恐怖' ? 'orange' : restriction.name === 'モルグルの刃' ? 'yellow' : '';
+  square.className = `victory-condition-square${squareColor ? ` ${squareColor}` : ''}`;
+  if (restriction.name === '黒の息') {
+    icon.append('✕', square);
+    square.textContent = '8';
+    icon.setAttribute('aria-label', '8を獲得してはいけない');
+  } else {
+    icon.append('play', '✕', square);
+    icon.setAttribute('aria-label', restriction.name === '恐怖' ? '丘でリードできない' : '指輪でリードできない');
+  }
   return icon;
 }
 
@@ -3146,6 +3162,8 @@ function renderMyHand(){
       const characterUnit = document.createElement('div');
       characterUnit.className = 'character-card-unit';
       characterUnit.append(card, createVictoryConditionIcon(normalized, myId));
+      const threatConditionIcon = createThreatConditionIcon(myId);
+      if (threatConditionIcon) characterUnit.appendChild(threatConditionIcon);
       cardRow.appendChild(characterUnit);
     } else cardRow.appendChild(card);
   });
@@ -4165,6 +4183,8 @@ function renderPlayerCircle(players){
         if (isCharacterEffectTurn(p.id)) characterCard.classList.add('effect-turn');
         characterHolder.appendChild(characterCard);
         characterBundle.append(characterHolder, createVictoryConditionIcon(character, p.id));
+        const threatConditionIcon = createThreatConditionIcon(p.id);
+        if (threatConditionIcon) characterBundle.appendChild(threatConditionIcon);
         const radagastCard = state.game?.radagastReservedCard?.playerId === p.id ? state.game.radagastReservedCard : null;
         const shadowfaxCard = state.game?.shadowfaxReservedCard?.playerId === p.id && !state.game.shadowfaxReservedCard.inHand
           ? state.game.shadowfaxReservedCard : null;
