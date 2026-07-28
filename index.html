@@ -147,15 +147,16 @@
   .threat-card .card-name{left:0;right:auto;bottom:5px;width:66px;height:19px;padding-right:9px;box-sizing:border-box;background:#4a2f20;color:#fff;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);font-size:9px;line-height:19px;letter-spacing:0;white-space:nowrap;}
   .threat-card .card-name::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
-  .special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(255,244,220,.72);}
-  .special-threat-card .character-label{left:-4px;right:auto;width:64px;max-width:64px;height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
-  .special-threat-card .character-label::before{background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
-  .special-threat-card .character-special{left:-4px;right:auto;top:17px;width:72px;max-width:72px;padding:2px 12px 2px 6px;text-align:left;}
-  .special-threat-card .character-effect{min-height:70px;padding-top:12px;color:#fff;}
-  .special-threat-card .character-effect::before{background:#050505;}
-  .special-threat-card .character-effect-icon{color:#fff;}
-  .special-threat-card.concealed{background:#fff url('tabicardura.jpg') center/cover no-repeat;border-color:#10233f;box-shadow:0 4px 12px rgba(0,0,0,.18);}
-  .special-threat-card.concealed>*{display:none;}
+  /* character-card の共通規則より詳細度を上げ、通常の脅威カードと同じ茶枠・黒塗りを保つ。 */
+  .character-card.special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(255,244,220,.72);}
+  .character-card.special-threat-card .character-label{left:-4px;right:auto;width:64px;max-width:64px;height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
+  .character-card.special-threat-card .character-label::before{background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
+  .character-card.special-threat-card .character-special{left:-4px;right:auto;top:17px;width:72px;max-width:72px;padding:2px 12px 2px 6px;text-align:left;}
+  .character-card.special-threat-card .character-effect{min-height:70px;padding-top:12px;color:#fff;}
+  .character-card.special-threat-card .character-effect::before{background:#050505;}
+  .character-card.special-threat-card .character-effect-icon{color:#fff;}
+  .character-card.special-threat-card.concealed{background:#fff url('tabicardura.jpg') center/cover no-repeat;border-color:#10233f;box-shadow:0 4px 12px rgba(0,0,0,.18);}
+  .character-card.special-threat-card.concealed>*{display:none;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   .victory-condition-icon{width:auto;min-width:15px;height:15px;border:0;background:transparent;color:#111;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:1px;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;white-space:nowrap;}
   .victory-condition-squares,.victory-condition-option{display:flex;align-items:center;justify-content:center;gap:1px;}
@@ -206,6 +207,7 @@
   .character-card-unit>.threat-condition-icon{position:absolute;left:50%;top:calc(var(--victory-icon-top,127px) + 18px);z-index:4;transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
   .character-capture>.victory-condition-icon{position:absolute;left:50%;top:61px;z-index:2;transform:translateX(-50%);}
   .character-capture>.threat-condition-icon{position:absolute;left:50%;top:79px;z-index:2;transform:translateX(-50%);}
+  .threat-capture>.threat-condition-icon{position:absolute;left:50%;top:61px;z-index:3;transform:translateX(-50%);}
   .threat-condition-icon{height:15px;display:flex;align-items:center;justify-content:center;gap:2px;font:900 9px/15px system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;pointer-events:none;}
   @keyframes captureArrive{from{transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
@@ -1619,9 +1621,10 @@ function createVictoryConditionIcon(cardData, playerId){
   return icon;
 }
 
-function createThreatConditionIcon(playerId){
+function createThreatConditionIcon(playerId, threatName){
   const threats = state.game?.threatCards?.[playerId] || [];
-  const restriction = threats.find(card => ['恐怖', 'モルグルの刃', '黒の息'].includes(card.name));
+  const restriction = threats.find(card => ['恐怖', 'モルグルの刃', '黒の息'].includes(card.name)
+    && (!threatName || card.name === threatName));
   if (!restriction) return null;
   const icon = document.createElement('span');
   icon.className = 'threat-condition-icon';
@@ -4220,6 +4223,10 @@ function renderPlayerCircle(players){
         && victoryConditionStatus(state.room, p.id).status !== 'achieved';
       holder.appendChild(createCardElement(concealed ? { ...threatCard, concealed:true } : threatCard));
       threatBundle.appendChild(holder);
+      if (isMe && threatCard.kind === 'special-threat') {
+        const threatConditionIcon = createThreatConditionIcon(p.id, threatCard.name);
+        if (threatConditionIcon) threatBundle.appendChild(threatConditionIcon);
+      }
       capture.appendChild(threatBundle);
     });
     const leadingCaptureOffset = (characterOffsetCount + threatCards.length) * 40;
