@@ -305,6 +305,14 @@
   .exchange-targets{display:flex;justify-content:center;gap:6px;margin-top:8px;overflow-x:auto;}
   .exchange-target{flex:0 0 auto;min-width:88px;background:#fff;color:#111;border-color:#777;}
   .exchange-note{position:absolute;right:12px;bottom:8px;font-size:10px;font-weight:700;}
+  .threat-choice-grid{display:grid;grid-template-columns:repeat(4,36px);gap:8px;justify-content:center;margin-top:8px;}
+  .threat-choice{width:36px;height:36px;padding:0;border:0;border-radius:3px;background:#111;color:#fff;font-weight:900;}
+  .public-mini-card{background:none!important;border:0!important;overflow:visible;}
+  .public-mini-card>.my-card{transform:scale(.39);transform-origin:top left;}
+  .reserved-card{opacity:.35;order:-1;}
+  .my-card.effect-pick{cursor:pointer;animation:exchangeCardPulse 1.05s ease-in-out infinite;}
+  .last-card-marker{position:absolute;left:50%;top:calc(100% + 62px);transform:translateX(-50%);display:flex;align-items:center;gap:2px;font-size:9px;font-weight:900;white-space:nowrap;}
+  .last-card-marker .mini-card{position:static;width:12px;height:18px;transform:none!important;border-radius:2px;}
   .my-hand.exchange-pickable{animation:none;}
   .my-card.exchange-pick{cursor:grab;touch-action:none;animation:exchangeCardPulse 1.05s ease-in-out infinite;}
   @keyframes exchangeCardPulse{50%{transform:scale(1.07)}}
@@ -745,6 +753,21 @@
   <div class="strider-choice-note">＊2秒長押しで決定。</div>
 </section>
 
+<section id="threatChoiceDialog" class="exchange-dialog hidden" aria-live="assertive">
+  <div class="exchange-message">脅威カードを選んでください。</div>
+  <div id="threatChoiceGrid" class="threat-choice-grid"></div>
+  <div class="exchange-note">＊2秒長押しで決定。</div>
+</section>
+
+<section id="shadowfaxDecision" class="yellow-one-decision hidden" aria-live="assertive">
+  <div class="yellow-one-question">手札に加えますか。</div>
+  <div class="yellow-one-actions">
+    <button class="btn hold-decision" type="button" data-shadowfax-decision="yes"><span>はい</span></button>
+    <button class="btn hold-decision" type="button" data-shadowfax-decision="no"><span>いいえ</span></button>
+  </div>
+  <div class="yellow-one-note">＊2秒長押しで決定。</div>
+</section>
+
 <div id="chapterCompleteBanner" class="chapter-complete-banner" role="status" aria-live="assertive"></div>
 
 <script type="module">
@@ -845,6 +868,9 @@ const exchangeTargets = document.getElementById('exchangeTargets');
 const striderChoiceDialog = document.getElementById('striderChoiceDialog');
 const striderChoiceQuestion = document.getElementById('striderChoiceQuestion');
 const chapterCompleteBanner = document.getElementById('chapterCompleteBanner');
+const threatChoiceDialog = document.getElementById('threatChoiceDialog');
+const threatChoiceGrid = document.getElementById('threatChoiceGrid');
+const shadowfaxDecision = document.getElementById('shadowfaxDecision');
 
 const CHARACTER_NAMES = {
   frodo: 'フロド',
@@ -1858,7 +1884,9 @@ function renderStageInformation(){
   const canTomPick = Boolean(excludedCards.length)
     && state.game?.phase === 'tom-selection'
     && state.game?.tomPlayerId === state.userId;
-  excludedCardSlot.classList.toggle('gandalf-pick', canGandalfPick || canTomPick);
+  const canGlorfindelPick = Boolean(excludedCard) && state.game?.phase === 'glorfindel-selection'
+    && state.game?.glorfindelPlayerId === state.userId;
+  excludedCardSlot.classList.toggle('gandalf-pick', canGandalfPick || canTomPick || canGlorfindelPick);
   excludedCardSlot.style.width = `${38 + Math.max(0, excludedCards.length - 1) * 16}px`;
   excludedCards.forEach((cardData, index) => {
     const item = document.createElement('div');
@@ -1943,9 +1971,27 @@ function exchangeCandidates(game, sourceId){
     : characterName === '馳夫' ? ['フロド']
     : characterName === 'ピピン' ? ['フロド', 'サム', 'メリー']
     : characterName === 'サム' ? ['フロド', 'メリー', 'ピピン']
-    : characterName === 'メリー' ? ['フロド', 'サム', 'ピピン'] : [];
+    : characterName === 'メリー' ? ['フロド', 'サム', 'ピピン']
+    : characterName === '小馬のビル' ? ['サム', 'フロド']
+    : characterName === 'グローイン' ? ['ビルボ', 'ビルボ・バギンズ', 'ギムリ']
+    : characterName === 'アルウェン' ? ['エルロンド', 'アラゴルン']
+    : characterName === 'ボロミア' ? (game.playerOrder || []).map(id => game.characterSelections?.[id]?.name).filter(name => name !== 'フロド')
+    : characterName === 'グワイヒア' ? ['ガンダルフ']
+    : null;
   return (game?.playerOrder || []).filter(playerId => playerId !== sourceId
-    && allowedNames.includes(game.characterSelections?.[playerId]?.name));
+    && (!allowedNames || allowedNames.includes(game.characterSelections?.[playerId]?.name)));
+}
+
+function exchangeRequirement(game, sourceId){
+  const name = game?.characterSelections?.[sourceId]?.name;
+  if (game?.elrondGivePlayers?.[sourceId] && !game.elrondGiveCompleted?.[sourceId]) return { mode:'give-right', count:1 };
+  if (name === '“でぶちゃん”のボルジャー') return { mode:'give', count:Math.max(0, (game.playerOrder || []).length - 1) };
+  if (name === 'エルロンド') return { mode:'exchange', count:0 };
+  if (name === 'グロルフィンデル') return { mode:'exchange-all', count:Math.max(0, (game.playerOrder || []).length - 1) };
+  if (name === '小馬のビル' || name === 'グワイヒア') return { mode:'exchange', count:2 };
+  const singleExchangeNames = new Set(['ガンダルフ','トム・ボンバディル','馳夫','ピピン','サム','メリー',
+    'バーリマン・バタバー','グローイン','アルウェン','アラゴルン','ボロミア']);
+  return { mode:'exchange', count:singleExchangeNames.has(name) && exchangeCandidates(game, sourceId).length ? 1 : 0 };
 }
 
 function isCharacterEffectTurn(playerId){
@@ -1957,6 +2003,9 @@ function isCharacterEffectTurn(playerId){
     || (game.phase === 'tom-selection' ? game.tomPlayerId : null)
     || (game.phase === 'gandalf-selection' ? game.gandalfPlayerId : null)
     || (game.phase === 'strider-comparison' ? game.striderPlayerId : null)
+    || (game.phase === 'aragorn-threat-selection' ? game.threatDrawPlayerId : null)
+    || (['radagast-selection','shadowfax-selection'].includes(game.phase) ? game.specialSelectionPlayerId : null)
+    || (game.phase === 'glorfindel-selection' ? game.glorfindelPlayerId : null)
     || game.exchangeQueue?.[0];
   return activePlayerId === playerId;
 }
@@ -2010,7 +2059,14 @@ function beginNextExchange(game){
     const characterName = game.characterSelections?.[sourceId]?.name;
     game.effectTurnStartedAt ||= {};
     game.effectTurnStartedAt[sourceId] ||= Date.now();
-    const needsThreatDraw = ['農夫マゴット', 'サム', '馳夫', 'アラゴルン'].includes(characterName)
+    if (characterName === 'エルロンド' && !game.elrondGiveInitialized) {
+      game.elrondGiveInitialized = true;
+      game.elrondGivePlayers = Object.fromEntries((game.playerOrder || []).map(id => [id, true]));
+      game.exchangeQueue.shift();
+      game.exchangeQueue.unshift(...(game.playerOrder || []));
+      continue;
+    }
+    const needsThreatDraw = ['農夫マゴット', 'サム', '馳夫'].includes(characterName)
       && !(game.threatCards?.[sourceId] || []).length;
     if (needsThreatDraw) {
       game.phase = 'threat-draw-wait';
@@ -2037,14 +2093,41 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
+    if (characterName === 'グロルフィンデル' && game.excludedCard && !game.glorfindelEffectCompleted) {
+      game.phase = 'glorfindel-selection';
+      game.glorfindelPlayerId = sourceId;
+      game.turnPlayerId = null;
+      return;
+    }
+    if (characterName === 'アラゴルン' && !(game.threatCards?.[sourceId] || []).length) {
+      game.phase = 'aragorn-threat-selection';
+      game.threatDrawPlayerId = sourceId;
+      game.turnPlayerId = null;
+      return;
+    }
+    if (characterName === 'ラダガスト' && !game.radagastReservedCard) {
+      game.phase = 'radagast-selection'; game.specialSelectionPlayerId = sourceId; game.turnPlayerId = null; return;
+    }
+    if (characterName === '飛蔭（とびかげ）' && !game.shadowfaxReservedCard) {
+      game.phase = 'shadowfax-selection'; game.specialSelectionPlayerId = sourceId; game.turnPlayerId = null; return;
+    }
     game.exchangeQueue.shift();
-    if (game.completedExchanges?.[sourceId]) continue;
-    const candidates = exchangeCandidates(game, sourceId);
+    const requirement = exchangeRequirement(game, sourceId);
+    const completed = game.completedExchangeCounts?.[sourceId] || 0;
+    if (completed >= requirement.count) continue;
+    const allCandidates = requirement.mode === 'give-right'
+      ? [game.playerOrder[(game.playerOrder.indexOf(sourceId) - 1 + game.playerOrder.length) % game.playerOrder.length]]
+      : exchangeCandidates(game, sourceId);
+    const used = game.effectExchangeTargets?.[sourceId] || [];
+    const candidates = requirement.mode === 'exchange-all' || characterName === '小馬のビル' || requirement.mode === 'give'
+      ? allCandidates.filter(id => !used.includes(id)) : allCandidates;
     if (!candidates.length) continue;
+    // 複数回効果は同じキャラクターをキュー先頭へ戻して、完了ごとに次の相手へ進める。
+    game.exchangeQueue.unshift(sourceId);
     game.pendingExchange = {
       sourceId, candidates,
       targetId:candidates.length === 1 ? candidates[0] : null,
-      selectingPlayerId:sourceId, selections:{}, requestedAt:Date.now()
+      selectingPlayerId:sourceId, selections:{}, mode:requirement.mode, requestedAt:Date.now()
     };
     // 候補が複数でも、カードをどのプレイヤーへ落とすかで交換相手を同時に選ぶ。
     game.phase = 'exchange-card-selection';
@@ -2147,9 +2230,67 @@ async function takeExcludedCardsAsTom(){
 
 excludedCardSlot.addEventListener('click', () => {
   if (state.game?.phase === 'tom-selection') takeExcludedCardsAsTom();
+  else if (state.game?.phase === 'glorfindel-selection') takeExcludedCardAsGlorfindel();
   else takeExcludedCardAsGandalf();
 });
 excludedCardSlot.addEventListener('click', event => event.stopPropagation());
+
+async function takeExcludedCardAsGlorfindel(){
+  if (!state.roomCode || state.game?.glorfindelPlayerId !== state.userId) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const game = room?.game;
+    if (game?.phase !== 'glorfindel-selection' || !game.excludedCard) return;
+    room.hands[state.userId].cards.push(game.excludedCard);
+    game.lostCardTransfer = { cardId:game.excludedCard.id, playerId:state.userId, movedAt:Date.now() };
+    delete game.excludedCard; delete game.glorfindelPlayerId;
+    game.glorfindelEffectCompleted = true;
+    beginNextExchange(game);
+    return room;
+  });
+}
+
+function renderThreatChoice(){
+  const visible = state.game?.phase === 'aragorn-threat-selection' && state.game?.threatDrawPlayerId === state.userId;
+  threatChoiceDialog.classList.toggle('hidden', !visible);
+  threatChoiceGrid.replaceChildren();
+  if (!visible) return;
+  const stage = STAGES.find(item => item.number === Number(state.game.stageNumber));
+  const threat = stage?.threats?.[0] || { min:1, max:4 };
+  for (let number = threat.min; number <= threat.max; number += 1) {
+    const button = document.createElement('button');
+    button.className = 'threat-choice'; button.textContent = number;
+    attachTwoSecondHold(button, () => chooseAragornThreat(number));
+    threatChoiceGrid.append(button);
+  }
+}
+
+async function chooseAragornThreat(number){
+  await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    if (game?.phase !== 'aragorn-threat-selection' || game.threatDrawPlayerId !== state.userId) return;
+    const stage = STAGES.find(item => item.number === Number(game.stageNumber));
+    const threat = stage?.threats?.[0] || { name:'脅威カード', min:1, max:4 };
+    if (number < threat.min || number > threat.max) return;
+    game.threatCards ||= {};
+    game.threatCards[state.userId] = [{ kind:'threat', color:'threat', name:threat.name, number, id:`${state.userId}-threat-${Date.now()}-${number}` }];
+    delete game.threatDrawPlayerId;
+    beginNextExchange(game);
+    return game;
+  });
+}
+
+async function reserveSpecialCard(cardId){
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const game = room?.game;
+    if (!['radagast-selection','shadowfax-selection'].includes(game?.phase) || game.specialSelectionPlayerId !== state.userId) return;
+    const card = room.hands?.[state.userId]?.cards?.find(item => item.id === cardId && item.kind !== 'character');
+    if (!card) return;
+    if (game.phase === 'radagast-selection') game.radagastReservedCard = { ...card, playerId:state.userId };
+    else game.shadowfaxReservedCard = { ...card, playerId:state.userId, inHand:false };
+    delete game.specialSelectionPlayerId;
+    beginNextExchange(game);
+    return room;
+  });
+}
 
 function animateLostCard(sourceRect, transfer){
   if (!sourceRect || !transfer?.cardId) return;
@@ -2338,6 +2479,7 @@ function subscribeRoom(){
     renderYellowOneDecision();
     renderExchangeDialog();
     renderStriderChoice();
+    renderThreatChoice();
     renderChapterComplete();
     scheduleOldForestDraw();
     scheduleBarrowDraw();
@@ -2430,6 +2572,20 @@ striderChoiceDialog.querySelectorAll('.hold-decision').forEach(button => {
   attachTwoSecondHold(button, () => chooseStriderComparison(button.dataset.striderChoice));
 });
 
+shadowfaxDecision.querySelectorAll('.hold-decision').forEach(button => {
+  attachTwoSecondHold(button, async () => {
+    const add = button.dataset.shadowfaxDecision === 'yes';
+    shadowfaxDecision.classList.add('hidden');
+    if (!add || !state.roomCode) return;
+    await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+      if (!game?.shadowfaxReservedCard || game.shadowfaxReservedCard.playerId !== state.userId) return;
+      game.shadowfaxReservedCard.inHand = true;
+      game.shadowfaxReservedCard.returnedAt = Date.now();
+      return game;
+    });
+  });
+});
+
 function renderExchangeDialog(){
   const exchange = state.game?.pendingExchange;
   const choosingTarget = state.game?.phase === 'exchange-target-selection' && exchange?.sourceId === state.userId;
@@ -2492,10 +2648,30 @@ async function chooseExchangeCard(cardId, droppedTargetId){
       ? game.exchangeOfferTransfer.card
       : null;
     const card = (room.hands?.[state.userId]?.cards || []).find(item => item.id === cardId) || offeredCard;
-    if (!card || card.kind === 'character' || (card.color === 'yellow' && card.number === 1)) return;
+    const sourceCharacter = game.characterSelections?.[exchange.sourceId]?.name;
+    if (!card || card.kind === 'character'
+      || (card.color === 'yellow' && card.number === 1 && sourceCharacter === 'フロド')) return;
     exchange.selections ||= {};
     exchange.selections[state.userId] = cardId;
     if (state.userId === exchange.sourceId) {
+      if (exchange.mode === 'give' || exchange.mode === 'give-right') {
+        const sourceCards = room.hands[exchange.sourceId].cards;
+        const sourceIndex = sourceCards.findIndex(item => item.id === cardId);
+        if (sourceIndex < 0) return;
+        const [givenCard] = sourceCards.splice(sourceIndex, 1);
+        room.hands[exchange.targetId].cards.push(givenCard);
+        game.exchangeTransfer = { sourceId:exchange.sourceId, targetId:exchange.targetId, sourceCard:givenCard, completedAt:Date.now(), giveOnly:true };
+        game.completedExchangeCounts ||= {};
+        game.completedExchangeCounts[exchange.sourceId] = (game.completedExchangeCounts[exchange.sourceId] || 0) + 1;
+        if (exchange.mode === 'give-right') {
+          game.elrondGiveCompleted ||= {}; game.elrondGiveCompleted[exchange.sourceId] = true;
+        }
+        game.effectExchangeTargets ||= {}; game.effectExchangeTargets[exchange.sourceId] ||= [];
+        game.effectExchangeTargets[exchange.sourceId].push(exchange.targetId);
+        delete game.pendingExchange;
+        beginNextExchange(game);
+        return room;
+      }
       // 交換者が先に渡すカードを確定し、到着演出後に相手へ選択を依頼する。
       exchange.selectingPlayerId = exchange.targetId;
       game.exchangeOfferTransfer = {
@@ -2528,6 +2704,10 @@ async function chooseExchangeCard(cardId, droppedTargetId){
     // 空になった配列はRealtime Database上で消えるため、完了者を別途記録して再実行を防ぐ。
     game.completedExchanges ||= {};
     game.completedExchanges[exchange.sourceId] = true;
+    game.completedExchangeCounts ||= {};
+    game.completedExchangeCounts[exchange.sourceId] = (game.completedExchangeCounts[exchange.sourceId] || 0) + 1;
+    game.effectExchangeTargets ||= {}; game.effectExchangeTargets[exchange.sourceId] ||= [];
+    game.effectExchangeTargets[exchange.sourceId].push(exchange.targetId);
     delete game.exchangeOfferTransfer;
     delete game.pendingExchange;
     beginNextExchange(game);
@@ -2706,6 +2886,10 @@ function renderMyHand(){
     && (exchange.selectingPlayerId || exchange.sourceId) === myId
     && (!exchange.selectionAvailableAt || Date.now() >= exchange.selectionAvailableAt);
   const selectedExchangeCardId = exchange?.selections?.[myId];
+  const specialSelection = ['radagast-selection','shadowfax-selection'].includes(state.game?.phase)
+    && state.game?.specialSelectionPlayerId === myId;
+  const radagastReservedId = state.game?.radagastReservedCard?.playerId === myId ? state.game.radagastReservedCard.id : null;
+  const shadowfaxReserved = state.game?.shadowfaxReservedCard?.playerId === myId ? state.game.shadowfaxReservedCard : null;
   const colorOrder = { red: 0, green: 1, orange: 2, gray: 3, yellow: 4 };
   const displayedCards = handData.cards.map((cardData, cardIndex) => ({
     // 古いルームに残っている数字カードも表示を壊さない。
@@ -2715,6 +2899,8 @@ function renderMyHand(){
     cardIndex
   })).filter(({ normalized }) => normalized.id !== selectedExchangeCardId)
     .filter(({ normalized }) => normalized.kind !== 'character' || !characterIsWaiting).sort((left, right) => {
+    if (left.normalized.id === radagastReservedId) return -1;
+    if (right.normalized.id === radagastReservedId) return 1;
     if (left.normalized.kind === 'character') return right.normalized.kind === 'character' ? 0 : -1;
     if (right.normalized.kind === 'character') return 1;
     const typeDifference = (colorOrder[left.normalized.color] ?? 3) - (colorOrder[right.normalized.color] ?? 3);
@@ -2736,7 +2922,11 @@ function renderMyHand(){
       card.style.setProperty('--card-stack-index', displayedNumberIndex);
       displayedNumberIndex += 1;
     }
-    const canPlay = normalized.kind !== 'character' && state.game?.phase === 'playing'
+    const playableNumberCards = handData.cards.filter(item => item.kind !== 'character'
+      && (!shadowfaxReserved || shadowfaxReserved.inHand || item.id !== shadowfaxReserved.id));
+    const canPlayReserved = (normalized.id !== radagastReservedId || playableNumberCards.length === 1)
+      && (!shadowfaxReserved || shadowfaxReserved.inHand || normalized.id !== shadowfaxReserved.id);
+    const canPlay = normalized.kind !== 'character' && canPlayReserved && state.game?.phase === 'playing'
       && !state.game.pendingCapture && !state.game.pendingYellowOneDecision
       && !state.game.pendingOldForestDrawAt
       && state.game.turnPlayerId === myId && canFollowSuit(normalized);
@@ -2745,11 +2935,23 @@ function renderMyHand(){
       card.classList.add('playable');
       card.addEventListener('pointerdown', event => beginCardDrag(event, normalized, cardIndex, card));
     }
+    const myCharacterName = state.game?.characterSelections?.[myId]?.name;
     const canExchange = canChooseExchangeCard && normalized.kind !== 'character'
-      && !(normalized.color === 'yellow' && normalized.number === 1);
+      && !(normalized.color === 'yellow' && normalized.number === 1 && myCharacterName === 'フロド');
     if (canExchange) {
       card.classList.add('exchange-pick');
       card.addEventListener('pointerdown', event => beginExchangeCardDrag(event, normalized, card));
+    }
+    if (specialSelection && normalized.kind !== 'character') {
+      card.classList.add('effect-pick');
+      card.addEventListener('click', () => reserveSpecialCard(normalized.id));
+    }
+    if (normalized.id === radagastReservedId || (shadowfaxReserved && !shadowfaxReserved.inHand && normalized.id === shadowfaxReserved.id)) card.classList.add('reserved-card');
+    if (shadowfaxReserved && !shadowfaxReserved.inHand && normalized.id === shadowfaxReserved.id) {
+      let holdTimer;
+      const cancelHold = () => clearTimeout(holdTimer);
+      card.addEventListener('pointerdown', () => { holdTimer = setTimeout(() => shadowfaxDecision.classList.remove('hidden'), 2000); });
+      card.addEventListener('pointerup', cancelHold); card.addEventListener('pointercancel', cancelHold);
     }
     const cardRow = normalized.kind === 'character' || displayedNumberIndex <= 6 ? upperRow : lowerRow;
     if (normalized.kind === 'character') {
@@ -2886,13 +3088,19 @@ async function playCard(cardIndex, expectedCard){
     }
     hand.splice(cardIndex, 1);
     room.hands[state.userId].cards = hand;
+    if (room.game.shadowfaxReservedCard?.playerId === state.userId && !room.game.shadowfaxReservedCard.inHand) {
+      const reservedId = room.game.shadowfaxReservedCard.id;
+      const hasOrdinaryCard = hand.some(item => item.kind !== 'character' && item.id !== reservedId);
+      if (!hasOrdinaryCard) room.game.shadowfaxReservedCard.inHand = true;
+    }
     if (card.color === 'yellow') room.game.ringCircleOn = true;
     room.game.trick ||= {};
     room.game.trick[state.userId] = { card, order: existing.length, tilt: Math.floor(Math.random()*5)-2 };
     const order = room.game.playerOrder;
     // 配り切りで手札枚数に1枚差がある場合、カードが残っているプレイヤーだけで最後のトリックを行う。
     const trickPlayers = order.filter(id => room.game.trick[id]
-      || (room.hands[id]?.cards || []).some(handCard => handCard.kind !== 'character'));
+      || (room.hands[id]?.cards || []).some(handCard => handCard.kind !== 'character'
+        && (room.game.shadowfaxReservedCard?.playerId !== id || room.game.shadowfaxReservedCard.inHand || handCard.id !== room.game.shadowfaxReservedCard.id)));
     if (existing.length + 1 === trickPlayers.length) {
       const plays = [...existing, room.game.trick[state.userId]];
       const lead = plays[0].card.color;
@@ -3095,7 +3303,10 @@ async function chooseCharacter(characterName, source){
     }
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
-      room.game.startingPlayerId = room.game.turnPlayerId || room.game.playerOrder[0];
+      const forcedLeaderNames = ['山の下さん', 'グロルフィンデル', 'エルロンド', 'ラダガスト'];
+      const forcedLeader = forcedLeaderNames.map(name => Object.entries(room.game.characterSelections)
+        .find(([, selected]) => selected.name === name)?.[0]).find(Boolean);
+      room.game.startingPlayerId = forcedLeader || room.game.turnPlayerId || room.game.playerOrder[0];
       if (Number(room.game.stageNumber) === 6 && room.game.barrowDeck?.length) {
         room.game.barrowPlayerId = Object.entries(room.game.characterSelections)
           .find(([, selected]) => selected.name === 'トム・ボンバディル')?.[0] || null;
@@ -3577,6 +3788,11 @@ function renderPlayerCircle(players){
         card.className = 'mini-card';
         card.textContent = '';
 
+        if (state.game?.characterSelections?.[p.id]?.name === 'ゴールドベリ') {
+          card.classList.add('public-mini-card');
+          card.appendChild(createCardElement(v));
+        }
+
         const angleDeg = (count > 1) ? base + (spread/(count-1))*idx2 : 0;
         card.style.transform = `translate(-50%,0) rotate(${angleDeg}deg)`;
         card.style.zIndex = String(10 + idx2);
@@ -3584,6 +3800,22 @@ function renderPlayerCircle(players){
       });
 
       tag.appendChild(miniHand);
+    }
+
+    const radagastCard = state.game?.radagastReservedCard?.playerId === p.id ? state.game.radagastReservedCard : null;
+    const shadowfaxCard = state.game?.shadowfaxReservedCard?.playerId === p.id && !state.game.shadowfaxReservedCard.inHand
+      ? state.game.shadowfaxReservedCard : null;
+    if (p.id !== state.userId && (radagastCard || shadowfaxCard)) {
+      const marker = document.createElement('div'); marker.className = 'last-card-marker';
+      if (radagastCard) {
+        marker.append('last');
+        const square = document.createElement('span');
+        square.className = `victory-condition-square ${radagastCard.color}`; square.textContent = radagastCard.number;
+        marker.append(square);
+      } else {
+        const back = document.createElement('span'); back.className = 'mini-card'; marker.append(back);
+      }
+      tag.append(marker);
     }
 
     const pendingExchange = state.game?.pendingExchange;
