@@ -224,6 +224,8 @@
   .event-card-title{position:absolute;left:13%;right:13%;top:calc(8% - 6px);height:16%;display:grid;place-items:center;text-align:center;font-size:10px;font-weight:900;line-height:1.05;}
   .event-card-text{position:absolute;left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);display:block;padding:2px;box-sizing:border-box;overflow:hidden;white-space:pre-line;text-align:left;font-size:8px;line-height:1.08;}
   .event-card-text strong{display:block;margin-bottom:2px;font-weight:900;}
+  .event-card-hammer{display:inline-block;width:8px;height:8px;margin-right:2px;vertical-align:-1px;color:#111;}
+  .event-card-hammer svg{display:block;width:100%;height:100%;fill:currentColor;}
   .event-card-footer{position:absolute;left:10px;right:10px;bottom:7px;display:flex;justify-content:space-between;align-items:end;font-size:6px;font-weight:700;line-height:1;}
   .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);z-index:2;}
   .ringcircle.on{background-image:url('ringcircleon.jpg');}
@@ -854,7 +856,7 @@ defineStage(5, {
   eventCards: [
     {
       title:'柳じじい', heading:'イベント：古森', number:'2.14', rank:'無し',
-      text:'森カード8枚と〈柳じじい〉のカードを裏向きでシャッフルし、古森デッキを作る。\nそのあと、次のように配る。',
+      hammer:true, text:'森カード8枚と〈柳じじい〉のカードを裏向きでシャッフルし、古森デッキを作る。\nそのあと、次のように配る。',
       playerText:{ 3:'各プレイヤーに手札9枚、失われしたカード2枚', 4:'各プレイヤーに手札7枚、失われしたカード1枚' }
     },
     {
@@ -867,8 +869,16 @@ defineStage(6, {
   title: '霧の塚山丘陵', story: '行く手の両側から、霧を通して闇が迫り始めた。彼は、ついに丘の隙間――塚山の北門へと近づいているのだと察した。そこを抜けさえすれば、自由になれるのだ。',
   characters: ['frodo*,tom_bombadil*,goldberry*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈塚人〉カードの〈イベント：霧の塚山丘陵〉の記述に従う。',
   eventCards: [
-    { title:'塚人\nイベント：霧の塚山丘陵', text:'メインデッキから指輪カード5枚を取り、脇に置く。残りをシャッフルし、3人なら10枚、4人なら5枚で塚デッキを作る。指輪カードを戻してシャッフルし、3人は各9枚、4人は各8枚配る。トム・ボンバディルは塚デッキから5枚引く。' },
-    { title:'塚人', text:'彼が正気を取り戻したとき、一瞬、恐怖の感覚しか思い出せなかった。だが突如として、自分が閉じ込められ、逃げ場のない状況にまで陥った。彼は塚の中にいた。塚人にさらわれたのだ。' }
+    {
+      title:'塚人', heading:'イベント：霧の塚山丘陵', hammer:true, number:'2.18', rank:'無し',
+      text:'メインデッキから指輪カード5枚を取り、脇に置く。残ったカードを裏向きでシャッフルし、3人なら10枚、4人なら5枚を取り、塚デッキを作る。その後、メインデッキに指輪カードを戻してシャッフルし、次のように配る。',
+      playerText:{ 3:'各手札9枚', 4:'各手札8枚' },
+      afterPlayerText:'その後、「トム・ボンバディル」は塚デッキから5枚引き、手札に加える。'
+    },
+    {
+      title:'塚人', heading:'塚人', number:'2.18', rank:'無し',
+      text:'彼が正気を取り戻したとき、\n一瞬、恐怖の感覚しか思い出せ\nなかった。だが突如として、自\n分が閉じ込められ、逃げ場のな\nい状況にまでなぐちった。そう、\n彼は塚の中にいた。塚人にさら\nわれたのだ。そして人々がひそ\nひそ語たる、塚人の恐ろしい\n呪文の支配下にすでに落ちてい\nるのかもしれなかった。'
+    }
   ]
 });
 defineStage(7, {
@@ -1617,9 +1627,16 @@ function renderStageInformation(){
       heading.textContent = eventCard.heading;
       text.appendChild(heading);
     }
+    if (eventCard?.hammer) {
+      const hammer = document.createElement('span');
+      hammer.className = 'event-card-hammer';
+      hammer.innerHTML = HAMMER_ICON_SVG;
+      text.appendChild(hammer);
+    }
     if (eventCard?.text) text.appendChild(document.createTextNode(eventCard.text));
     const playerText = eventCard?.playerText?.[Number(state.room?.maxPlayers)];
-    if (playerText) text.appendChild(document.createTextNode(`\n${playerText}`));
+    if (playerText) text.appendChild(document.createTextNode(`\n\n${playerText}`));
+    if (eventCard?.afterPlayerText) text.appendChild(document.createTextNode(`\n\n${eventCard.afterPlayerText}`));
     const footer = card.querySelector('.event-card-footer');
     footer.replaceChildren();
     if (eventCard?.number) {
