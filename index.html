@@ -147,6 +147,12 @@
   .threat-card .card-name{left:0;right:auto;bottom:5px;width:66px;height:19px;padding-right:9px;box-sizing:border-box;background:#4a2f20;color:#fff;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);font-size:9px;line-height:19px;letter-spacing:0;white-space:nowrap;}
   .threat-card .card-name::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
+  .special-threat-card{--character-frame:#171717;--character-panel:#eee9db;background:#302f2c url('kyoi.jpg') center/cover no-repeat;cursor:pointer;}
+  .special-threat-card .character-label{color:#111;}
+  .special-threat-card .character-special{top:17px;max-width:62px;width:max-content;}
+  .special-threat-card .character-effect{min-height:70px;padding-top:12px;}
+  .special-threat-card.concealed{background:#fff url('tabicardura.jpg') center/cover no-repeat;border-color:#10233f;box-shadow:0 4px 12px rgba(0,0,0,.18);}
+  .special-threat-card.concealed>*{display:none;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   .victory-condition-icon{width:auto;min-width:15px;height:15px;border:0;background:transparent;color:#111;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:1px;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;white-space:nowrap;}
   .victory-condition-squares,.victory-condition-option{display:flex;align-items:center;justify-content:center;gap:1px;}
@@ -157,6 +163,8 @@
   .victory-condition-or{margin:0 1px;font-size:9px;font-weight:900;line-height:15px;}
   .victory-condition-suffix{margin-left:2px;font-size:9px;font-weight:900;line-height:15px;}
   .victory-condition-icon.achieved{opacity:.35;}
+  .victory-condition-icon.gandalf-numbers{height:31px;display:grid;grid-template-columns:repeat(4,15px);grid-template-rows:repeat(2,15px);gap:1px;}
+  .victory-condition-square.number-acquired{opacity:.25;}
   .victory-condition-icon.awaiting-threat{display:none;}
   .victory-condition-icon.word .victory-condition-square{width:24px;}
   .victory-condition-icon.multiline{height:auto;flex-direction:column;gap:1px;line-height:12px;}
@@ -1002,7 +1010,7 @@ defineStage(9, {
   title: '浅瀬への逃走', story: '意識が薄れる中、フロドは最後に叫び声を聞いた。そして、岸辺でためらう黒の乗手たちの向こうに、白く輝く姿が見えたような気がした。その背後では、小さな影のような存在が走り、炎を振りかざしていた。世界を覆う灰色の霧の中で、その炎は赤くきらめいた。',
   characters: ['glorfindel*', 'frodo,sam,merry,pippin', 'strider,bill'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'long', goal:'everywin', additionalElements:'各ラウンドでは〈グロルフィンデル〉を使う（フロドは1回のみでよい）。\n〈九人組〉カードの〈イベント：浅瀬への逃走〉の記述に従う。',
   eventCards: [
-    { title:'九人組\nイベント：浅瀬への逃走', text:'キャラクターを選ぶ際、対応する黒の乗手を一緒に受け取ります。\nフロド：《魔王》　メリー：《黒の息》　ピピン：《幽鬼》　馳夫：《見える者》　サム：《恐怖》\n《グロルフィンデル》と《小馬のビル》は受け取りません。' },
+    { title:'九人組', heading:'イベント：浅瀬への逃走', hammer:true, text:'キャラクターを選ぶ際、対応する黒の乗手を一緒に受け取ります。\n・フロド：《モルグルの刃》\n・メリー：《黒の息》\n・ピピン：《幽鬼》\n・馳夫：《見えざる者》\n・サム：《恐怖》\n・《グロルフィンデル》と《小馬のビル》は受け取りません。' },
     { title:'九人組', text:'下流の水際には九人の黒の乗手が立ち、顔を上げたその威圧的な姿に、フロドの心は怯えた。もし彼らが一度でも渡ってしまえば、浅瀬から裂け谷へ続く長く不確かな道を逃げることは、まったく無意味に思えた。' }
   ]
 });
@@ -1028,7 +1036,7 @@ defineStage(12, {
   goal: 'allwin',
   additionalElements: '〈多彩なるサルマン〉を〈ガンダルフ〉に渡す。',
   eventCards: [
-    { title:'多彩なるサルマン\nイベント：サルマン', text:'最初のトリックをリードする。\n\n足止め\n★すべての数字（1～8）を1枚以上、勝利して獲得する。' },
+    { title:'多彩なるサルマン', heading:'イベント：サルマン', text:'最初のトリックをリードする。', secondaryHeading:'足止め', afterText:'★すべての数字（1～8）を1枚以上、勝利して獲得する。' },
     { title:'多彩なるサルマン', text:'「旅路は終わり、ここで永遠の安息を得るがよい。そして、私は賢者サルマン、指輪作りのサルマン、多彩なるサルマンなのだからな！」' }
   ]
 });
@@ -1037,6 +1045,18 @@ defineStage(12, {
 const helpBtn = document.getElementById('helpBtn');
 const helpBackdrop = document.getElementById('helpBackdrop');
 const helpBody = document.getElementById('helpBody');
+
+const STAGE_NINE_THREATS = {
+  'フロド':{ type:'魔法', name:'モルグルの刃', effect:'指輪でリードすることができない。' },
+  'メリー':{ type:'黒の乗手', name:'黒の息', effect:'8を獲得してはいけない。' },
+  'ピピン':{ type:'黒の乗手', name:'幽鬼', effect:'交換できず、交換の対象にもならない。' },
+  '馳夫':{ type:'黒の乗手', name:'見えざる者', effect:'配られた脅威カードは、自分の目的を達成するまで他プレイヤーに見せてはいけない。' },
+  'サム':{ type:'黒の乗手', name:'恐怖', effect:'丘でリードすることはできない。' }
+};
+
+function hasSpecialThreat(game, playerId, name){
+  return (game?.threatCards?.[playerId] || []).some(card => card.kind === 'special-threat' && card.name === name);
+}
 
 // 山札は各カード1枚ずつ（黄のみ1〜5、ほかの色は1〜8）。
 const CARD_TYPES = [
@@ -1098,6 +1118,7 @@ function fitCharacterName(target){
 
 function createCardElement(cardData){
   if (cardData.kind === 'character') return createCharacterCardElement(cardData);
+  if (cardData.kind === 'special-threat') return createSpecialThreatCardElement(cardData);
   const card = document.createElement('div');
   card.className = `my-card card-${cardData.color}`;
   if (cardData.kind === 'threat') card.classList.add('threat-card');
@@ -1144,6 +1165,53 @@ function createCardElement(cardData){
   // 左右とも数字とマークは同じ通常向きで表示する。
   card.append(createBadge('left'), createBadge('right'), name);
   return card;
+}
+
+function createSpecialThreatCardElement(cardData){
+  const card = document.createElement('div');
+  card.className = 'my-card character-card special-threat-card';
+  if (cardData.concealed) card.classList.add('concealed');
+  card.setAttribute('aria-label', cardData.concealed ? '非公開の脅威カード' : `脅威 ${cardData.name}`);
+  const upper = document.createElement('span');
+  upper.className = 'character-label';
+  upper.textContent = cardData.type;
+  const lower = document.createElement('span');
+  lower.className = 'character-label character-special';
+  lower.textContent = cardData.name;
+  const effect = document.createElement('div');
+  effect.className = 'character-effect';
+  const effectRow = createCharacterEffectRow('special', cardData.effect);
+  const description = effectRow.lastElementChild;
+  const effectSquare = (color, number = '') => {
+    const item = document.createElement('span'); item.className = `victory-condition-square ${color}`; item.textContent = number; return item;
+  };
+  if (cardData.name === '恐怖' || cardData.name === 'モルグルの刃') {
+    description.replaceChildren(document.createTextNode('play ✕ '), effectSquare(cardData.name === '恐怖' ? 'orange' : 'yellow'));
+  } else if (cardData.name === '黒の息') {
+    description.replaceChildren(document.createTextNode('✕ '), effectSquare('black', '8'));
+  }
+  effect.appendChild(effectRow);
+  card.append(upper, lower, effect);
+  if (!cardData.concealed) {
+    card.setAttribute('role', 'button'); card.tabIndex = 0;
+    const open = event => { event.preventDefault(); event.stopPropagation(); openSingleCardZoom(card); };
+    card.addEventListener('click', open);
+    card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') open(event); });
+  }
+  return card;
+}
+
+function openSingleCardZoom(sourceCard){
+  const scale = Math.min(3, Math.max(2, (window.innerHeight - 32) / 122));
+  const item = document.createElement('div');
+  item.className = 'card-zoom-item';
+  item.style.left = '50%'; item.style.top = '50%';
+  const holder = document.createElement('div'); holder.className = 'card-zoom-card';
+  const clone = sourceCard.cloneNode(true); clone.removeAttribute('role'); clone.removeAttribute('tabindex');
+  holder.appendChild(clone); item.appendChild(holder); cardZoomFrame.replaceChildren(item);
+  cardZoomFrame.style.setProperty('--zoom-base-width', '82px'); cardZoomFrame.style.setProperty('--zoom-base-height', '122px');
+  cardZoomFrame.style.setProperty('--zoom-card-width', `${82 * scale}px`); cardZoomFrame.style.setProperty('--zoom-card-height', `${122 * scale}px`);
+  cardZoomFrame.style.setProperty('--zoom-scale', scale); cardZoomBackdrop.classList.remove('hidden'); cardZoomBackdrop.setAttribute('aria-hidden', 'false');
 }
 
 function createCharacterCardElement(cardData){
@@ -1293,6 +1361,18 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     .filter(card => card?.kind !== 'character').length));
   const victory = character.victory || characterCardData(character, playerId).victory;
   const isFinished = game.finished === true;
+
+  if (Number(game.stageNumber) === 12 && character.name === 'ガンダルフ') {
+    const acquired = new Set(capturedTricks.flatMap(trick => trick.cards || []).map(card => Number(card.number)));
+    if (Array.from({ length:8 }, (_, index) => index + 1).every(number => acquired.has(number))) return { status:'achieved' };
+    if (isFinished) return { status:'failed' };
+    return { status:'pending' };
+  }
+
+  if (hasSpecialThreat(game, playerId, '黒の息')) {
+    const acquiredEight = capturedTricks.some(trick => (trick.cards || []).some(card => Number(card.number) === 8));
+    if (acquiredEight) return { status:'failed' };
+  }
 
   if (victory.includes('脅威カードと同じランク') || (character.name === 'サム' && victory.includes('脅威カードと同じ数字'))) {
     const threatRanks = new Set((game.threatCards?.[playerId] || []).map(card => Number(card.number)));
@@ -1458,7 +1538,17 @@ function createVictoryConditionIcon(cardData, playerId){
     return items;
   };
 
-  if (name === '馳夫') {
+  if (Number(state.game?.stageNumber) === 12 && name === 'ガンダルフ') {
+    icon.classList.add('gandalf-numbers');
+    const acquired = new Set((state.game?.capturedTricks?.[playerId] || []).flatMap(trick => trick.cards || []).map(card => Number(card.number)));
+    for (let number = 1; number <= 8; number += 1) {
+      const numberSquare = square(String(number));
+      if (acquired.has(number)) numberSquare.classList.add('number-acquired');
+      icon.appendChild(numberSquare);
+    }
+  } else if (hasSpecialThreat(state.game, playerId, '見えざる者') && !achieved) {
+    icon.append(square('?'));
+  } else if (name === '馳夫') {
     const choice = state.game?.striderChoices?.[playerId];
     if (threatNumber != null) icon.append(...countSquares(Number(threatNumber)));
     else icon.append(square());
@@ -1983,11 +2073,13 @@ function exchangeCandidates(game, sourceId){
     : characterName === 'グワイヒア' ? ['ガンダルフ']
     : null;
   return (game?.playerOrder || []).filter(playerId => playerId !== sourceId
+    && !hasSpecialThreat(game, playerId, '幽鬼')
     && (!allowedNames || allowedNames.includes(game.characterSelections?.[playerId]?.name)));
 }
 
 function exchangeRequirement(game, sourceId){
   const name = game?.characterSelections?.[sourceId]?.name;
+  if (hasSpecialThreat(game, sourceId, '幽鬼')) return { mode:'exchange', count:0 };
   if (name === '“でぶちゃん”のボルジャー') return { mode:'give', count:Math.max(0, (game.playerOrder || []).length - 1) };
   if (name === 'エルロンド') return { mode:'exchange', count:0 };
   if (name === 'グロルフィンデル') return { mode:'exchange-all', count:Math.max(0, (game.playerOrder || []).length - 1) };
@@ -2069,7 +2161,7 @@ function beginNextExchange(game){
       return;
     }
     const needsThreatDraw = ['農夫マゴット', 'サム', '馳夫'].includes(characterName)
-      && !(game.threatCards?.[sourceId] || []).length;
+      && !(game.threatCards?.[sourceId] || []).some(card => card.kind === 'threat');
     if (needsThreatDraw) {
       game.phase = 'threat-draw-wait';
       game.threatDrawPlayerId = sourceId;
@@ -2101,7 +2193,7 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'アラゴルン' && !(game.threatCards?.[sourceId] || []).length) {
+    if (characterName === 'アラゴルン' && !(game.threatCards?.[sourceId] || []).some(card => card.kind === 'threat')) {
       game.phase = 'aragorn-threat-selection';
       game.threatDrawPlayerId = sourceId;
       game.turnPlayerId = null;
@@ -2165,7 +2257,7 @@ function drawThreatForCharacterEffect(game, playerId){
   const characterName = game.characterSelections?.[playerId]?.name;
   if (!['農夫マゴット', 'サム', '馳夫', 'アラゴルン'].includes(characterName)) return;
   game.threatCards ||= {};
-  if ((game.threatCards[playerId] || []).length) return;
+  if ((game.threatCards[playerId] || []).some(card => card.kind === 'threat')) return;
   const stage = STAGES.find(item => item.number === Number(game.stageNumber));
   const threat = stage?.threats?.[0] || { name:'脅威カード', min:1, max:4 };
   const usedNumbers = new Set(Object.values(game.threatCards)
@@ -2175,10 +2267,11 @@ function drawThreatForCharacterEffect(game, playerId){
   ).filter(number => !usedNumbers.has(number));
   if (!availableNumbers.length) return;
   const rank = availableNumbers[Math.floor(Math.random() * availableNumbers.length)];
-  game.threatCards[playerId] = [{
+  game.threatCards[playerId] ||= [];
+  game.threatCards[playerId].push({
     kind:'threat', color:'threat', name:threat.name, number:rank,
     id:`${playerId}-threat-${Date.now()}-${rank}`
-  }];
+  });
 }
 
 function beginCharacterEffectTurns(game){
@@ -3119,7 +3212,11 @@ function beginExchangeCardDrag(event, cardData, source){
 function canFollowSuit(card){
   const trick = state.game?.trick || {};
   const plays = Object.values(trick);
-  if (!plays.length) return card.color !== 'yellow' || state.game?.ringCircleOn === true;
+  if (!plays.length) {
+    if (hasSpecialThreat(state.game, state.userId, '恐怖') && card.color === 'orange') return false;
+    if (hasSpecialThreat(state.game, state.userId, 'モルグルの刃') && card.color === 'yellow') return false;
+    return card.color !== 'yellow' || state.game?.ringCircleOn === true;
+  }
   const leadColor = plays.sort((a,b) => a.order-b.order)[0].card.color;
   const cards = (state.hands[state.userId]?.cards || []).filter(card => card.kind !== 'character');
   return card.color === leadColor || !cards.some(c => c.color === leadColor);
@@ -3179,6 +3276,8 @@ async function playCard(cardIndex, expectedCard){
     if (!card || card.kind === 'character' || card.id !== expectedCard.id) return;
     const existing = Object.values(room.game.trick || {}).sort((a,b)=>a.order-b.order);
     if (!existing.length && card.color === 'yellow' && room.game.ringCircleOn !== true) return;
+    if (!existing.length && hasSpecialThreat(room.game, state.userId, '恐怖') && card.color === 'orange') return;
+    if (!existing.length && hasSpecialThreat(room.game, state.userId, 'モルグルの刃') && card.color === 'yellow') return;
     if (existing.length) {
       const lead = existing[0].card.color;
       if (card.color !== lead && hand.some(c => c.color === lead)) return;
@@ -3305,7 +3404,10 @@ function characterCardData(character, playerId){
     'ラダガスト':{specialName:'茶色の魔法使い',victory:'森がプレイされているトリックを2トリック獲得。',effect:'手札から1枚選び、表向きにして脇に置く。そのカードは最後のトリックでプレイする。その後、最初のトリックのカードをプレイする。',cardNumber:'2.48', rank:'黒', frameColor:'緑'},
     '飛蔭（とびかげ）':{specialName:'馬の王者',victory:'丘がプレイされているトリックを2トリック獲得。',effect:'手札を1枚選び、裏向きでこのカードの下に入れる。任意のタイミング、もしくは手札がなくなったとき、そのカードを手札に戻す。',cardNumber:'2.47', rank:'黒', frameColor:'金'}
   };
-  const details = characterDetails[character.name] || {};
+  const details = { ...(characterDetails[character.name] || {}) };
+  if (Number(state.game?.stageNumber) === 12 && character.name === 'ガンダルフ') {
+    details.victory = 'すべての数字（1～8）を1枚以上、勝利して獲得する。';
+  }
   const exchangeEffect = exchangeEffectText(character);
   const effect = [details.effect, exchangeEffect].filter(Boolean).join('\n');
   return {
@@ -3384,6 +3486,15 @@ async function chooseCharacter(characterName, source){
     room.hands[state.userId].cards ||= [];
     room.hands[state.userId].cards.unshift(characterCardData(character, state.userId));
     room.game.characterSelections[state.userId] = { ...character, selectedAt:Date.now() };
+    const stageNineThreat = Number(room.game.stageNumber) === 9 ? STAGE_NINE_THREATS[characterName] : null;
+    if (stageNineThreat) {
+      room.game.threatCards ||= {};
+      room.game.threatCards[state.userId] ||= [];
+      room.game.threatCards[state.userId].unshift({
+        kind:'special-threat', color:'threat', ...stageNineThreat,
+        id:`${state.userId}-stage-nine-threat-${Date.now()}`
+      });
+    }
     if (characterName === 'フロド') {
       const currentHolder = Object.keys(room.hands).find(id => room.hands[id].cards.some(card => card.color === 'yellow' && card.number === 1));
       if (currentHolder && currentHolder !== state.userId) {
@@ -3400,7 +3511,9 @@ async function chooseCharacter(characterName, source){
     }
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
-      const forcedLeaderNames = ['山の下さん', 'グロルフィンデル', 'エルロンド', 'ラダガスト'];
+      const forcedLeaderNames = Number(room.game.stageNumber) === 12
+        ? ['ガンダルフ']
+        : ['山の下さん', 'グロルフィンデル', 'エルロンド', 'ラダガスト'];
       const forcedLeader = forcedLeaderNames.map(name => Object.entries(room.game.characterSelections)
         .find(([, selected]) => selected.name === name)?.[0]).find(Boolean);
       room.game.startingPlayerId = forcedLeader || room.game.turnPlayerId || room.game.playerOrder[0];
@@ -4078,7 +4191,9 @@ function renderPlayerCircle(players){
       const holder = document.createElement('div');
       holder.className = 'capture-card';
       holder.style.setProperty('--stack-rotate', '0deg');
-      holder.appendChild(createCardElement(threatCard));
+      const concealed = threatCard.name === '見えざる者' && !isMe
+        && victoryConditionStatus(state.room, p.id).status !== 'achieved';
+      holder.appendChild(createCardElement(concealed ? { ...threatCard, concealed:true } : threatCard));
       threatBundle.appendChild(holder);
       capture.appendChild(threatBundle);
     });
