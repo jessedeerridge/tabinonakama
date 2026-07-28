@@ -308,13 +308,14 @@
   .exchange-note{position:absolute;right:12px;bottom:8px;font-size:10px;font-weight:700;}
   .threat-choice-grid{display:grid;grid-template-columns:repeat(4,36px);gap:8px;justify-content:center;margin-top:8px;}
   .threat-choice{width:36px;height:36px;padding:0;border:0;border-radius:3px;background:#111;color:#fff;font-weight:900;}
-  .player-tag .mini-hand.public-hand{width:112px;height:58px;}
+  .player-tag .mini-hand.public-hand{width:156px;height:58px;}
   .player-tag .mini-card.public-mini-card{width:38px;height:56px;border:0;background:transparent;box-shadow:none;overflow:hidden;}
   .public-mini-card>.my-card{position:absolute;left:0;top:0;transform:scale(.4634);transform-origin:top left;}
   .reserved-card{opacity:.35;order:-1;}
   .my-card.effect-pick{cursor:pointer;animation:exchangeCardPulse 1.05s ease-in-out infinite;}
   .last-card-marker{position:absolute;left:50%;top:81px;transform:translateX(-50%);display:flex;align-items:center;gap:2px;font-size:9px;font-weight:900;white-space:nowrap;z-index:3;}
-  .last-card-marker .mini-card{position:static;width:12px;height:18px;transform:none!important;border-radius:2px;}
+  .character-capture{overflow:visible;}
+  .last-card-marker .mini-card{position:static;display:block;width:12px;height:18px;transform:none!important;border:1px solid #10233f;border-radius:2px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;}
   .my-hand.exchange-pickable{animation:none;}
   .my-card.exchange-pick{cursor:grab;touch-action:none;animation:exchangeCardPulse 1.05s ease-in-out infinite;}
   @keyframes exchangeCardPulse{50%{transform:scale(1.07)}}
@@ -2062,7 +2063,7 @@ function beginNextExchange(game){
     game.effectTurnStartedAt[sourceId] ||= Date.now();
     if (characterName === 'エルロンド' && !game.elrondEffectCompleted) {
       game.phase = 'elrond-transfer-selection';
-      game.pendingElrondTransfers = { selections:{}, transferred:{}, requestedAt:Date.now() };
+      game.pendingElrondTransfers = { selections:{}, transferred:{}, cards:{}, targetIds:{}, requestedAt:Date.now() };
       game.turnPlayerId = null;
       return;
     }
@@ -2646,15 +2647,19 @@ async function chooseElrondTransferCard(cardId, droppedTargetId){
     const card = sourceCards[cardIndex];
     const characterName = game.characterSelections?.[state.userId]?.name;
     if (card.color === 'yellow' && card.number === 1 && characterName === 'フロド') return;
-    pending.selections ||= {}; pending.transferred ||= {};
+    pending.selections ||= {}; pending.transferred ||= {}; pending.cards ||= {}; pending.targetIds ||= {};
     pending.selections[state.userId] = cardId;
     const [givenCard] = sourceCards.splice(cardIndex, 1);
-    room.hands[targetId].cards.push(givenCard);
+    // 全員の選択が終わるまでは受取側の手札へ入れず、裏向きの保留カードとして扱う。
+    pending.cards[state.userId] = givenCard;
+    pending.targetIds[state.userId] = targetId;
     pending.transferred[state.userId] = true;
-    game.exchangeTransfer = {
-      sourceId:state.userId, targetId, sourceCard:givenCard, giveOnly:true, completedAt:Date.now()
-    };
     if (order.every(id => pending.transferred[id])) {
+      Object.entries(pending.cards).forEach(([sourceId, heldCard]) => {
+        const recipientId = pending.targetIds[sourceId];
+        if (recipientId && heldCard) room.hands[recipientId].cards.push(heldCard);
+      });
+      game.elrondTransferCompletedAt = Date.now();
       game.elrondEffectCompleted = true;
       delete game.pendingElrondTransfers;
       // エルロンドは効果キュー先頭に残っているため、完了後に一度だけ取り除く。
@@ -3841,7 +3846,8 @@ function renderPlayerCircle(players){
         }
 
         const angleDeg = (count > 1) ? base + (spread/(count-1))*idx2 : 0;
-        card.style.transform = `translate(-50%,0) rotate(${angleDeg}deg)`;
+        const publicOffsetX = isPublicHand && count > 1 ? -55 + (110 / (count - 1)) * idx2 : 0;
+        card.style.transform = `translate(calc(-50% + ${publicOffsetX}px),0) rotate(${angleDeg}deg)`;
         card.style.zIndex = String(10 + idx2);
         miniHand.appendChild(card);
       });
@@ -3864,6 +3870,17 @@ function renderPlayerCircle(players){
       hint.className = 'exchange-hand-hint';
       hint.setAttribute('aria-hidden', 'true');
       tag.appendChild(hint);
+    }
+    const heldElrondEntry = Object.entries(state.game?.pendingElrondTransfers?.targetIds || {})
+      .find(([sourceId, targetId]) => targetId === p.id && state.game?.pendingElrondTransfers?.cards?.[sourceId]);
+    if (heldElrondEntry) {
+      const [sourceId] = heldElrondEntry;
+      const heldCard = state.game.pendingElrondTransfers.cards[sourceId];
+      const receivedCard = document.createElement('div');
+      receivedCard.className = 'exchange-received-card';
+      receivedCard.dataset.cardId = heldCard.id;
+      receivedCard.setAttribute('aria-label', 'エルロンドの効果で受け取った保留カード');
+      tag.appendChild(receivedCard);
     }
     const offer = state.game?.exchangeOfferTransfer;
     if (state.game?.pendingExchange && offer?.card && p.id === offer.targetId) {
