@@ -1251,6 +1251,12 @@ function createVictoryConditionIcon(cardData, playerId){
     separator.textContent = 'or';
     icon.append(left, separator, right);
   };
+  const countSquares = (count, color = 'black') => {
+    const items = [];
+    if (count >= 4) return [square('', color), label(`x${count}`)];
+    for (let index = 0; index < count; index++) items.push(square('', color));
+    return items;
+  };
 
   if (name === '馳夫') {
     const choice = state.game?.striderChoices?.[playerId];
@@ -1286,23 +1292,26 @@ function createVictoryConditionIcon(cardData, playerId){
     icon.append(coloredTrick('orange'), coloredTrick('orange'));
   } else if (name === 'サム') {
     icon.append(square(String(threatNumber ?? 'x'), 'orange'));
+  } else if (name === 'アラゴルン') {
+    icon.append(square(String(threatNumber ?? 'x')));
   } else if (victory.includes('脅威カードと同じ数字')) {
     const matchingSquare = () => square(String(threatNumber ?? 'x'));
     icon.append(matchingSquare());
     if (victory.includes('2枚以上')) icon.append(matchingSquare(), label('以上'));
   } else if (victory.includes('ちょうど1もしくは2')) {
-    appendOr(square('1'), square('2'));
+    const oneTrick = line(...countSquares(1));
+    const twoTricks = line(...countSquares(2));
+    appendOr(oneTrick, twoTricks);
   } else if (victory.includes('最も少ない')) {
     icon.append(square('min'));
   } else if (victory.includes('最も多く')) {
     icon.append(square('most'));
   } else {
     const color = victory.includes('指輪') ? 'yellow' : 'black';
-    const cardCount = victory.match(/カードを(\d+)枚/)?.[1];
-    if (cardCount) {
-      const count = Number(cardCount);
-      if (count >= 4) icon.append(square('', color), label(`x${count}`));
-      else for (let index = 0; index < count; index++) icon.append(square('', color));
+    const specifiedCount = victory.match(/カードを(\d+)枚/)?.[1]
+      || victory.match(/(\d+)トリック/)?.[1];
+    if (specifiedCount) {
+      icon.append(...countSquares(Number(specifiedCount), color));
     } else {
       const number = victory.match(/\d+/)?.[0] || '';
       icon.append(square(number, color));
