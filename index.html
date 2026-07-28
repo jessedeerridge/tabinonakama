@@ -3890,7 +3890,7 @@ function renderPlayerCircle(players){
       miniHand.classList.toggle('public-hand', isPublicHand);
       const count = hiddenCards.length;
       // ゴールドベリの公開扇は裏向きの手札より角度を抑え、カードを縦向きに見せる。
-      const spread = isPublicHand ? 48 : 70;
+      const spread = isPublicHand ? 44 : 70;
       const base = (count > 1) ? (-spread/2) : 0;
 
       hiddenCards.forEach((v, idx2) => {
@@ -3906,7 +3906,7 @@ function renderPlayerCircle(players){
 
         const angleDeg = (count > 1) ? base + (spread/(count-1))*idx2 : 0;
         // 表面を判別できる重なりは残しつつ、扇全体が横へ広がりすぎない幅に抑える。
-        const publicOffsetX = isPublicHand && count > 1 ? -33 + (66 / (count - 1)) * idx2 : 0;
+        const publicOffsetX = isPublicHand && count > 1 ? -31 + (62 / (count - 1)) * idx2 : 0;
         card.style.transform = `translate(calc(-50% + ${publicOffsetX}px),0) rotate(${angleDeg}deg)`;
         card.style.zIndex = String(10 + idx2);
         miniHand.appendChild(card);
