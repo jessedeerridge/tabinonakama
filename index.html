@@ -156,6 +156,7 @@
   .victory-condition-or{margin:0 1px;font-size:9px;font-weight:900;line-height:15px;}
   .victory-condition-suffix{margin-left:2px;font-size:9px;font-weight:900;line-height:15px;}
   .victory-condition-icon.achieved{opacity:.35;}
+  .victory-condition-icon.awaiting-threat{display:none;}
   .victory-condition-icon.word .victory-condition-square{width:24px;}
   .victory-condition-icon.multiline{height:auto;flex-direction:column;gap:1px;line-height:12px;}
   .victory-condition-line{display:flex;align-items:center;justify-content:center;gap:2px;height:15px;}
@@ -1223,6 +1224,12 @@ function createVictoryConditionIcon(cardData, playerId){
   const victory = cardData.victory || '';
   const name = cardData.name || '';
   const threatNumber = state.game?.threatCards?.[playerId]?.[0]?.number;
+  const waitsForThreat = ['農夫マゴット', 'サム', '馳夫', 'アラゴルン'].includes(name);
+  if (waitsForThreat && threatNumber == null) {
+    icon.classList.add('awaiting-threat');
+    icon.setAttribute('aria-label', '勝利条件：脅威カードのドロー待ち');
+    return icon;
+  }
   const achieved = hasAchievedVictoryCondition(cardData, playerId);
   icon.classList.toggle('achieved', achieved);
 
@@ -1635,11 +1642,27 @@ function exchangeCandidates(game, sourceId){
 }
 
 function beginNextExchange(game){
-  game.exchangeQueue ||= (game.playerOrder || [])
-    .filter(playerId => ['ガンダルフ', '馳夫', 'ピピン', 'サム', 'メリー'].includes(game.characterSelections?.[playerId]?.name)
-      && !game.completedExchanges?.[playerId]);
+  game.exchangeQueue ||= [...(game.effectOrder || game.playerOrder || [])];
   while (game.exchangeQueue.length) {
-    const sourceId = game.exchangeQueue.shift();
+    const sourceId = game.exchangeQueue[0];
+    const characterName = game.characterSelections?.[sourceId]?.name;
+    game.effectTurnStartedAt ||= {};
+    game.effectTurnStartedAt[sourceId] ||= Date.now();
+    drawThreatForCharacterEffect(game, sourceId);
+    if (characterName === '馳夫' && !game.striderChoices?.[sourceId]) {
+      game.phase = 'strider-comparison';
+      game.striderPlayerId = sourceId;
+      game.turnPlayerId = null;
+      return;
+    }
+    if (characterName === 'ガンダルフ' && game.excludedCard && !game.gandalfEffectCompleted) {
+      game.phase = 'gandalf-selection';
+      game.gandalfPlayerId = sourceId;
+      game.turnPlayerId = null;
+      return;
+    }
+    game.exchangeQueue.shift();
+    if (game.completedExchanges?.[sourceId]) continue;
     const candidates = exchangeCandidates(game, sourceId);
     if (!candidates.length) continue;
     game.pendingExchange = {
@@ -1659,16 +1682,36 @@ function beginNextExchange(game){
   delete game.startingPlayerId;
 }
 
+function drawThreatForCharacterEffect(game, playerId){
+  const characterName = game.characterSelections?.[playerId]?.name;
+  if (!['農夫マゴット', 'サム', '馳夫', 'アラゴルン'].includes(characterName)) return;
+  game.threatCards ||= {};
+  if ((game.threatCards[playerId] || []).length) return;
+  const stage = STAGES.find(item => item.number === Number(game.stageNumber));
+  const threat = stage?.threats?.[0] || { name:'脅威カード', min:1, max:4 };
+  const usedNumbers = new Set(Object.values(game.threatCards)
+    .flatMap(cards => cards || []).map(card => Number(card.number)));
+  const availableNumbers = Array.from(
+    { length:threat.max - threat.min + 1 }, (_, index) => threat.min + index
+  ).filter(number => !usedNumbers.has(number));
+  if (!availableNumbers.length) return;
+  const rank = availableNumbers[Math.floor(Math.random() * availableNumbers.length)];
+  game.threatCards[playerId] = [{
+    kind:'threat', color:'threat', name:threat.name, number:rank,
+    id:`${playerId}-threat-${Date.now()}-${rank}`
+  }];
+}
+
+function beginCharacterEffectTurns(game){
+  const order = game.playerOrder || [];
+  const startingPlayerId = game.startingPlayerId || order[0];
+  const startingIndex = Math.max(0, order.indexOf(startingPlayerId));
+  // 効果ターンは常にスタートプレイヤーから席順に処理する。
+  game.effectOrder = [...order.slice(startingIndex), ...order.slice(0, startingIndex)];
+  game.exchangeQueue = [...game.effectOrder];
+}
+
 function continueAfterCharacterEffects(game){
-  const gandalfEntry = Object.entries(game.characterSelections || {})
-    .find(([, selected]) => selected.name === 'ガンダルフ');
-  if (gandalfEntry && game.excludedCard) {
-    game.phase = 'gandalf-selection';
-    game.gandalfPlayerId = gandalfEntry[0];
-    game.startingPlayerId ||= game.turnPlayerId || game.playerOrder?.[0];
-    game.turnPlayerId = null;
-    return;
-  }
   beginNextExchange(game);
 }
 
@@ -1683,7 +1726,8 @@ async function takeExcludedCardAsGandalf(){
     room.hands[state.userId].cards.push(game.excludedCard);
     game.lostCardTransfer = { cardId:game.excludedCard.id, playerId:state.userId, movedAt:Date.now() };
     delete game.excludedCard;
-    // ロストカード取得など、交換以外の効果をすべて終えてから交換を始める。
+    game.gandalfEffectCompleted = true;
+    // ロストカード取得に続けてガンダルフの交換を行い、その後に次の効果ターンへ進む。
     beginNextExchange(game);
     return room;
   });
@@ -2550,28 +2594,6 @@ async function chooseCharacter(characterName, source){
     room.hands[state.userId].cards ||= [];
     room.hands[state.userId].cards.unshift(characterCardData(character, state.userId));
     room.game.characterSelections[state.userId] = { ...character, selectedAt:Date.now() };
-    const selectedCard = characterCardData(character, state.userId);
-    const drawsThreatOnSelection = selectedCard.effect.includes('脅威カードを1枚引く')
-      || ['アラゴルン', '馳夫'].includes(characterName);
-    if (drawsThreatOnSelection) {
-      const stage = STAGES.find(item => item.number === Number(room.game.stageNumber));
-      // キャラクター自身が引く場合は、章に脅威の記載がなくても通常の1〜4を使う。
-      const threat = stage?.threats?.[0] || { name:'脅威カード', min:1, max:4 };
-      room.game.threatCards ||= {};
-      const usedNumbers = new Set(Object.values(room.game.threatCards)
-        .flatMap(cards => cards || []).map(card => Number(card.number)));
-      const availableNumbers = Array.from(
-        { length:threat.max - threat.min + 1 }, (_, index) => threat.min + index
-      ).filter(number => !usedNumbers.has(number));
-      if (availableNumbers.length) {
-        const rank = availableNumbers[Math.floor(Math.random() * availableNumbers.length)];
-        room.game.threatCards[state.userId] ||= [];
-        room.game.threatCards[state.userId].push({
-          kind:'threat', color:'threat', name:threat.name, number:rank,
-          id:`${state.userId}-threat-${Date.now()}-${rank}`
-        });
-      }
-    }
     if (characterName === 'フロド') {
       const currentHolder = Object.keys(room.hands).find(id => room.hands[id].cards.some(card => card.color === 'yellow' && card.number === 1));
       if (currentHolder && currentHolder !== state.userId) {
@@ -2589,15 +2611,8 @@ async function chooseCharacter(characterName, source){
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
       room.game.startingPlayerId = room.game.turnPlayerId || room.game.playerOrder[0];
-      const striderEntry = Object.entries(room.game.characterSelections)
-        .find(([, selected]) => selected.name === '馳夫');
-      if (striderEntry) {
-        room.game.phase = 'strider-comparison';
-        room.game.striderPlayerId = striderEntry[0];
-        room.game.turnPlayerId = null;
-      } else {
-        continueAfterCharacterEffects(room.game);
-      }
+      beginCharacterEffectTurns(room.game);
+      beginNextExchange(room.game);
     }
     return room;
   });
