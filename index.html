@@ -181,9 +181,9 @@
   }
   #arasujisquare{width:112px;height:160px;background-image:url('arasujisquare.jpg');}
   #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
-  .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);}
+  .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);z-index:2;}
   .ringcircle.on{background-image:url('ringcircleon.jpg');}
-  .excluded-card-slot{position:absolute;left:20px;top:92px;width:38px;height:56px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;}
+  .excluded-card-slot{position:absolute;left:20px;top:93px;width:38px;height:56px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;z-index:2;}
   .excluded-card-slot .my-card{transform:scale(.46);transform-origin:top left;}
   .excluded-card-slot.hidden{display:none;}
   .excluded-card-slot.gandalf-pick{pointer-events:auto;cursor:pointer;animation:excludedCardPulse 1.05s ease-in-out infinite;}
@@ -226,17 +226,22 @@
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
-  .winningcondition-half{top:50%;width:calc(42% - 1px);height:78%;transform:translateY(-50%);}
-  .winningcondition-half.left{left:calc(8% + 1px);align-items:flex-start;}
+  .winningcondition-half{top:50%;width:calc(42% - 1px);height:calc(78% + 4px);transform:translateY(-50%);}
+  .winningcondition-half.left{left:calc(8% + 1px);align-items:flex-start;padding-top:0;}
   .winningcondition-half.right{right:calc(8% + 1px);}
   .arasujisquare-bar{display:grid;place-items:center;font-size:11px;font-weight:900;}
   .arasujisquare-center{display:flex;align-items:center;justify-content:center;padding:2px;overflow:hidden;font-size:9px;font-weight:400;line-height:1.05;}
   .winningcondition-half{display:flex;align-items:center;padding:2px;overflow:hidden;font-size:9px;line-height:1.25;text-align:left;}
+  .winningcondition-half.content-overflow{align-items:flex-start;padding-top:0;}
   .winningcondition-content{width:100%;}
+  .additional-elements{display:block;margin-top:3px;font-size:8px;line-height:1.15;}
+  .additional-elements-mark{display:inline-block;width:7px;height:7px;margin-right:2px;vertical-align:-1px;color:#111;}
+  .additional-elements-mark svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:.9;stroke-linejoin:round;}
+  .additional-elements-mark path{fill:currentColor;stroke:none;}
   .winningcondition-content strong{font-weight:900;}
-  .stage-title,.character-heading,.character-line,.goal-heading{white-space:nowrap;}
-  .stage-title{letter-spacing:normal;}
-  .character-heading,.goal-heading{letter-spacing:-.08em;}
+  .chapter-heading,.stage-title,.character-heading,.character-line,.goal-heading,.goal-type{white-space:nowrap;}
+  .stage-title{font-size:8px;letter-spacing:normal;}
+  .chapter-heading,.character-heading,.goal-heading,.goal-type{font-size:8px;letter-spacing:-.08em;}
   .character-heading{display:block;margin-top:2px;}
   .character-line{display:block;font-size:8px;letter-spacing:normal;}
   @media (max-width:520px){
@@ -270,6 +275,8 @@
     --character-frame:#73583a;--character-panel:#fff8e8;
     border-color:var(--character-frame);background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #fff9e9;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-synthesis:none;
+    -webkit-text-size-adjust:none;text-size-adjust:none;
   }
   .character-card.character-gold{
     --character-frame:#d5a313;
@@ -280,15 +287,17 @@
     border-color:#aeb8c5;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;
   }
   .character-card .character-label{
-    position:absolute;right:-4px;top:1px;width:max-content;min-width:0;max-width:64.8px;padding:2.7px 4.5px 2.7px 18px;
+    position:absolute;left:auto;right:-4px;top:1px;width:max-content;min-width:0;max-width:calc(100% + 4px);padding:0 4.5px 0 16px;
     box-sizing:border-box;background:var(--character-frame);color:#3f3021;font-size:9px;font-weight:900;isolation:isolate;
     line-height:1.1;text-align:right;white-space:nowrap;overflow:hidden;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);
+    display:flex;align-items:center;justify-content:flex-end;
   }
   .character-card .character-label::before{
     content:'';position:absolute;inset:1px;background:var(--character-panel);z-index:-1;
     clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);
   }
-  .character-card .character-special{top:17px;max-width:43px;padding:2.4px 4px 2.4px 18px;font-size:6px;line-height:1.2;}
+  .character-card .character-label:not(.character-special){height:15.3px;}
+  .character-card .character-special{left:auto;right:-4px;top:17px;width:max-content;max-width:43px;padding:2.4px 4px 2.4px 18px;font-size:6px;line-height:1.2;display:block;}
   .character-card .character-special.wide{width:48px;max-width:48px;}
   .character-card .character-effect{
     position:absolute;left:-4px;right:-4px;bottom:-4px;min-height:64px;padding:12px 5px 6px;
@@ -693,10 +702,26 @@ const CHARACTER_NAMES = {
   merry: 'メリー',
   pippin: 'ピピン',
   gandalf: 'ガンダルフ',
-  bilbo: 'ビルボ'
+  bilbo: 'ビルボ',
+  farmer_maggot: '農夫マゴット',
+  gildor: 'ギルドール・イングロリオン',
+  fatty_bolger: '“でぶちゃん”のボルジャー',
+  tom_bombadil: 'トム・ボンバディル',
+  goldberry: 'ゴールドベリ',
+  underhill: '山の下さん',
+  barliman: 'バーリマン・バタバー',
+  strider: '馭夫',
+  glorfindel: 'グロルフィンデル',
+  bill: '小馬のビル',
+  elrond: 'エルロンド',
+  gloin: 'グローイン',
+  arwen: 'アルウェン'
 };
 const WIN_LENGTH_LABELS = { short: '短い', long: '長い' };
-const WIN_GOAL_LABELS = { allwin: '「選んだ全てのキャラクターの目的をすべて達成」' };
+const WIN_GOAL_LABELS = {
+  allwin: '「選んだキャラクターの目的をすべて達成」',
+  everywin: '「すべてのキャラクターの目的を達成」'
+};
 
 function toKanjiNumber(number){
   if (!Number.isInteger(number) || number < 1 || number > 100) return String(number);
@@ -730,12 +755,46 @@ defineStage(1, {
   goal: 'allwin'
 });
 defineStage(2, {
-  title: 'ホビット庄で少し出遅れる',
-  story: 'フロドはサムの隣りに腰を下して食べ始めました。「今日はどういうご予定？」とピピンがたずねました。「できるだけ速くバックル村まで歩くこと。」とフロドはそう答え、食べ物に集中しました。',
+  title: 'ホビット庄での少しか遅れ',
+  story: '「静かに、そしてすみやかに出立するのだ」ガンダルフはそう言った。しかし二、三週間が過ぎてもフロドは旅立つ気配がなかった。「分かってるさ。でも、両立は難しいんだ」フロドは反論した。「ビルボみたいに急に消えたら、噂はホビット庄中にあっという間に広がってしまう」',
   characters: ['frodo*,sam*,merry*', 'gandalf,pippin'],
   threats: [{ name:'黒の乗手', min:1, max:4 }],
   winCondition: 'short',
   goal: 'allwin'
+});
+defineStage(3, {
+  title: '指輪が旅立った',
+  story: 'フロドはサムの隣に座り、食べ始めた。「今日はどうするんだ？」とピピンが尋ねた。「できるだけ早くバックルベリまで歩いて行くよ」。フロドはそう答えると、再び食事に集中した。',
+  characters: ['frodo*,farmer_maggot*,gildor*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin'
+});
+defineStage(4, {
+  title: 'くり窪の陰謀',
+  story: 'ここで“でぶちゃん”のボルジャーは足を止めた。「さよなら、フロド!」彼はそうあいさつした。「君が森に入らずにすめばいいんだけどな。日が暮れる前に助けが必要にならないことを願うよ。でも、幸運を祈る。今日も、これからもずっと!」',
+  characters: ['frodo*,fatty_bolger*', 'sam,merry*,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin'
+});
+defineStage(5, {
+  title: '古森', story: '道の跡はどこにもなく、木々が絶えず行く手をふさいでいるように感じられた。ピピンは突然、もう耐えられないと思い、何の前触れもなく大声を上げた。「おい!　おい!」彼は叫んだ。「僕は何もしないって! ただ通してくれよ!」',
+  characters: ['frodo*,tom_bombadil*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈柳じじい〉カードの〈イベント：古森〉の記述に従う。'
+});
+defineStage(6, {
+  title: '霧の塚山丘陵', story: '行く手の両側から、霧を通して闇が迫り始めた。彼は、ついに丘の隙間――塚山の北門へと近づいているのだと察した。そこを抜けさえすれば、自由になれるのだ。',
+  characters: ['frodo*,tom_bombadil*,goldberry*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈塚人〉カードの〈イベント：霧の塚山丘陵〉の記述に従う。'
+});
+defineStage(7, {
+  title: '躍る小馬亭で', story: 'アーチの上にはランプが灯り、その下では、大きな看板が揺れていた。そこには、太った白い小馬が後ろ足で立ち上がる姿が描かれていた。扉の上には、白い文字で「バーリマン・バタバーの躍る小馬亭」と記されていた。低い窓のほとんどは厚いカーテンで覆われていたが、その向こうからは明かりが漏れていた。',
+  characters: ['underhill*,barliman*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin'
+});
+defineStage(8, {
+  title: '闇夜め短剣', story: 'もはや疑いようはなかった。三、四つの黒い姿が斜面の上に立ち、彼らを見下ろしていた。あまりにも黒く、まるで背後の深い影にぽっかりと穴が空いているかのようだった。フロドは、どこかでかすかにシュッという毒々しい息遣いを聞いたような気がした。その直後、鋭く突き刺すような冷気を感じた。',
+  characters: ['frodo*,merry*,strider*', 'sam,pippin,barliman'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈魔王〉をフロドに、〈黒の息〉をメリーに渡す。'
+});
+defineStage(9, {
+  title: '浅瀬への逃走', story: '意識が薄れる中、フロドは最後に叫び声を聞いた。そして、岸辺でためらう黒の乗手たちの向こうに、白く輝く姿が見えたような気がした。その背後では、小さな影のような存在が走り、炎を振りかざしていた。世界を覆う灰色の霧の中で、その炎は赤くきらめいた。',
+  characters: ['glorfindel*', 'frodo,sam,merry,pippin', 'strider,bill'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'long', goal:'everywin', additionalElements:'各ラウンドでは〈グロルフィンデル〉を使う（フロドは1回のみでよい）。\n〈九人組〉カードの〈イベント：浅瀬への逃走〉の記述に従う。'
+});
+defineStage(10, {
+  title: '裂け谷での休息', story: '「ここはどこだ? 今は何時だ?」フロドは天井に向かって声を上げた。「ここはエルロンドの館、そして今は朝の十時だ」誰かが答えた。「知りたいのであれば、今日は十月二十四日の朝である」「ガンダルフ!」フロドは驚いて身を起こした。そこには、老魔法使いが窓辺の椅子に腰かけていた。',
+  characters: ['elrond*,bilbo*', 'gloin,arwen,gandalf'], threats: [], winCondition:'short', goal:'allwin'
 });
 
 /* ★ 追加：ヘルプUI参照 */
@@ -775,19 +834,30 @@ const cardNameFitObserver = new ResizeObserver(entries => {
   });
 });
 
-// 名前欄自体は動かさず、通常の9pxではみ出すキャラクター名だけを縮小する。
+const characterNameMeasureContext = document.createElement('canvas').getContext('2d');
+const characterNameLayouts = new Map();
+
+// 表示先のtransform倍率に影響されない基準寸法で、すべてのキャラクター名を調整する。
 function fitCharacterName(target){
-  requestAnimationFrame(() => {
-    if (!target.isConnected) return;
-    target.style.fontSize = '';
-    target.style.width = '';
-    if (target.scrollWidth <= target.clientWidth) return;
-    const fieldWidth = target.clientWidth;
-    const textWidth = target.scrollWidth;
-    // 文字を縮めても max-content の欄まで縮んで位置がずれないよう、先に幅を固定する。
-    target.style.width = `${fieldWidth}px`;
-    target.style.fontSize = `${Math.max(4, 9 * fieldWidth / textWidth)}px`;
-  });
+  const name = target.textContent || '';
+  let layout = characterNameLayouts.get(name);
+  if (!layout) {
+    const baseSize = 9;
+    const padding = 20.5;
+    const maximumWidth = 78;
+    characterNameMeasureContext.font = `900 ${baseSize}px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif`;
+    const baseTextWidth = characterNameMeasureContext.measureText(name).width;
+    const width = Math.min(Math.ceil(baseTextWidth + padding), maximumWidth);
+    const availableWidth = width - padding;
+    const fontSize = baseTextWidth > availableWidth
+      ? Math.max(1, Math.floor((baseSize * availableWidth / baseTextWidth) * 100) / 100)
+      : baseSize;
+    layout = { width, fontSize };
+    characterNameLayouts.set(name, layout);
+  }
+  // 選択中・自分・他プレイヤーの各カードへ、同じ基準値をそのまま適用する。
+  target.style.width = `${layout.width}px`;
+  target.style.fontSize = `${layout.fontSize}px`;
 }
 
 function createCardElement(cardData){
@@ -947,9 +1017,13 @@ cardZoomBackdrop.addEventListener('click', closeCardZoom);
 window.addEventListener('resize', () => {
   if (!cardZoomBackdrop.classList.contains('hidden')) positionZoomCards();
   if (!helpBackdrop.classList.contains('hidden')) updateCardListScale();
+  if (arasujisquareStory.textContent) fitBlockText(arasujisquareStory, 9, 4);
+  updateWinningConditionOverflow();
   renderMyHand();
   updateCharacterChoiceScales();
 });
+
+const HAMMER_ICON_SVG = '<svg viewBox="0 0 20 20" aria-hidden="true"><g transform="rotate(35 10 10)"><rect x="7" y="7" width="2" height="11"/><path d="M3 3Q10 3.5 17 6Q10 8.5 3 9Q5 6 3 3Z"/></g></svg>';
 
 function createCharacterEffectRow(type, text){
   const row = document.createElement('div');
@@ -958,7 +1032,7 @@ function createCharacterEffectRow(type, text){
   icon.className = 'character-effect-icon';
   icon.innerHTML = type === 'victory'
     ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 0c1.1 5.4 4.6 8.9 10 10-5.4 1.1-8.9 4.6-10 10C8.9 14.6 5.4 11.1 0 10 5.4 8.9 8.9 5.4 10 0Z"/></svg>'
-    : '<svg viewBox="0 0 20 20" aria-hidden="true"><g transform="rotate(35 10 10)"><rect x="7" y="7" width="2" height="11"/><path d="M3 3Q10 3.5 17 6Q10 8.5 3 9Q5 6 3 3Z"/></g></svg>';
+    : HAMMER_ICON_SVG;
   const description = document.createElement('span');
   description.textContent = text;
   row.append(icon, description);
@@ -1142,16 +1216,17 @@ function createVictoryConditionIcon(cardData, playerId){
   return icon;
 }
 
-// 3文字までは一行、それ以上も読みやすい位置で分け、必ず二行以内にする。
+// 4文字までは一行、それ以上も読みやすい位置で分け、必ず二行以内にする。
 function appendWrappedCharacterName(element, value){
   const characters = Array.from(value);
-  if (characters.length <= 3) {
+  if (characters.length <= 4) {
+    if (characters.length === 4) element.classList.add('wide');
     element.textContent = value;
     return;
   }
   const firstLineLength = Math.ceil(characters.length / 2);
-  // 4文字の特殊名、または一行が4文字になる特殊名は、欄にも少し余裕を持たせる。
-  if (characters.length === 4 || firstLineLength === 4) element.classList.add('wide');
+  // 一行が4文字になる特殊名は、欄にも少し余裕を持たせる。
+  if (firstLineLength === 4) element.classList.add('wide');
 
   element.append(
     document.createTextNode(characters.slice(0, firstLineLength).join('')),
@@ -1303,6 +1378,28 @@ function fitSingleLineText(element, maxSize, minSize = 4){
   }
 }
 
+function fitBlockText(element, maxSize, minSize = 4){
+  element.style.fontSize = `${maxSize}px`;
+  if (element.scrollHeight <= element.clientHeight && element.scrollWidth <= element.clientWidth) return;
+  let size = maxSize;
+  while (size > minSize && (element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth)) {
+    size = Math.max(minSize, size - .25);
+    element.style.fontSize = `${size}px`;
+  }
+}
+
+function updateWinningConditionOverflow(){
+  winningconditionGoal.classList.remove('content-overflow');
+  const content = winningconditionGoal.firstElementChild;
+  if (!content) return;
+  const range = document.createRange();
+  range.selectNodeContents(content);
+  const lineTops = new Set(Array.from(range.getClientRects())
+    .filter(rect => rect.width > 0 && rect.height > 0)
+    .map(rect => Math.round(rect.top * 2) / 2));
+  winningconditionGoal.classList.toggle('content-overflow', lineTops.size >= 8);
+}
+
 function renderStageInformation(){
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
   centerLowerCardArea.classList.toggle('hidden', !stage);
@@ -1311,6 +1408,7 @@ function renderStageInformation(){
   arasujisquareBar.textContent = stage.chapterLabel;
   fitSingleLineText(arasujisquareBar, 11, 5);
   arasujisquareStory.textContent = stage.story;
+  fitBlockText(arasujisquareStory, 9, 4);
   ringcircle.classList.toggle('on', state.game?.ringCircleOn === true);
   excludedCardSlot.replaceChildren();
   const excludedCard = state.game?.excludedCard;
@@ -1330,6 +1428,7 @@ function renderStageInformation(){
   const info = document.createElement('div');
   info.className = 'winningcondition-content';
   const heading = document.createElement('strong');
+  heading.className = 'chapter-heading';
   heading.textContent = `${stage.chapterLabel}：`;
   const title = document.createElement('strong');
   title.className = 'stage-title';
@@ -1370,11 +1469,24 @@ function renderStageInformation(){
   goalHeading.className = 'goal-heading';
   goalHeading.textContent = '勝利条件：';
   const goalType = document.createElement('strong');
+  goalType.className = 'goal-type';
   goalType.textContent = WIN_LENGTH_LABELS[stage.winCondition] || stage.winCondition || 'xxx';
   const goalText = document.createElement('span');
   goalText.textContent = WIN_GOAL_LABELS[stage.goal] || stage.goal || 'xxx';
   goal.append(goalHeading, goalType, document.createElement('br'), goalText);
+  if (stage.additionalElements) {
+    const additional = document.createElement('span');
+    additional.className = 'additional-elements';
+    const mark = document.createElement('span');
+    mark.className = 'additional-elements-mark';
+    mark.innerHTML = HAMMER_ICON_SVG;
+    const text = document.createElement('span');
+    text.textContent = stage.additionalElements;
+    additional.append(mark, text);
+    goal.append(additional);
+  }
   winningconditionGoal.append(goal);
+  updateWinningConditionOverflow();
 }
 
 function exchangeCandidates(game, sourceId){
@@ -2234,8 +2346,10 @@ async function chooseCharacter(characterName, source){
     if (!character || Object.values(room.game.characterSelections).some(item => item.name === characterName)) return;
     const hasYellowOne = (room.hands?.[state.userId]?.cards || [])
       .some(card => card.color === 'yellow' && card.number === 1);
-    // 黄1の所持者は必ずフロドを、所持していないプレイヤーはフロド以外を選ぶ。
-    if ((characterName === 'フロド') !== hasYellowOne) return;
+    const hasFrodoCharacter = (room.game.availableCharacters || [])
+      .some(item => item.name === 'フロド');
+    // フロドが登場する章だけ、黄1の所持者とフロドを対応させる。
+    if (hasFrodoCharacter && (characterName === 'フロド') !== hasYellowOne) return;
     const selectedNames = new Set(Object.values(room.game.characterSelections).map(item => item.name));
     const remainingRequiredCount = (room.game.availableCharacters || [])
       .filter(item => item.required && !selectedNames.has(item.name)).length;
@@ -2270,6 +2384,9 @@ async function chooseCharacter(characterName, source){
         room.hands[state.userId].cards[replacementIndex] = room.hands[currentHolder].cards[yellowIndex];
         room.hands[currentHolder].cards[yellowIndex] = replacement;
       }
+      room.game.turnPlayerId = state.userId;
+    } else if (!hasFrodoCharacter && hasYellowOne) {
+      // フロドが登場しない章では、黄1の所持者をスタートプレイヤーにする。
       room.game.turnPlayerId = state.userId;
     }
     const chosenCount = Object.keys(room.game.characterSelections).length;
@@ -2322,6 +2439,7 @@ function renderCharacterPicker(){
   characterPickerRow.replaceChildren();
   const chosenNames = new Set(Object.values(selections).map(item => item.name));
   const allCharacters = game.availableCharacters || [];
+  const hasFrodoCharacter = allCharacters.some(character => character.name === 'フロド');
   const remainingCharacters = allCharacters.filter(character => !chosenNames.has(character.name));
   const remainingRequiredCount = remainingCharacters.filter(character => character.required).length;
   const remainingPlayerCount = (game.playerOrder || []).length - Object.keys(selections).length;
@@ -2339,13 +2457,14 @@ function renderCharacterPicker(){
     choice.className = 'character-choice';
     const isChosen = chosenNames.has(character.name);
     choice.classList.toggle('chosen-placeholder', isChosen);
-    const violatesRingRule = character.name === 'フロド' ? !hasYellowOne : hasYellowOne;
+    const violatesRingRule = hasFrodoCharacter
+      && (character.name === 'フロド' ? !hasYellowOne : hasYellowOne);
     const unavailable = violatesRingRule || (mustChooseRequired && !character.required);
     choice.disabled = isChosen || alreadyChose || unavailable;
     // 選択できない場合も、フロドは暗くせず黄1との対応を見分けやすくする。
     choice.classList.toggle('forced-unavailable', unavailable && !hasYellowOne && character.name !== 'フロド');
     choice.dataset.characterName = character.name;
-    choice.classList.toggle('ring-required-pulse', hasYellowOne && character.name === 'フロド');
+    choice.classList.toggle('ring-required-pulse', hasFrodoCharacter && hasYellowOne && character.name === 'フロド');
     const choiceCard = createCharacterCardElement(characterCardData(character, state.userId));
     choice.appendChild(choiceCard);
     if (character.required) {
@@ -2355,7 +2474,7 @@ function renderCharacterPicker(){
       requiredDot.setAttribute('aria-label', '必須キャラクター');
       choice.appendChild(requiredDot);
       // 黄1所持者には、選択可能なフロドだけを従来どおり浮かせる。
-      choice.classList.toggle('required-raised', hasYellowOne ? character.name === 'フロド' : mustChooseRequired);
+      choice.classList.toggle('required-raised', hasFrodoCharacter && hasYellowOne ? character.name === 'フロド' : mustChooseRequired);
     }
     choice.addEventListener('click', event => { event.stopPropagation(); chooseCharacter(character.name, choice); });
     characterPickerRow.appendChild(choice);
