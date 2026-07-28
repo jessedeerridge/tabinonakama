@@ -829,7 +829,9 @@ const cardNameFitObserver = new ResizeObserver(entries => {
   });
 });
 
-// 名前欄自体は動かさず、通常の9pxではみ出すキャラクター名だけを縮小する。
+const characterNameMeasureContext = document.createElement('canvas').getContext('2d');
+
+// 表示先のtransform倍率に影響されない基準寸法で、すべてのキャラクター名を調整する。
 function fitCharacterName(target){
   requestAnimationFrame(() => {
     if (!target.isConnected) return;
@@ -838,9 +840,11 @@ function fitCharacterName(target){
     target.style.width = '';
     const styles = getComputedStyle(target);
     const padding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
-    const range = document.createRange();
-    range.selectNodeContents(target);
-    const measureText = () => range.getBoundingClientRect().width;
+    const measureText = () => {
+      if (!characterNameMeasureContext) return target.scrollWidth - padding;
+      characterNameMeasureContext.font = `${styles.fontWeight} ${size}px ${styles.fontFamily}`;
+      return characterNameMeasureContext.measureText(target.textContent || '').width;
+    };
     const desiredWidth = Math.ceil(measureText() + padding);
     const maximumWidth = target.parentElement.clientWidth + 4;
     // 短い名前は欄も短くし、カード左端までの最大幅を超える名前だけ最大幅に固定する。
