@@ -233,6 +233,8 @@
   .arasujisquare-center{display:flex;align-items:center;justify-content:center;padding:2px;overflow:hidden;font-size:9px;font-weight:400;line-height:1.05;}
   .winningcondition-half{display:flex;align-items:center;padding:2px;overflow:hidden;font-size:9px;line-height:1.25;text-align:left;}
   .winningcondition-content{width:100%;}
+  .additional-elements{display:block;margin-top:3px;font-size:8px;line-height:1.15;}
+  .additional-elements-mark{margin-right:2px;font-weight:900;}
   .winningcondition-content strong{font-weight:900;}
   .stage-title,.character-heading,.character-line,.goal-heading{white-space:nowrap;}
   .stage-title{letter-spacing:normal;}
@@ -693,10 +695,26 @@ const CHARACTER_NAMES = {
   merry: 'メリー',
   pippin: 'ピピン',
   gandalf: 'ガンダルフ',
-  bilbo: 'ビルボ'
+  bilbo: 'ビルボ',
+  farmer_maggot: '農夫マゴット',
+  gildor: 'ギルドール・イングロリオン',
+  fatty_bolger: '“でぶちゃん”のボルジャー',
+  tom_bombadil: 'トム・ボンバディル',
+  goldberry: 'ゴールドベリ',
+  underhill: '山の下さん',
+  barliman: 'バーリマン・バタバー',
+  strider: '馭夫',
+  glorfindel: 'グロルフィンデル',
+  bill: '小馬のビル',
+  elrond: 'エルロンド',
+  gloin: 'グローイン',
+  arwen: 'アルウェン'
 };
 const WIN_LENGTH_LABELS = { short: '短い', long: '長い' };
-const WIN_GOAL_LABELS = { allwin: '「選んだ全てのキャラクターの目的をすべて達成」' };
+const WIN_GOAL_LABELS = {
+  allwin: '「選んだキャラクターの目的をすべて達成」',
+  everywin: '「すべてのキャラクターの目的を達成」'
+};
 
 function toKanjiNumber(number){
   if (!Number.isInteger(number) || number < 1 || number > 100) return String(number);
@@ -730,12 +748,46 @@ defineStage(1, {
   goal: 'allwin'
 });
 defineStage(2, {
-  title: 'ホビット庄で少し出遅れる',
-  story: 'フロドはサムの隣りに腰を下して食べ始めました。「今日はどういうご予定？」とピピンがたずねました。「できるだけ速くバックル村まで歩くこと。」とフロドはそう答え、食べ物に集中しました。',
+  title: 'ホビット庄での少しか遅れ',
+  story: '「静かに、そしてすみやかに出立するのだ」ガンダルフはそう言った。しかし二、三週間が過ぎてもフロドは旅立つ気配がなかった。「分かってるさ。でも、両立は難しいんだ」フロドは反論した。「ビルボみたいに急に消えたら、噂はホビット庄中にあっという間に広がってしまう」',
   characters: ['frodo*,sam*,merry*', 'gandalf,pippin'],
   threats: [{ name:'黒の乗手', min:1, max:4 }],
   winCondition: 'short',
   goal: 'allwin'
+});
+defineStage(3, {
+  title: '指輪が旅立った',
+  story: 'フロドはサムの隣に座り、食べ始めた。「今日はどうするんだ？」とピピンが尋ねた。「できるだけ早くバックルベリまで歩いて行くよ」。フロドはそう答えると、再び食事に集中した。',
+  characters: ['frodo*,farmer_maggot*,gildor*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin'
+});
+defineStage(4, {
+  title: 'くり窪の陰謀',
+  story: 'ここで“でぶちゃん”のボルジャーは足を止めた。「さよなら、フロド!」彼はそうあいさつした。「君が森に入らずにすめばいいんだけどな。日が暮れる前に助けが必要にならないことを願うよ。でも、幸運を祈る。今日も、これからもずっと!」',
+  characters: ['frodo*,fatty_bolger*', 'sam,merry*,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin'
+});
+defineStage(5, {
+  title: '古森', story: '道の跡はどこにもなく、木々が絶えず行く手をふさいでいるように感じられた。ピピンは突然、もう耐えられないと思い、何の前触れもなく大声を上げた。「おい!　おい!」彼は叫んだ。「僕は何もしないって! ただ通してくれよ!」',
+  characters: ['frodo*,tom_bombadil*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈柳じじい〉カードの〈イベント：古森〉の記述にしたがう。'
+});
+defineStage(6, {
+  title: '霧の塚山丘陵', story: '行く手の両側から、霧を通して闇が迫り始めた。彼は、ついに丘の隙間――塚山の北門へと近づいているのだと察した。そこを抜けさえすれば、自由になれるのだ。',
+  characters: ['frodo*,tom_bombadil*,goldberry*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈塚人〉カードの〈イベント：霧の塚山丘陵〉の記述にしたがう。'
+});
+defineStage(7, {
+  title: '躍る小馬亭で', story: 'アーチの上にはランプが灯り、その下では、大きな看板が揺れていた。そこには、太った白い小馬が後ろ足で立ち上がる姿が描かれていた。扉の上には、白い文字で「バーリマン・バタバーの躍る小馬亭」と記されていた。低い窓のほとんどは厚いカーテンで覆われていたが、その向こうからは明かりが漏れていた。',
+  characters: ['underhill*,barliman*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin'
+});
+defineStage(8, {
+  title: '闇夜め短剣', story: 'もはや疑いようはなかった。三、四つの黒い姿が斜面の上に立ち、彼らを見下ろしていた。あまりにも黒く、まるで背後の深い影にぽっかりと穴が空いているかのようだった。フロドは、どこかでかすかにシュッという毒々しい息遣いを聞いたような気がした。その直後、鋭く突き刺すような冷気を感じた。',
+  characters: ['frodo*,merry*,strider*', 'sam,pippin,barliman'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈魔王〉をフロドに、〈黒の息〉をメリーに渡す。'
+});
+defineStage(9, {
+  title: '浅瀬への逃走', story: '意識が薄れる中、フロドは最後に叫び声を聞いた。そして、岸辺でためらう黒の乗手たちの向こうに、白く輝く姿が見えたような気がした。その背後では、小さな影のような存在が走り、炎を振りかざしていた。世界を覆う灰色の霧の中で、その炎は赤くきらめいた。',
+  characters: ['glorfindel*', 'frodo,sam,merry,pippin', 'strider,bill'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'long', goal:'everywin', additionalElements:'各ラウンドでは〈グロルフィンデル〉を使う（フロドは1回のみでよい）。\n〈九人組〉カードの〈イベント：浅瀬への逃走〉の記述にしたがう。'
+});
+defineStage(10, {
+  title: '裂け谷での休息', story: '「ここはどこだ? 今は何時だ?」フロドは天井に向かって声を上げた。「ここはエルロンドの館、そして今は朝の十時だ」誰かが答えた。「知りたいのであれば、今日は十月二十四日の朝である」「ガンダルフ!」フロドは驚いて身を起こした。そこには、老魔法使いが窓辺の椅子に腰かけていた。',
+  characters: ['elrond*,bilbo*', 'gloin,arwen,gandalf'], threats: [], winCondition:'short', goal:'allwin'
 });
 
 /* ★ 追加：ヘルプUI参照 */
@@ -1374,6 +1426,17 @@ function renderStageInformation(){
   const goalText = document.createElement('span');
   goalText.textContent = WIN_GOAL_LABELS[stage.goal] || stage.goal || 'xxx';
   goal.append(goalHeading, goalType, document.createElement('br'), goalText);
+  if (stage.additionalElements) {
+    const additional = document.createElement('span');
+    additional.className = 'additional-elements';
+    const mark = document.createElement('span');
+    mark.className = 'additional-elements-mark';
+    mark.textContent = '🔨';
+    const text = document.createElement('span');
+    text.textContent = stage.additionalElements;
+    additional.append(mark, text);
+    goal.append(additional);
+  }
   winningconditionGoal.append(goal);
 }
 
