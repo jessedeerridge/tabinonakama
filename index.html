@@ -1502,6 +1502,7 @@ let pendingSeatPlayerIdToSteal = null;
 let isRenderingSeatTabs = false;
 let latestPlayers = [];
 let trickClearTimer = null;
+let exchangeSelectionTimer = null;
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
@@ -2040,8 +2041,11 @@ function subscribeRoom(){
       requestAnimationFrame(() => animateExchangeOffer(exchangeOfferTransfer, previousExchangePositions));
     }
     const selectionAvailableAt = state.game?.pendingExchange?.selectionAvailableAt;
+    clearTimeout(exchangeSelectionTimer);
+    exchangeSelectionTimer = null;
     if (selectionAvailableAt && Date.now() < selectionAvailableAt) {
-      setTimeout(() => {
+      exchangeSelectionTimer = setTimeout(() => {
+        exchangeSelectionTimer = null;
         renderHands();
         renderExchangeDialog();
         // 受取カードのドラッグ可否も到着時刻で切り替わるため、プレイヤー周りを再描画する。
@@ -2846,6 +2850,7 @@ let entranceRooms = [];
 const visibleRoomCount = 5;
 let activeEntranceCode = null;
 let entranceExpiryTimer = null;
+let unsubscribeEntranceRooms = null;
 roomList.style.maxHeight = `${visibleRoomCount * 86}px`;
 
 function scheduleEntranceRoomExpiry(){
@@ -2950,7 +2955,7 @@ async function createUniqueRoom(name){
     if (result.committed) return code;
   }
 }
-onValue(ref(db, 'rooms'), snapshot => {
+unsubscribeEntranceRooms = onValue(ref(db, 'rooms'), snapshot => {
   const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
   entranceRooms = Object.entries(snapshot.val() || {}).map(([code, room]) => {
     const people = room.players || room.users || {};
@@ -2989,6 +2994,15 @@ async function enterRoom(roomCode, userName){
   });
   const roomData = joinResult.snapshot.val() || {};
   state.isHost = (roomData.hostId === state.userId);
+
+  // 入り口の一覧は rooms 全体を監視するため、入室後も残すとゲーム操作のたびに全ルームを
+  // 再受信してしまう。メモリの少ないスマホでタブがリロードされないよう、ここで購読を終える。
+  unsubscribeEntranceRooms?.();
+  unsubscribeEntranceRooms = null;
+  clearTimeout(entranceExpiryTimer);
+  entranceExpiryTimer = null;
+  entranceRooms = [];
+  roomList.replaceChildren();
 
   updateHostUI();
 
