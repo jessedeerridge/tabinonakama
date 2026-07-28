@@ -89,6 +89,8 @@
     transform-origin:bottom center;
     box-shadow:0 2px 6px rgba(0,0,0,.15);
   }
+  .player-tag.current-turn .mini-hand{animation:turnHandPulse 1.05s ease-in-out infinite;transform-origin:center top;}
+  @keyframes turnHandPulse{50%{transform:translate(-50%,3px) scale(1.1)}}
 
   /* 自分の手札表示（大きめ横並び） */
   .my-hand-wrapper{margin-top:23px;text-align:center;}
@@ -145,15 +147,16 @@
   .threat-card .card-name::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
-  .victory-condition-icon{width:15px;height:15px;border:0;border-radius:2px;background:#111;color:#fff;box-sizing:border-box;display:grid;place-items:center;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;}
-  .victory-condition-icon.ring{background:#f2c94c;color:#111;}
-  .victory-condition-icon.hill{background:#d98236;color:#111;}
-  .victory-condition-icon.exact{border:2px solid #d5a313;line-height:1;}
-  .victory-condition-icon.choice{width:auto;background:transparent;color:#6b4f13;display:flex;gap:3px;border:0;}
-  .victory-condition-option{width:15px;height:15px;box-sizing:border-box;border:2px solid #d5a313;border-radius:2px;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font:700 10px/1 system-ui,-apple-system,"Segoe UI",sans-serif;}
-  .victory-condition-or{font-size:7px;font-weight:800;line-height:15px;}
+  .victory-condition-icon{width:auto;min-width:15px;height:15px;border:0;background:transparent;color:#111;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:1px;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;white-space:nowrap;}
+  .victory-condition-squares,.victory-condition-option{display:flex;align-items:center;justify-content:center;gap:1px;}
+  .victory-condition-square{width:15px;height:15px;border:0;border-radius:2px;background:#111;color:#fff;box-sizing:border-box;display:grid;place-items:center;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;}
+  .victory-condition-icon.ring .victory-condition-square{background:#f2c94c;color:#111;}
+  .victory-condition-icon.hill .victory-condition-square{background:#d98236;color:#111;}
+  .victory-condition-icon.choice{gap:0;}
+  .victory-condition-or{margin:0;font-size:7px;font-weight:800;line-height:15px;}
+  .victory-condition-suffix{margin-left:1px;font-size:7px;font-weight:800;line-height:15px;}
   .victory-condition-icon.achieved{opacity:.35;}
-  .victory-condition-icon.word{width:24px;}
+  .victory-condition-icon.word .victory-condition-square{width:24px;}
   .character-card-unit{position:relative;flex:0 0 82px;width:82px;height:122px;}
   .character-card-unit>.character-card{width:82px;height:122px;}
   .character-card-unit>.victory-condition-icon{position:absolute;left:50%;top:var(--victory-icon-top,127px);transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
@@ -1091,7 +1094,16 @@ function createVictoryConditionIcon(cardData, playerId){
   icon.classList.toggle('achieved', achieved);
   const word = victory.includes('最少') ? 'min' : (victory.includes('最大') || victory.includes('最多')) ? 'max' : '';
   icon.classList.toggle('word', Boolean(word));
-  const isExactCount = Boolean(numbers.length) && !victory.includes('以上');
+  const makeSquares = count => {
+    const squares = document.createElement('span');
+    squares.className = 'victory-condition-squares';
+    for (let index = 0; index < count; index++) {
+      const square = document.createElement('span');
+      square.className = 'victory-condition-square';
+      squares.appendChild(square);
+    }
+    return squares;
+  };
   if (numbers.length > 1 && victory.includes('か')) {
     icon.classList.add('choice');
     numbers.forEach((value, index) => {
@@ -1103,12 +1115,25 @@ function createVictoryConditionIcon(cardData, playerId){
       }
       const option = document.createElement('span');
       option.className = 'victory-condition-option';
-      option.textContent = value;
+      option.appendChild(makeSquares(Number(value)));
       icon.appendChild(option);
     });
+  } else if (threatRank != null) {
+    const square = makeSquares(1);
+    square.firstElementChild.textContent = number;
+    icon.appendChild(square);
+  } else if (numbers.length) {
+    icon.appendChild(makeSquares(Number(numbers[0])));
+    if (victory.includes('以上')) {
+      const suffix = document.createElement('span');
+      suffix.className = 'victory-condition-suffix';
+      suffix.textContent = '以上';
+      icon.appendChild(suffix);
+    }
   } else {
-    icon.classList.toggle('exact', isExactCount);
-    icon.textContent = number || word;
+    const square = makeSquares(1);
+    square.firstElementChild.textContent = word;
+    icon.appendChild(square);
   }
   const status = achieved ? '（達成済み）' : '';
   icon.setAttribute('aria-label', `勝利条件：${victory}${status}`);
@@ -2690,6 +2715,9 @@ function renderPlayerCircle(players){
     tag.textContent = p.name;
     tag.style.left = `${x}%`;
     tag.style.top = `${y}%`;
+    // 初期効果・交換がすべて終わり、通常プレイに入ってから手番を明示する。
+    tag.classList.toggle('current-turn', p.id !== state.userId
+      && state.game?.phase === 'playing' && state.game?.turnPlayerId === p.id);
 
     tag.onclick = () => {
       if (p.id === state.userId) return;
