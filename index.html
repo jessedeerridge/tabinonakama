@@ -93,7 +93,7 @@
   @keyframes turnHandPulse{50%{transform:translate(-50%,3px) scale(1.1)}}
 
   /* 自分の手札表示（大きめ横並び） */
-  .my-hand-wrapper{margin-top:17px;text-align:center;}
+  .my-hand-wrapper{position:relative;z-index:6;margin-top:17px;text-align:center;}
   .my-hand-title{display:none;}
   /* 手札が1段になっても中央寄せされるゲーム盤全体の高さを変えず、プレイヤーサークルを固定する。 */
   .my-hand{--hand-card-scale:1;display:flex;width:min(calc(100vw - 8px),calc(var(--hand-columns,1) * 82px + (var(--hand-columns,1) - 1) * 10px + 24px));height:254px;box-sizing:border-box;flex-direction:column;align-items:center;gap:10px;margin:6px auto 0;padding:0 12px;}
@@ -131,7 +131,7 @@
   .played-card-slot.gathering{animation:gatherCard .7s ease-in-out both;}
   .played-card-slot.gathered{animation:none;transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt));}
   @keyframes gatherCard{from{transform:translate(0,0) rotate(var(--tilt))}to{transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt))}}
-  .capture-circle{position:absolute;width:38px;height:56px;transform:translate(-50%,-50%);z-index:3;}
+  .capture-circle{position:absolute;width:38px;height:56px;transform:translate(-50%,-50%);z-index:6;}
   .capture-trick{position:absolute;top:0;width:38px;height:56px;}
   .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
   .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
@@ -209,14 +209,16 @@
   .center-lower-card-area.character-selection-layout{
     left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
   }
-  .center-lower-card-area.event-stage-layout{left:50%;width:505px;flex-direction:row;justify-content:center;gap:3px;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/505));transform-origin:top center;}
-  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:505px;transform:translateX(-50%);}
+  .center-lower-card-area.event-stage-layout{left:50%;width:487px;flex-direction:row;justify-content:center;gap:0;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/487));transform-origin:top center;}
+  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:487px;transform:translateX(-50%);}
   .center-lower-card-area.event-stage-layout:not(.character-selection-layout){top:calc(68% - 101px);transform:translate(-50%,-80px);}
   .event-stage-layout>.center-card-row{display:contents;}
   .event-stage-layout #arasujisquare{order:1;}
   .event-stage-layout #winningconditionsquare{order:2;}
   .event-stage-layout .event-card-row>.event-card:nth-child(2){order:3;}
   .event-stage-layout .event-card-row>.event-card:nth-child(1){order:4;}
+  .event-stage-layout>.center-lower-card,.event-stage-layout>.center-card-row>.center-lower-card{margin-left:-3px;}
+  .event-stage-layout #arasujisquare{margin-left:0;}
   .center-card-row{width:100%;display:flex;align-items:center;justify-content:space-between;}
   .event-card-row{display:none;}
   .event-stage-layout .event-card-row{display:contents;}
@@ -228,7 +230,7 @@
   #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
   .event-card{width:112px;height:160px;background-image:url('eventback.jpg');}
   .event-card-title{position:absolute;left:13%;right:13%;top:calc(8% - 6px);height:16%;display:grid;place-items:center;text-align:center;font-size:10px;font-weight:900;line-height:1.05;}
-  .event-card-text{position:absolute;left:50%;top:58%;width:95px;height:112px;transform:translate(-50%,-50%);display:block;padding:2px;box-sizing:border-box;overflow:hidden;white-space:pre-line;text-align:left;font-size:10px;line-height:1.08;}
+  .event-card-text{position:absolute;left:50%;top:calc(58% - 2px);width:95px;height:112px;transform:translate(-50%,-50%);display:block;padding:2px;box-sizing:border-box;overflow:hidden;white-space:pre-line;text-align:left;font-size:10px;line-height:1.08;}
   .event-card-text strong{display:block;margin-bottom:2px;font-weight:900;}
   .event-card-gap{display:block;height:3px;}
   .event-card-hammer{display:inline-block;width:8px;height:8px;margin-right:2px;vertical-align:-1px;color:#111;}
