@@ -1574,6 +1574,8 @@ let latestPlayers = [];
 let trickClearTimer = null;
 let oldForestDrawTimer = null;
 let barrowDrawTimer = null;
+let threatDrawTimer = null;
+let lastAnimatedBarrowDrawAt = null;
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
@@ -1739,6 +1741,8 @@ function renderStageInformation(){
 
   const oldForestCapturedCards = (state.game?.oldForestCapturedTricks || []).flatMap(trick => trick.cards || []);
   oldForestCapturedArea.classList.toggle('hidden', !isOldForest || !oldForestCapturedCards.length);
+  const winningConditionRect = winningconditionsquare.getBoundingClientRect();
+  if (winningConditionRect.height) oldForestCapturedArea.style.top = `${winningConditionRect.bottom + 1}px`;
   oldForestCapturedArea.replaceChildren();
   oldForestCapturedCards.forEach((cardData, index) => {
     const item = document.createElement('div');
@@ -1947,12 +1951,30 @@ function isCharacterEffectTurn(playerId){
   const game = state.game;
   if (!playerId || !game || ['playing', 'character-selection'].includes(game.phase)) return false;
   const activePlayerId = game.pendingExchange?.sourceId
+    || (game.phase === 'threat-draw-wait' ? game.threatDrawPlayerId : null)
     || (game.phase === 'barrow-draw-wait' ? game.barrowPlayerId : null)
     || (game.phase === 'tom-selection' ? game.tomPlayerId : null)
     || (game.phase === 'gandalf-selection' ? game.gandalfPlayerId : null)
     || (game.phase === 'strider-comparison' ? game.striderPlayerId : null)
     || game.exchangeQueue?.[0];
   return activePlayerId === playerId;
+}
+
+function scheduleThreatDraw(){
+  clearTimeout(threatDrawTimer);
+  const drawAt = state.game?.pendingThreatDrawAt;
+  if (!drawAt || !state.roomCode) return;
+  threatDrawTimer = setTimeout(async () => {
+    await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+      if (!game?.pendingThreatDrawAt || game.pendingThreatDrawAt !== drawAt || Date.now() < drawAt) return;
+      const playerId = game.threatDrawPlayerId;
+      drawThreatForCharacterEffect(game, playerId);
+      delete game.pendingThreatDrawAt;
+      delete game.threatDrawPlayerId;
+      beginNextExchange(game);
+      return game;
+    });
+  }, Math.max(0, drawAt - Date.now()) + 20);
 }
 
 function scheduleBarrowDraw(){
@@ -1968,7 +1990,9 @@ function scheduleBarrowDraw(){
       room.hands ||= {};
       room.hands[playerId] ||= { cards:[] };
       room.hands[playerId].cards ||= [];
-      room.hands[playerId].cards.push(...game.barrowDeck.splice(0, 5));
+      const drawnCards = game.barrowDeck.splice(0, 5);
+      room.hands[playerId].cards.push(...drawnCards);
+      game.barrowDrawTransfer = { playerId, cards:drawnCards, movedAt:Date.now() };
       delete game.pendingBarrowDrawAt;
       delete game.barrowPlayerId;
       beginCharacterEffectTurns(game);
@@ -1985,7 +2009,15 @@ function beginNextExchange(game){
     const characterName = game.characterSelections?.[sourceId]?.name;
     game.effectTurnStartedAt ||= {};
     game.effectTurnStartedAt[sourceId] ||= Date.now();
-    drawThreatForCharacterEffect(game, sourceId);
+    const needsThreatDraw = ['農夫マゴット', 'サム', '馳夫', 'アラゴルン'].includes(characterName)
+      && !(game.threatCards?.[sourceId] || []).length;
+    if (needsThreatDraw) {
+      game.phase = 'threat-draw-wait';
+      game.threatDrawPlayerId = sourceId;
+      game.pendingThreatDrawAt = Date.now() + 1000;
+      game.turnPlayerId = null;
+      return;
+    }
     if (characterName === '馳夫' && !game.striderChoices?.[sourceId]) {
       game.phase = 'strider-comparison';
       game.striderPlayerId = sourceId;
@@ -2143,6 +2175,35 @@ function animateLostCard(sourceRect, transfer){
   target.style.opacity = '0';
 }
 
+function animateBarrowDraw(sourceRect, transfer){
+  if (!sourceRect?.width || !transfer?.cards?.length) return;
+  transfer.cards.forEach((cardData, index) => {
+    const target = transfer.playerId === state.userId
+      ? myHandEl.querySelector(`[data-card-id="${CSS.escape(cardData.id)}"]`)
+      : playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(transfer.playerId)}"] .mini-card:last-child`);
+    const targetRect = target?.getBoundingClientRect();
+    if (!targetRect?.width) return;
+    target.style.opacity = '0';
+    const flight = transfer.playerId === state.userId ? createCardElement(cardData) : document.createElement('div');
+    flight.classList.add('exchange-card-flight');
+    if (transfer.playerId !== state.userId) flight.classList.add('card-back');
+    flight.style.left = `${sourceRect.left}px`;
+    flight.style.top = `${sourceRect.top}px`;
+    flight.style.transform = `scale(${sourceRect.width / 82}) rotateY(180deg)`;
+    document.body.appendChild(flight);
+    const destinationScale = targetRect.width / 82;
+    const animation = flight.animate([
+      { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${sourceRect.width / 82}) rotateY(180deg)`, opacity:1 },
+      { left:`${targetRect.left}px`, top:`${targetRect.top}px`, transform:`scale(${destinationScale}) rotateY(0deg)`, opacity:1 }
+    ], { duration:900, delay:index * 90, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' });
+    animation.finished.finally(() => {
+      flight.remove();
+      target.style.removeProperty('opacity');
+    });
+  });
+  lastAnimatedBarrowDrawAt = transfer.movedAt;
+}
+
 function captureMyHandRects(){
   return new Map(Array.from(myHandEl.querySelectorAll('[data-card-id]'), card => [
     card.dataset.cardId, card.getBoundingClientRect()
@@ -2263,6 +2324,7 @@ function subscribeRoom(){
   onValue(roomRef, snap => {
     const previousTransferAt = state.game?.lostCardTransfer?.movedAt;
     const excludedSourceRect = state.game?.excludedCard ? excludedCardSlot.getBoundingClientRect() : null;
+    const barrowSourceRect = state.game?.barrowDeck?.length ? barrowDeck.getBoundingClientRect() : null;
     const previousMyHandRects = captureMyHandRects();
     const previousExchangePositions = captureExchangePositions();
     state.room = snap.val() || {};
@@ -2278,6 +2340,11 @@ function subscribeRoom(){
     renderChapterComplete();
     scheduleOldForestDraw();
     scheduleBarrowDraw();
+    scheduleThreatDraw();
+    const barrowTransfer = state.game?.barrowDrawTransfer;
+    if (barrowTransfer?.movedAt && barrowTransfer.movedAt !== lastAnimatedBarrowDrawAt) {
+      requestAnimationFrame(() => animateBarrowDraw(barrowSourceRect, barrowTransfer));
+    }
     const exchangeOfferTransfer = state.game?.exchangeOfferTransfer;
     if (exchangeOfferTransfer?.movedAt && exchangeOfferTransfer.movedAt !== lastAnimatedExchangeOfferAt) {
       requestAnimationFrame(() => animateExchangeOffer(exchangeOfferTransfer, previousExchangePositions));
