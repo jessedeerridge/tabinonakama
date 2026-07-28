@@ -328,7 +328,8 @@
   .my-card.yellow-one .card-badge::before{background:#111;}
   .my-card.yellow-one .card-number{color:var(--card-color);}
   .my-card.yellow-one .card-mark{height:18px;margin-top:-1px;}
-  .my-card.yellow-one .card-name{left:3px;right:3px;padding:0 7px;box-sizing:border-box;font-size:9px;letter-spacing:-.06em;white-space:nowrap;overflow:hidden;}
+  /* 固定文言なので、切り離したカードを監視し続ける ResizeObserver は使わない。 */
+  .my-card.yellow-one .card-name{left:3px;right:3px;padding:0 7px;box-sizing:border-box;font-size:4px;letter-spacing:-.06em;white-space:nowrap;overflow:hidden;}
   .character-card{
     --character-frame:#73583a;--character-panel:#fff8e8;
     border-color:var(--character-frame);background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;
@@ -956,22 +957,6 @@ const CARD_DECK = CARD_TYPES.flatMap(type =>
   }))
 );
 
-// 長い特殊カード名を、カード幅に合わせて一行に収める。
-const cardNameFitObserver = new ResizeObserver(entries => {
-  entries.forEach(({ target }) => {
-    target.style.fontSize = '9px';
-    const styles = getComputedStyle(target);
-    const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
-    const availableWidth = target.clientWidth - horizontalPadding;
-    const range = document.createRange();
-    range.selectNodeContents(target);
-    const textWidth = range.getBoundingClientRect().width;
-    if (!availableWidth || textWidth <= availableWidth) return;
-    const fittedSize = Math.max(4, 9 * availableWidth / textWidth);
-    target.style.fontSize = `${fittedSize}px`;
-  });
-});
-
 const characterNameMeasureContext = document.createElement('canvas').getContext('2d');
 const characterNameLayouts = new Map();
 
@@ -1041,8 +1026,6 @@ function createCardElement(cardData){
     initialElement.textContent = initial;
     name.append(initialElement, rest.join(''));
   }
-  if (isYellowOne) cardNameFitObserver.observe(name);
-
   // 左右とも数字とマークは同じ通常向きで表示する。
   card.append(createBadge('left'), createBadge('right'), name);
   return card;
