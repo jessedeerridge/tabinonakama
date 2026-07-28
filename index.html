@@ -282,7 +282,7 @@
     border-color:#aeb8c5;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;
   }
   .character-card .character-label{
-    position:absolute;left:auto;right:-4px;top:1px;width:max-content;min-width:0;max-width:calc(100% + 4px);padding:0 4.5px 0 18px;
+    position:absolute;left:auto;right:-4px;top:1px;width:max-content;min-width:0;max-width:calc(100% + 4px);padding:0 4.5px 0 10px;
     box-sizing:border-box;background:var(--character-frame);color:#3f3021;font-size:9px;font-weight:900;isolation:isolate;
     line-height:1.1;text-align:right;white-space:nowrap;overflow:hidden;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);
     display:flex;align-items:center;justify-content:flex-end;
@@ -840,14 +840,19 @@ function fitCharacterName(target){
     const padding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
     const range = document.createRange();
     range.selectNodeContents(target);
-    const desiredWidth = Math.ceil(range.getBoundingClientRect().width + padding);
+    const measureText = () => range.getBoundingClientRect().width;
+    const desiredWidth = Math.ceil(measureText() + padding);
     const maximumWidth = target.parentElement.clientWidth + 4;
     // 短い名前は欄も短くし、カード左端までの最大幅を超える名前だけ最大幅に固定する。
     target.style.width = `${Math.min(desiredWidth, maximumWidth)}px`;
     // 最大幅でも長い場合は、全文字が収まるまで文字だけを縮める。
-    while (size > 1 && target.scrollWidth > target.clientWidth) {
-      size = Math.max(1, size - .25);
+    let availableWidth = target.clientWidth - padding;
+    let textWidth = measureText();
+    while (size > 1 && textWidth > availableWidth) {
+      size = Math.max(1, Math.floor((size * availableWidth / textWidth) * 100) / 100);
       target.style.fontSize = `${size}px`;
+      availableWidth = target.clientWidth - padding;
+      textWidth = measureText();
     }
   });
 }
