@@ -153,13 +153,17 @@
   .victory-condition-icon.ring .victory-condition-square{background:#f2c94c;color:#111;}
   .victory-condition-icon.hill .victory-condition-square{background:#d98236;color:#111;}
   .victory-condition-icon.choice{gap:0;}
-  .victory-condition-or{margin:0;font-size:7px;font-weight:800;line-height:15px;}
-  .victory-condition-suffix{margin-left:1px;font-size:7px;font-weight:800;line-height:15px;}
+  .victory-condition-or{margin:0 1px;font-size:9px;font-weight:900;line-height:15px;}
+  .victory-condition-suffix{margin-left:2px;font-size:9px;font-weight:900;line-height:15px;}
   .victory-condition-icon.achieved{opacity:.35;}
   .victory-condition-icon.word .victory-condition-square{width:24px;}
   .victory-condition-icon.multiline{height:auto;flex-direction:column;gap:1px;line-height:12px;}
   .victory-condition-line{display:flex;align-items:center;justify-content:center;gap:2px;height:15px;}
-  .victory-condition-label{font-size:7px;font-weight:900;line-height:10px;white-space:nowrap;}
+  .victory-condition-label{font-size:10px;font-weight:900;line-height:12px;white-space:nowrap;}
+  .victory-condition-side-label{height:30px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:12px;}
+  .victory-condition-square.white{background:#fff;color:#111;border:1px solid #111;}
+  .victory-condition-arrow{display:block;width:17px;height:17px;color:#111;}
+  .victory-condition-arrow svg{display:block;width:100%;height:100%;fill:currentColor;}
   .victory-condition-square.green{background:#559344;color:#111;}
   .victory-condition-square.orange{background:#d98236;color:#111;}
   .victory-condition-square.yellow{background:#f2c94c;color:#111;}
@@ -1221,6 +1225,20 @@ function createVictoryConditionIcon(cardData, playerId){
     item.append(...children);
     return item;
   };
+  const sideLabel = (...values) => {
+    const item = document.createElement('span');
+    item.className = 'victory-condition-side-label';
+    values.forEach(value => item.appendChild(label(value)));
+    return item;
+  };
+  const arrow = direction => {
+    const item = document.createElement('span');
+    item.className = 'victory-condition-arrow';
+    item.innerHTML = direction === 'more'
+      ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1 18 10h-5v9H7v-9H2Z"/></svg>'
+      : '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 1h6v9h5l-8 9-8-9h5Z"/></svg>';
+    return item;
+  };
   const coloredTrick = color => {
     const stack = document.createElement('span');
     stack.className = 'victory-condition-trick';
@@ -1236,17 +1254,16 @@ function createVictoryConditionIcon(cardData, playerId){
 
   if (name === '馳夫') {
     const choice = state.game?.striderChoices?.[playerId];
-    const arrow = choice === 'more' ? '↑' : choice === 'less' ? '↓' : '↑/↓';
-    icon.append(square(String(threatNumber ?? 'x')), square(arrow));
+    icon.append(square(String(threatNumber ?? 'x')));
+    if (choice) icon.append(arrow(choice));
   } else if (name === 'ギルドール・イングロリオン') {
-    icon.classList.add('multiline');
-    icon.append(line(label('last play')), line(square('', 'green')));
+    icon.append(sideLabel('last', 'play'), square('', 'green'));
   } else if (name === 'ゴールドベリ') {
     icon.append(label('3連'), square());
   } else if (name === '山の下さん') {
     icon.append(label('毎'), square('', 'yellow'));
   } else if (name === 'トム・ボンバディル') {
-    icon.append(label('last'), square(), square(), square());
+    icon.append(label('last'), square('?', 'white'), square('?', 'white'), square('?', 'white'));
   } else if (name === 'バーリマン・バタバー') {
     icon.append(square(), label('in last 3'));
   } else if (name === 'グロルフィンデル') {
@@ -1280,9 +1297,14 @@ function createVictoryConditionIcon(cardData, playerId){
   } else if (victory.includes('最も多く')) {
     icon.append(square('most'));
   } else {
-    const number = victory.match(/\d+/)?.[0] || '';
     const color = victory.includes('指輪') ? 'yellow' : 'black';
-    icon.append(square(number, color));
+    const cardCount = victory.match(/カードを(\d+)枚/)?.[1];
+    if (cardCount) {
+      for (let index = 0; index < Number(cardCount); index++) icon.append(square('', color));
+    } else {
+      const number = victory.match(/\d+/)?.[0] || '';
+      icon.append(square(number, color));
+    }
     if (victory.includes('以上')) icon.append(label('以上'));
   }
   const status = achieved ? '（達成済み）' : '';
