@@ -120,7 +120,7 @@
   @keyframes playableCardsPulse{50%{--playable-card-scale:1.07}}
   .drag-card{position:fixed;z-index:1000;pointer-events:none;transform:translate(-50%,-50%) scale(var(--drag-card-scale,1));opacity:.94;transform-origin:center;}
   .play-circle{position:absolute;width:64px;height:88px;border:0;border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:8;}
-  .play-circle.drop-hint::before{content:'';position:absolute;inset:0;border-radius:inherit;background:rgba(125,211,252,.22);opacity:0;transition:opacity .15s;}
+  .play-circle.drop-hint::before{content:'';position:absolute;inset:0;border-radius:inherit;background:rgba(56,189,248,.42);opacity:0;transition:opacity .15s;}
   .player-circle.dragging .play-circle.drop-hint::before{opacity:1;}
   .played-card-slot{position:relative;width:54px;height:81px;transform:rotate(var(--tilt));animation:cardArrive .35s ease-out both;}
   .played-card{position:absolute;left:0;top:0;transform:scale(.66);transform-origin:top left;}
@@ -249,7 +249,7 @@
   .old-forest-revealed-card.drawing::after{content:'';position:absolute;inset:0;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;transform:rotateY(180deg);backface-visibility:hidden;}
   @keyframes oldForestDraw{0%{transform:translateX(42px) rotate(0deg) rotateY(180deg)}100%{transform:translateX(0) rotate(-2deg) rotateY(0)}}
   .character-card.effect-turn{animation:effectCharacterPulse 1.05s ease-in-out infinite;}
-  @keyframes effectCharacterPulse{50%{filter:brightness(1.18) drop-shadow(0 0 6px rgba(255,205,70,.9));}}
+  @keyframes effectCharacterPulse{50%{opacity:.42;}}
   .event-card-modal-backdrop{position:fixed;inset:0;z-index:490;display:grid;place-items:center;background:rgba(0,0,0,.18);cursor:pointer;}
   .event-card-modal-backdrop.hidden{display:none;}
   .event-card-modal-row{display:flex;align-items:flex-start;gap:14px;height:160px;cursor:default;transform:translateY(33.6px);}
@@ -301,7 +301,7 @@
   .my-hand.exchange-pickable{animation:none;}
   .my-card.exchange-pick{cursor:grab;touch-action:none;animation:exchangeCardPulse 1.05s ease-in-out infinite;}
   @keyframes exchangeCardPulse{50%{transform:scale(1.07)}}
-  .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:68px;height:68px;box-sizing:border-box;border:0;border-radius:14px;transform:translate(-50%,-50%);background:rgba(125,211,252,.22);pointer-events:none;opacity:0;z-index:40;}
+  .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:68px;height:68px;box-sizing:border-box;border:0;border-radius:14px;transform:translate(-50%,-50%);background:rgba(56,189,248,.42);pointer-events:none;opacity:0;z-index:40;}
   .player-tag.exchange-drag-target .exchange-hand-hint{opacity:1;}
   .exchange-received-card{position:absolute;left:50%;top:calc(100% + 30px);width:54px;height:81px;border:1px solid #10233f;border-radius:7px;background:#fff url('tabicardura.jpg') center/cover no-repeat;transform:translate(-50%,-50%) rotate(var(--received-tilt,0deg));transform-origin:center;pointer-events:none;z-index:42;box-shadow:0 3px 8px rgba(0,0,0,.2);}
   .player-tag.me .exchange-received-card{top:-5px;transform:translate(-50%,-100%) rotate(calc(180deg + var(--received-tilt,0deg)));}
@@ -1709,7 +1709,7 @@ function renderStageInformation(){
     const item = document.createElement('div');
     item.className = 'old-forest-revealed-card';
     item.style.setProperty('--reveal-left', `${index * -16}px`);
-    item.style.setProperty('--reveal-tilt', `${index % 2 ? 1 : -2}deg`);
+    item.style.setProperty('--reveal-tilt', `${index % 3 - 1}deg`);
     item.appendChild(createCardElement(cardData));
     if (index === 0 && cardData.id && cardData.id !== lastRenderedOldForestCardId) {
       item.classList.add('drawing');
@@ -1726,7 +1726,7 @@ function renderStageInformation(){
     const item = document.createElement('div');
     item.className = 'old-forest-captured-card';
     item.style.setProperty('--captured-right', `${index * 12}px`);
-    item.style.setProperty('--captured-tilt', `${index % 2 ? 2 : -2}deg`);
+    item.style.setProperty('--captured-tilt', `${index % 3 - 1}deg`);
     item.appendChild(createCardElement(cardData));
     oldForestCapturedArea.appendChild(item);
   });
