@@ -2014,7 +2014,7 @@ function beginNextExchange(game){
     if (needsThreatDraw) {
       game.phase = 'threat-draw-wait';
       game.threatDrawPlayerId = sourceId;
-      game.pendingThreatDrawAt = Date.now() + 1000;
+      game.pendingThreatDrawAt = Date.now() + 2000;
       game.turnPlayerId = null;
       return;
     }
