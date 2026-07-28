@@ -62,18 +62,18 @@
   .player-circle{
     position:relative;width:min(76vw,420px);height:min(76vw,420px);
     margin:8px auto 0;border-radius:50%;
-    box-sizing:border-box;border:none;z-index:5;
+    box-sizing:border-box;border:none;z-index:auto;
   }
   .player-circle::before{content:'';}
   .player-tag{
     position:absolute;transform:translate(-50%,-50%);
     padding:4px 8px;border-radius:999px;background:#f8f8f8;
-    border:1px solid #ddd;font-size:12px;white-space:nowrap;
+    border:1px solid #ddd;font-size:12px;white-space:nowrap;z-index:5;
   }
   .player-tag.me{ background:#111;color:#fff;border-color:#111; }
   .player-tag.me{margin-top:64px;}
   /* transform でできる stacking context ごと場札より手前に出し、受取カード全体を操作可能にする。 */
-  .player-tag.exchange-return-active{z-index:5;}
+  .player-tag.exchange-return-active{z-index:20;}
 
   /* 他プレイヤーのミニカード（ネームタグの下に扇状） */
   .player-tag .mini-hand{
@@ -119,7 +119,7 @@
   .my-card.drag-source{visibility:hidden;}
   @keyframes playableCardsPulse{50%{--playable-card-scale:1.07}}
   .drag-card{position:fixed;z-index:1000;pointer-events:none;transform:translate(-50%,-50%) scale(var(--drag-card-scale,1));opacity:.94;transform-origin:center;}
-  .play-circle{position:absolute;width:64px;height:88px;border:0;border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:6;}
+  .play-circle{position:absolute;width:64px;height:88px;border:0;border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:8;}
   .play-circle.drop-hint::before{content:'';position:absolute;inset:0;border-radius:inherit;background:rgba(125,211,252,.22);opacity:0;transition:opacity .15s;}
   .player-circle.dragging .play-circle.drop-hint::before{opacity:1;}
   .played-card-slot{position:relative;width:54px;height:81px;transform:rotate(var(--tilt));animation:cardArrive .35s ease-out both;}
@@ -131,7 +131,7 @@
   .played-card-slot.gathering{animation:gatherCard .7s ease-in-out both;}
   .played-card-slot.gathered{animation:none;transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt));}
   @keyframes gatherCard{from{transform:translate(0,0) rotate(var(--tilt))}to{transform:translate(var(--gather-x),var(--gather-y)) rotate(var(--tilt))}}
-  .capture-circle{position:absolute;width:38px;height:56px;transform:translate(-50%,-50%);z-index:6;}
+  .capture-circle{position:absolute;width:38px;height:56px;transform:translate(-50%,-50%);z-index:8;}
   .capture-trick{position:absolute;top:0;width:38px;height:56px;}
   .capture-card{position:absolute;inset:0;width:38px;height:56px;transform:rotate(var(--stack-rotate,-2deg));transform-origin:center;}
   .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
@@ -242,10 +242,11 @@
   .old-forest-deck::after{transform:translateX(4px);z-index:-2;}
   .old-forest-deck.empty{visibility:hidden;}
   .old-forest-reveal{left:0;transform:rotate(-2deg);transform-origin:center;}
-  .old-forest-reveal>.my-card{transform:scale(.46);transform-origin:top left;}
-  .old-forest-reveal.drawing{animation:oldForestDraw 1.05s cubic-bezier(.22,.72,.22,1) both;transform-style:preserve-3d;z-index:3;}
-  .old-forest-reveal.drawing>.my-card{backface-visibility:hidden;}
-  .old-forest-reveal.drawing::after{content:'';position:absolute;inset:0;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;transform:rotateY(180deg);backface-visibility:hidden;}
+  .old-forest-revealed-card{position:absolute;left:var(--reveal-left,0);top:0;width:38px;height:56px;transform:rotate(var(--reveal-tilt,-2deg));transform-origin:center;}
+  .old-forest-revealed-card>.my-card{transform:scale(.46);transform-origin:top left;}
+  .old-forest-revealed-card.drawing{animation:oldForestDraw 1.05s cubic-bezier(.22,.72,.22,1) both;transform-style:preserve-3d;z-index:3;}
+  .old-forest-revealed-card.drawing>.my-card{backface-visibility:hidden;}
+  .old-forest-revealed-card.drawing::after{content:'';position:absolute;inset:0;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;transform:rotateY(180deg);backface-visibility:hidden;}
   @keyframes oldForestDraw{0%{transform:translateX(42px) rotate(0deg) rotateY(180deg)}100%{transform:translateX(0) rotate(-2deg) rotateY(0)}}
   .character-card.effect-turn{animation:effectCharacterPulse 1.05s ease-in-out infinite;}
   @keyframes effectCharacterPulse{50%{filter:brightness(1.18) drop-shadow(0 0 6px rgba(255,205,70,.9));}}
@@ -308,9 +309,14 @@
   .player-tag.me .exchange-received-card.face-up{transform:translate(-50%,-100%) rotate(var(--received-tilt,0deg));}
   .exchange-received-card.face-up>.my-card{position:absolute;left:0;top:0;transform:scale(.66);transform-origin:top left;}
   .exchange-received-card.return-pick{pointer-events:auto;cursor:grab;touch-action:none;}
+  .exchange-received-card.return-pick{z-index:100;}
+  .exchange-received-card.return-pick::after{content:'';position:absolute;inset:0;z-index:5;}
   .exchange-received-card.return-pick>.my-card{animation:exchangeReceivedCardPulse 1.05s ease-in-out infinite;}
   .exchange-received-card.drag-source>.my-card{visibility:hidden;}
   @keyframes exchangeReceivedCardPulse{50%{transform:scale(.7062)}}
+  .old-forest-captured-area{position:fixed;right:8px;top:calc(68% - 20px);width:112px;height:64px;z-index:6;pointer-events:none;}
+  .old-forest-captured-card{position:absolute;right:var(--captured-right,0);top:0;width:38px;height:56px;transform:rotate(var(--captured-tilt,0deg));transform-origin:center;}
+  .old-forest-captured-card>.my-card{transform:scale(.46);transform-origin:top left;}
   .exchange-card-flight{position:fixed;z-index:1002;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
   .exchange-card-flight.exchange-offer-flight{transform-origin:center;}
   .exchange-card-flight.card-back{border:1px solid #10233f;border-radius:10px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
@@ -622,6 +628,7 @@
       <div class="my-hand-title">自分のカード</div>
       <div id="myHand" class="my-hand"></div>
     </div>
+    <div id="oldForestCapturedArea" class="old-forest-captured-area hidden" aria-label="柳じじいの獲得カード"></div>
   </div>
 </main>
 
@@ -812,6 +819,7 @@ const eventCardRow = document.getElementById('eventCardRow');
 const oldForestArea = document.getElementById('oldForestArea');
 const oldForestReveal = document.getElementById('oldForestReveal');
 const oldForestDeck = document.getElementById('oldForestDeck');
+const oldForestCapturedArea = document.getElementById('oldForestCapturedArea');
 const winningconditionInfo = document.getElementById('winningconditionInfo');
 const winningconditionGoal = document.getElementById('winningconditionGoal');
 const ringcircle = document.getElementById('ringcircle');
@@ -1693,18 +1701,35 @@ function renderStageInformation(){
   oldForestDeck.classList.toggle('empty', !state.game?.oldForestDeck?.length);
   oldForestDeck.setAttribute('aria-label', `古森デッキ 残り${state.game?.oldForestDeck?.length || 0}枚`);
   oldForestReveal.replaceChildren();
-  if (isOldForest && state.game?.oldForestRevealed) {
-    oldForestReveal.appendChild(createCardElement(state.game.oldForestRevealed));
-    const revealedId = state.game.oldForestRevealed.id;
-    if (revealedId && revealedId !== lastRenderedOldForestCardId) {
-      oldForestReveal.classList.remove('drawing');
-      requestAnimationFrame(() => oldForestReveal.classList.add('drawing'));
-      lastRenderedOldForestCardId = revealedId;
+  const revealedCards = isOldForest ? [
+    ...(state.game?.oldForestRevealedCards || []),
+    ...(state.game?.oldForestRevealed ? [state.game.oldForestRevealed] : [])
+  ].reverse() : [];
+  revealedCards.forEach((cardData, index) => {
+    const item = document.createElement('div');
+    item.className = 'old-forest-revealed-card';
+    item.style.setProperty('--reveal-left', `${index * -16}px`);
+    item.style.setProperty('--reveal-tilt', `${index % 2 ? 1 : -2}deg`);
+    item.appendChild(createCardElement(cardData));
+    if (index === 0 && cardData.id && cardData.id !== lastRenderedOldForestCardId) {
+      item.classList.add('drawing');
+      lastRenderedOldForestCardId = cardData.id;
     }
-  } else {
-    oldForestReveal.classList.remove('drawing');
-    if (!isOldForest) lastRenderedOldForestCardId = null;
-  }
+    oldForestReveal.appendChild(item);
+  });
+  if (!isOldForest) lastRenderedOldForestCardId = null;
+
+  const oldForestCapturedCards = (state.game?.oldForestCapturedTricks || []).flatMap(trick => trick.cards || []);
+  oldForestCapturedArea.classList.toggle('hidden', !isOldForest || !oldForestCapturedCards.length);
+  oldForestCapturedArea.replaceChildren();
+  oldForestCapturedCards.forEach((cardData, index) => {
+    const item = document.createElement('div');
+    item.className = 'old-forest-captured-card';
+    item.style.setProperty('--captured-right', `${index * 12}px`);
+    item.style.setProperty('--captured-tilt', `${index % 2 ? 2 : -2}deg`);
+    item.appendChild(createCardElement(cardData));
+    oldForestCapturedArea.appendChild(item);
+  });
   const wasHidden = centerLowerCardArea.classList.contains('hidden');
   const wasCharacterSelection = centerLowerCardArea.classList.contains('character-selection-layout');
   const cards = Array.from(centerLowerCardArea.querySelectorAll('.center-lower-card'));
@@ -1962,8 +1987,18 @@ function beginNextExchange(game){
 
 function drawOldForestCard(game){
   if (Number(game?.stageNumber) !== 5 || !game.oldForestDeck?.length) return;
+  if (game.oldForestRevealed) {
+    game.oldForestRevealedCards ||= [];
+    game.oldForestRevealedCards.push(game.oldForestRevealed);
+  }
   game.oldForestRevealed = game.oldForestDeck.shift();
   delete game.pendingOldForestDrawAt;
+}
+
+function oldForestWinsTrick(game, plays){
+  if (Number(game?.stageNumber) !== 5 || !game.oldForestRevealed || !plays.length) return false;
+  const highestPlayedNumber = Math.max(...plays.map(play => Number(play.card?.number) || 0));
+  return highestPlayedNumber < Number(game.oldForestRevealed.number);
 }
 
 function drawThreatForCharacterEffect(game, playerId){
@@ -2039,6 +2074,7 @@ excludedCardSlot.addEventListener('click', () => {
   if (state.game?.phase === 'tom-selection') takeExcludedCardsAsTom();
   else takeExcludedCardAsGandalf();
 });
+excludedCardSlot.addEventListener('click', event => event.stopPropagation());
 
 function animateLostCard(sourceRect, transfer){
   if (!sourceRect || !transfer?.cardId) return;
@@ -2454,15 +2490,20 @@ function scheduleTrickClear(){
     await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
       const pending = game?.pendingCapture;
       if (!pending || pending.captureAt !== captureAt || Date.now() < captureAt) return;
-      game.capturedCards ||= {};
-      game.capturedCards[pending.winnerId] ||= [];
-      game.capturedCards[pending.winnerId].push(...pending.cards);
-      game.capturedTricks ||= {};
-      game.capturedTricks[pending.winnerId] ||= [];
-      game.capturedTricks[pending.winnerId].push({
-        cards: pending.cards,
-        winningCardId: pending.winningCardId
-      });
+      if (pending.captureOwner === 'old-forest') {
+        game.oldForestCapturedTricks ||= [];
+        game.oldForestCapturedTricks.push({ cards:pending.cards, capturedAt:Date.now() });
+      } else {
+        game.capturedCards ||= {};
+        game.capturedCards[pending.winnerId] ||= [];
+        game.capturedCards[pending.winnerId].push(...pending.cards);
+        game.capturedTricks ||= {};
+        game.capturedTricks[pending.winnerId] ||= [];
+        game.capturedTricks[pending.winnerId].push({
+          cards: pending.cards,
+          winningCardId: pending.winningCardId
+        });
+      }
       delete game.trick;
       delete game.pendingCapture;
       // 獲得カードの移動完了から1秒待って、次の森カードを公開する。
@@ -2746,9 +2787,11 @@ async function playCard(cardIndex, expectedCard){
       const lead = plays[0].card.color;
       const winnerPlay = plays.filter(p=>p.card.color===lead).reduce((best,p)=>p.card.number>best.card.number?p:best);
       const winnerId = Object.entries(room.game.trick).find(([,p])=>p===winnerPlay)?.[0] || state.userId;
+      const leadPlayerId = Object.entries(room.game.trick).find(([, play]) => play.order === 0)?.[0] || winnerId;
+      const oldForestWins = oldForestWinsTrick(room.game, plays);
       const yellowOneEntry = Object.entries(room.game.trick)
         .find(([, play]) => play.card.color === 'yellow' && play.card.number === 1);
-      if (yellowOneEntry && yellowOneEntry[0] !== winnerId) {
+      if (!oldForestWins && yellowOneEntry && yellowOneEntry[0] !== winnerId) {
         // 通常判定では黄1が勝てない場合だけ、所持者の選択まで回収を保留する。
         room.game.pendingYellowOneDecision = {
           playerId:yellowOneEntry[0], normalWinnerId:winnerId,
@@ -2757,15 +2800,19 @@ async function playCard(cardIndex, expectedCard){
         };
         room.game.turnPlayerId = null;
       } else {
-        room.game.lastWinnerId = winnerId;
-        room.game.tricksWon ||= {};
-        room.game.tricksWon[winnerId] = (room.game.tricksWon[winnerId] || 0) + 1;
+        if (!oldForestWins) {
+          room.game.lastWinnerId = winnerId;
+          room.game.tricksWon ||= {};
+          room.game.tricksWon[winnerId] = (room.game.tricksWon[winnerId] || 0) + 1;
+        }
         const gatherAt = Date.now() + 2000;
         room.game.pendingCapture = {
-          winnerId, cards:plays.map(p => p.card), winningCardId:winnerPlay.card.id,
+          winnerId:oldForestWins ? leadPlayerId : winnerId,
+          ...(oldForestWins ? { captureOwner:'old-forest' } : {}),
+          cards:plays.map(p => p.card), winningCardId:winnerPlay.card.id,
           gatherAt, captureAt:gatherAt + 700
         };
-        room.game.turnPlayerId = winnerId;
+        room.game.turnPlayerId = oldForestWins ? leadPlayerId : winnerId;
         room.game.trickNumber = (room.game.trickNumber || 1) + 1;
         if (order.every(id => !(room.hands[id]?.cards || []).some(card => card.kind !== 'character'))) room.game.finished = true;
       }
@@ -3363,7 +3410,13 @@ function renderPlayerCircle(players){
     };
   };
   const winnerIndex = players.findIndex(p => p.id === state.game?.pendingCapture?.winnerId);
-  const winnerGeometry = winnerIndex >= 0 ? geometryFor(players[winnerIndex], winnerIndex) : null;
+  const circleRectForCapture = playerCircle.getBoundingClientRect();
+  const winnerGeometry = state.game?.pendingCapture?.captureOwner === 'old-forest'
+    ? {
+        playX:(window.innerWidth - 27 - circleRectForCapture.left) / Math.max(1, circleRectForCapture.width) * 100,
+        playY:(window.innerHeight * .68 + 8 - circleRectForCapture.top) / Math.max(1, circleRectForCapture.height) * 100
+      }
+    : winnerIndex >= 0 ? geometryFor(players[winnerIndex], winnerIndex) : null;
 
   players.forEach((p, idx) => {
     const { angle, isMe, x, y, playX, playY } = geometryFor(p, idx);
