@@ -256,7 +256,7 @@
   .old-forest-revealed-card.drawing::after{content:'';position:absolute;inset:0;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;transform:rotateY(180deg);backface-visibility:hidden;}
   @keyframes oldForestDraw{0%{transform:translateX(42px) rotate(0deg) rotateY(180deg)}100%{transform:translateX(0) rotate(-2deg) rotateY(0)}}
   .character-card.effect-turn{animation:effectCharacterPulse 1.05s ease-in-out infinite;}
-  @keyframes effectCharacterPulse{50%{opacity:.42;}}
+  @keyframes effectCharacterPulse{50%{scale:1.13;}}
   .event-card-modal-backdrop{position:fixed;inset:0;z-index:490;display:grid;place-items:center;background:rgba(0,0,0,.18);cursor:pointer;}
   .event-card-modal-backdrop.hidden{display:none;}
   .event-card-modal-row{display:flex;align-items:flex-start;gap:14px;height:160px;cursor:default;transform:translateY(33.6px);}
@@ -321,7 +321,7 @@
   .exchange-received-card.return-pick>.my-card{animation:exchangeReceivedCardPulse 1.05s ease-in-out infinite;}
   .exchange-received-card.drag-source>.my-card{visibility:hidden;}
   @keyframes exchangeReceivedCardPulse{50%{transform:scale(.7062)}}
-  .old-forest-captured-area{position:fixed;right:8px;top:calc(68% - 20px);width:112px;height:64px;z-index:6;pointer-events:none;}
+  .old-forest-captured-area{position:fixed;right:8px;top:calc(68% - 70px);width:38px;height:56px;z-index:6;pointer-events:none;}
   .old-forest-captured-card{position:absolute;right:var(--captured-right,0);top:0;width:38px;height:56px;transform:rotate(var(--captured-tilt,0deg));transform-origin:center;}
   .old-forest-captured-card>.my-card{transform:scale(.46);transform-origin:top left;}
   .exchange-card-flight{position:fixed;z-index:1002;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
@@ -1725,8 +1725,9 @@ function renderStageInformation(){
   revealedCards.forEach((cardData, index) => {
     const item = document.createElement('div');
     item.className = 'old-forest-revealed-card';
-    item.style.setProperty('--reveal-left', `${index * -16}px`);
+    item.style.setProperty('--reveal-left', '0px');
     item.style.setProperty('--reveal-tilt', `${index % 3 - 1}deg`);
+    item.style.zIndex = String(revealedCards.length - index);
     item.appendChild(createCardElement(cardData));
     if (index === 0 && cardData.id && cardData.id !== lastRenderedOldForestCardId) {
       item.classList.add('drawing');
@@ -1742,7 +1743,7 @@ function renderStageInformation(){
   oldForestCapturedCards.forEach((cardData, index) => {
     const item = document.createElement('div');
     item.className = 'old-forest-captured-card';
-    item.style.setProperty('--captured-right', `${index * 12}px`);
+    item.style.setProperty('--captured-right', '0px');
     item.style.setProperty('--captured-tilt', `${index % 3 - 1}deg`);
     item.appendChild(createCardElement(cardData));
     oldForestCapturedArea.appendChild(item);
