@@ -207,7 +207,7 @@
   }
   /* キャラクター候補とは別の固定レイヤーで、選択中だけ場札一式を画面上部にまとめる。 */
   .center-lower-card-area.character-selection-layout{
-    left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
+    left:calc(50% - 144px);top:242px;width:288px;transform:translateY(0);
   }
   .center-lower-card{
     position:relative;box-sizing:border-box;border:0;border-radius:10px;overflow:hidden;
@@ -215,6 +215,11 @@
   }
   #arasujisquare{width:112px;height:160px;background-image:url('arasujisquare.jpg');}
   #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
+  .event-card-row{position:absolute;left:50%;bottom:calc(100% + 12px);display:flex;gap:8px;transform:translateX(-50%);pointer-events:none;}
+  .event-card-row.hidden{display:none;}
+  .event-card{width:112px;height:160px;background-image:url('eventback.jpg');}
+  .event-card-title{position:absolute;left:13%;right:13%;top:calc(8% - 6px);height:16%;display:grid;place-items:center;font-size:10px;font-weight:900;text-align:center;}
+  .event-card-body{position:absolute;left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;padding:2px;box-sizing:border-box;overflow:hidden;white-space:pre-line;font-size:8px;line-height:1.08;text-align:left;}
   .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);z-index:2;}
   .ringcircle.on{background-image:url('ringcircleon.jpg');}
   .excluded-card-slot{position:absolute;left:20px;top:93px;width:38px;height:56px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;z-index:2;}
@@ -543,6 +548,7 @@
     <div id="playerCircle" class="player-circle"></div>
 
     <div id="centerLowerCardArea" class="center-lower-card-area hidden">
+      <div id="eventCardRow" class="event-card-row hidden" aria-label="イベントカード"></div>
       <div id="arasujisquare" class="center-lower-card">
         <div id="arasujisquareBar" class="arasujisquare-bar"></div>
         <div id="arasujisquareStory" class="arasujisquare-center"></div>
@@ -735,6 +741,7 @@ const cardZoomFrame = document.getElementById('cardZoomFrame');
 const centerLowerCardArea = document.getElementById('centerLowerCardArea');
 const arasujisquareBar = document.getElementById('arasujisquareBar');
 const arasujisquareStory = document.getElementById('arasujisquareStory');
+const eventCardRow = document.getElementById('eventCardRow');
 const winningconditionInfo = document.getElementById('winningconditionInfo');
 const winningconditionGoal = document.getElementById('winningconditionGoal');
 const ringcircle = document.getElementById('ringcircle');
@@ -800,6 +807,24 @@ const STAGES = Array.from({ length: 17 }, (_, index) => ({
   winCondition: 'xxx',
   goal: 'xxx'
 }));
+const EVENT_CARDS = {
+  5: [
+    { title:'柳じじい', body:'イベント：古森\n森カード8枚と〈柳じじい〉のカードを裏向きでシャッフルし、古森デッキを作る。\nそのあと、次のように配る。\n3人ゲーム：各プレイヤーに手札9枚、失われたカード2枚\n4人ゲーム：各プレイヤーに手札7枚、失われたカード1枚' },
+    { title:'柳じじい', body:'各トリックで、リードプレイヤーがプレイする前に古森デッキから1枚を公開する。\nすべてのプレイヤーがプレイした後、勝利したカードよりも森カードの数字が高い場合（同数は除く）、このトリックは柳じじいの勝利となる。その後、同じリードプレイヤーが最初にプレイする。〈指輪の1〉は、古森デッキのどのカードにも勝てる。' }
+  ],
+  6: [
+    { title:'塚人', body:'イベント：霧の塚山丘陵\nメインデッキから指輪カード5枚を取り、脇に置く。残ったカードを裏向きでシャッフルし、3人なら10枚、4人なら5枚を取り、塚デッキを作る。その後、メインデッキに指輪カードを戻してシャッフルし、次のように配る。\n3人ゲーム：各手札9枚\n4人ゲーム：各手札8枚\nその後、「トム・ボンバディル」は塚デッキから5枚引き、手札に加える。' },
+    { title:'塚人', body:'彼が正気を取り戻したとき、一瞬、恐怖の感覚しか思い出せなかった。だが突如として、自分が閉じ込められ、逃げ場のない状況にまで追い込まれた。そう、彼は塚の中にいた。塚人にさらわれたのだ。そして人々がひそひそ語る、塚人の恐ろしい呪文の支配下にすでに落ちているのかもしれなかった。' }
+  ],
+  9: [
+    { title:'九人組', body:'イベント：浅瀬への逃走\nキャラクターを選ぶ際、対応する黒の乗手を一緒に受け取ります。\nフロド：《魔王》\nメリー：《黒の息》\nピピン：《幽鬼》\n馳夫：《見える者》\nサム：《恐怖》\n《グロルフィンデル》と《小馬のビル》はこれらの特殊な脅威カードを受け取りません。' },
+    { title:'九人組', body:'下流の水際は九人の黒の乗手が立ち、顔を上げたその威圧的な姿に、フロドの心はおびえた。彼が容易に川を渡ったように、彼らが渡ることを阻むものは何もないように思えた。そして、もし彼らが一度でも渡ってしまえば、浅瀬から裂け谷の端へと続く長く不確かな道を逃げることなど、まったくの無意味に思えた。' }
+  ],
+  12: [
+    { title:'多彩なヨガ', body:'イベント：サルマン\n最初のトリックをリードする。\n足止め\n★すべての数字（1～8）を1枚以上、勝利して獲得する。' },
+    { title:'多彩なヨガ', body:'「そんなことが入り用だということ――そして、私がそのために呼び寄せた唯一の目的よ。そして、そんなことはどうするのだ、灰色のガンダルフよ。旅路は終わり、ここで永遠の安息を得るがよい。そして、私は賢者サルマン、指輪作りのサルマン、多彩なるサルマンなのだからな！」' }
+  ]
+};
 function defineStage(number, stageData){
   const stage = STAGES.find(item => item.number === number);
   if (!stage) throw new RangeError(`ステージ${number}は定義範囲外です。`);
@@ -1564,6 +1589,22 @@ function renderStageInformation(){
   const isCharacterSelection = state.game?.phase === 'character-selection';
   centerLowerCardArea.classList.toggle('character-selection-layout', isCharacterSelection);
   if (!stage) return;
+
+  const eventCards = EVENT_CARDS[stage.number] || [];
+  eventCardRow.classList.toggle('hidden', eventCards.length === 0);
+  eventCardRow.replaceChildren(...eventCards.map(card => {
+    const element = document.createElement('div');
+    element.className = 'center-lower-card event-card';
+    const title = document.createElement('div');
+    title.className = 'event-card-title';
+    title.textContent = card.title;
+    const body = document.createElement('div');
+    body.className = 'event-card-body';
+    body.textContent = card.body;
+    element.append(title, body);
+    requestAnimationFrame(() => fitBlockText(body, 8, 4));
+    return element;
+  }));
 
   // 配置を先に着地点へ確定し、各カードを直前の座標から補間することで逆方向への移動を防ぐ。
   if (!wasHidden && wasCharacterSelection !== isCharacterSelection
