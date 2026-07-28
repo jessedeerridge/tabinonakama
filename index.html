@@ -210,6 +210,7 @@
     left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
   }
   .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:475px;flex-direction:row;justify-content:center;gap:0;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/475));transform-origin:top center;}
+  .center-lower-card-area.event-stage-layout:not(.character-selection-layout){z-index:7;}
   .event-stage-layout.character-selection-layout>.center-card-row{display:contents;}
   .event-stage-layout.character-selection-layout #arasujisquare{order:1;margin-left:0;}
   .event-stage-layout.character-selection-layout #winningconditionsquare{order:2;}
@@ -221,7 +222,7 @@
   .event-stage-layout.character-selection-layout .event-card-row{display:contents;}
   .event-stage-layout:not(.character-selection-layout) .event-card-row{
     position:absolute;right:-8px;top:-48px;width:68px;height:100px;display:block;
-    z-index:5;pointer-events:auto;cursor:pointer;transform:rotate(3deg);transform-origin:center;
+    z-index:8;pointer-events:auto;cursor:pointer;transform:rotate(3deg);transform-origin:center;
   }
   .event-stage-layout:not(.character-selection-layout) .event-card-row .event-card{
     position:absolute;right:0;top:0;transform:scale(.6);transform-origin:top right;
@@ -242,10 +243,12 @@
   .old-forest-deck.empty{visibility:hidden;}
   .old-forest-reveal{left:0;transform:rotate(-2deg);transform-origin:center;}
   .old-forest-reveal>.my-card{transform:scale(.46);transform-origin:top left;}
-  .old-forest-reveal.drawing{animation:oldForestDraw .7s cubic-bezier(.22,.72,.22,1) both;transform-style:preserve-3d;z-index:3;}
+  .old-forest-reveal.drawing{animation:oldForestDraw 1.05s cubic-bezier(.22,.72,.22,1) both;transform-style:preserve-3d;z-index:3;}
   .old-forest-reveal.drawing>.my-card{backface-visibility:hidden;}
   .old-forest-reveal.drawing::after{content:'';position:absolute;inset:0;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;transform:rotateY(180deg);backface-visibility:hidden;}
   @keyframes oldForestDraw{0%{transform:translateX(42px) rotate(0deg) rotateY(180deg)}100%{transform:translateX(0) rotate(-2deg) rotateY(0)}}
+  .character-card.effect-turn{animation:effectCharacterPulse 1.05s ease-in-out infinite;}
+  @keyframes effectCharacterPulse{50%{filter:brightness(1.18) drop-shadow(0 0 6px rgba(255,205,70,.9));}}
   .event-card-modal-backdrop{position:fixed;inset:0;z-index:490;display:grid;place-items:center;background:rgba(0,0,0,.18);cursor:pointer;}
   .event-card-modal-backdrop.hidden{display:none;}
   .event-card-modal-row{display:flex;align-items:flex-start;gap:14px;height:160px;cursor:default;transform:translateY(33.6px);}
@@ -1804,7 +1807,10 @@ function renderStageInformation(){
   const canGandalfPick = Boolean(excludedCard)
     && state.game?.phase === 'gandalf-selection'
     && state.game?.gandalfPlayerId === state.userId;
-  excludedCardSlot.classList.toggle('gandalf-pick', canGandalfPick);
+  const canTomPick = Boolean(excludedCards.length)
+    && state.game?.phase === 'tom-selection'
+    && state.game?.tomPlayerId === state.userId;
+  excludedCardSlot.classList.toggle('gandalf-pick', canGandalfPick || canTomPick);
   excludedCardSlot.style.width = `${38 + Math.max(0, excludedCards.length - 1) * 16}px`;
   excludedCards.forEach((cardData, index) => {
     const item = document.createElement('div');
@@ -1884,7 +1890,7 @@ function renderStageInformation(){
 
 function exchangeCandidates(game, sourceId){
   const characterName = game?.characterSelections?.[sourceId]?.name;
-  const allowedNames = characterName === 'ガンダルフ'
+  const allowedNames = ['ガンダルフ', 'トム・ボンバディル'].includes(characterName)
     ? ['フロド']
     : characterName === '馳夫' ? ['フロド']
     : characterName === 'ピピン' ? ['フロド', 'サム', 'メリー']
@@ -1892,6 +1898,17 @@ function exchangeCandidates(game, sourceId){
     : characterName === 'メリー' ? ['フロド', 'サム', 'ピピン'] : [];
   return (game?.playerOrder || []).filter(playerId => playerId !== sourceId
     && allowedNames.includes(game.characterSelections?.[playerId]?.name));
+}
+
+function isCharacterEffectTurn(playerId){
+  const game = state.game;
+  if (!playerId || !game || ['playing', 'character-selection'].includes(game.phase)) return false;
+  const activePlayerId = game.pendingExchange?.sourceId
+    || (game.phase === 'tom-selection' ? game.tomPlayerId : null)
+    || (game.phase === 'gandalf-selection' ? game.gandalfPlayerId : null)
+    || (game.phase === 'strider-comparison' ? game.striderPlayerId : null)
+    || game.exchangeQueue?.[0];
+  return activePlayerId === playerId;
 }
 
 function beginNextExchange(game){
@@ -1911,6 +1928,12 @@ function beginNextExchange(game){
     if (characterName === 'ガンダルフ' && game.excludedCard && !game.gandalfEffectCompleted) {
       game.phase = 'gandalf-selection';
       game.gandalfPlayerId = sourceId;
+      game.turnPlayerId = null;
+      return;
+    }
+    if (characterName === 'トム・ボンバディル' && game.excludedCards?.length && !game.tomEffectCompleted) {
+      game.phase = 'tom-selection';
+      game.tomPlayerId = sourceId;
       game.turnPlayerId = null;
       return;
     }
@@ -1994,7 +2017,28 @@ async function takeExcludedCardAsGandalf(){
   });
 }
 
-excludedCardSlot.addEventListener('click', takeExcludedCardAsGandalf);
+async function takeExcludedCardsAsTom(){
+  if (!state.roomCode || state.game?.phase !== 'tom-selection' || state.game?.tomPlayerId !== state.userId) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const game = room?.game;
+    if (!game?.excludedCards?.length || game.phase !== 'tom-selection' || game.tomPlayerId !== state.userId) return;
+    room.hands ||= {};
+    room.hands[state.userId] ||= { cards:[] };
+    room.hands[state.userId].cards ||= [];
+    room.hands[state.userId].cards.push(...game.excludedCards);
+    delete game.excludedCards;
+    delete game.excludedCardTilts;
+    delete game.tomPlayerId;
+    game.tomEffectCompleted = true;
+    beginNextExchange(game);
+    return room;
+  });
+}
+
+excludedCardSlot.addEventListener('click', () => {
+  if (state.game?.phase === 'tom-selection') takeExcludedCardsAsTom();
+  else takeExcludedCardAsGandalf();
+});
 
 function animateLostCard(sourceRect, transfer){
   if (!sourceRect || !transfer?.cardId) return;
@@ -2535,6 +2579,7 @@ function renderMyHand(){
   let displayedNumberIndex = 0;
   displayedCards.forEach(({ normalized, cardIndex }) => {
     const card = createCardElement(normalized);
+    if (normalized.kind === 'character' && isCharacterEffectTurn(myId)) card.classList.add('effect-turn');
     if (normalized.kind !== 'character') {
       card.style.setProperty('--card-stack-index', displayedNumberIndex);
       displayedNumberIndex += 1;
@@ -3481,7 +3526,9 @@ function renderPlayerCircle(players){
         const characterHolder = document.createElement('div');
         characterHolder.className = 'capture-card';
         characterHolder.style.setProperty('--stack-rotate', '0deg');
-        characterHolder.appendChild(createCardElement(character));
+        const characterCard = createCardElement(character);
+        if (isCharacterEffectTurn(p.id)) characterCard.classList.add('effect-turn');
+        characterHolder.appendChild(characterCard);
         characterBundle.append(characterHolder, createVictoryConditionIcon(character, p.id));
         capture.appendChild(characterBundle);
       }
