@@ -282,8 +282,9 @@
   .event-card-text{position:absolute;left:50%;top:58%;width:95px;height:112px;transform:translate(-50%,-50%) translateY(-2px);display:block;padding:2px;box-sizing:border-box;overflow:hidden;white-space:pre-line;text-align:left;font-size:10px;line-height:1.08;}
   .event-card-text strong{display:block;margin-bottom:2px;font-weight:900;}
   .event-card-gap{display:block;height:3px;}
-  /* 章5と同じ二見出し構成では、下側の見出しの手前を一段広く空ける。 */
+  /* 12章の二つ目の見出しだけ、章5・6の段落間隔を参考に手前を少し広く空ける。 */
   .event-card-gap.before-secondary-heading{height:5px;}
+  .event-card-heading.single-line{font-size:8px;letter-spacing:-.04em;white-space:nowrap;}
   .event-card-hammer{display:inline-block;width:8px;height:8px;margin-right:2px;vertical-align:-1px;color:#111;}
   .event-card-hammer svg{display:block;width:100%;height:100%;fill:currentColor;}
   .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);z-index:2;}
@@ -989,7 +990,7 @@ defineStage(6, {
   characters: ['frodo*,tom_bombadil*,goldberry*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈塚人〉カードの〈イベント：霧の塚山丘陵〉の記述に従う。',
   eventCards: [
     {
-      title:'塚人', heading:'イベント：霧の塚山丘陵', hammer:true,
+      title:'塚人', heading:'イベント：霧の塚山丘陵', headingSingleLine:true, hammer:true,
       text:'指輪カードを除いた山札から',
       playerText:{ 3:'10枚とり、塚デッキを作る。その後、山札に指輪カードを戻して、各プレイヤーに手札9枚配る。', 4:'5枚とり、塚デッキを作る。その後、山札に指輪カードを戻して、各プレイヤーに手札8枚配る。' }, playerTextSeparator:'',
       afterPlayerText:'その後、「トム・ボンバディル」は塚デッキから5枚引き、手札に加える。'
@@ -1038,7 +1039,7 @@ defineStage(12, {
   goal: 'allwin',
   additionalElements: '〈多彩なるサルマン〉を〈ガンダルフ〉に渡す。',
   eventCards: [
-    { title:'多彩なるサルマン', heading:'イベント：サルマン', text:'最初のトリックをリードする。', secondaryHeading:'足止め', afterText:'★すべての数字（1～8）を1枚以上、勝利して獲得する。' },
+    { title:'多彩なるサルマン', heading:'イベント：サルマン', text:'最初のトリックをリードする。', secondaryHeading:'足止め', wideSecondaryHeadingGap:true, afterText:'★すべての数字（1～8）を1枚以上、勝利して獲得する。' },
     { title:'多彩なるサルマン', text:'「旅路は終わり、ここで永遠の安息を得るがよい。そして、私は賢者サルマン、指輪作りのサルマン、多彩なるサルマンなのだからな！」' }
   ]
 });
@@ -1893,6 +1894,7 @@ function renderStageInformation(){
     text.replaceChildren();
     if (eventCard?.heading) {
       const heading = document.createElement('strong');
+      heading.className = `event-card-heading${eventCard.headingSingleLine ? ' single-line' : ''}`;
       heading.textContent = eventCard.heading;
       text.appendChild(heading);
     }
@@ -1924,7 +1926,7 @@ function renderStageInformation(){
       const secondaryHeading = document.createElement('strong');
       secondaryHeading.textContent = eventCard.secondaryHeading;
       const gap = document.createElement('span');
-      gap.className = 'event-card-gap before-secondary-heading';
+      gap.className = `event-card-gap${eventCard.wideSecondaryHeadingGap ? ' before-secondary-heading' : ''}`;
       text.append(gap, secondaryHeading);
     }
     if (eventCard?.afterText) text.appendChild(document.createTextNode(eventCard.afterText));
