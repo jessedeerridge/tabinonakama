@@ -209,19 +209,30 @@
   .center-lower-card-area.character-selection-layout{
     left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
   }
-  .center-lower-card-area.event-stage-layout{left:50%;width:475px;flex-direction:row;justify-content:center;gap:0;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/475));transform-origin:top center;}
-  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:475px;transform:translateX(-50%);}
-  .center-lower-card-area.event-stage-layout:not(.character-selection-layout){top:calc(68% - 101px);transform:translate(-50%,-80px);}
-  .event-stage-layout>.center-card-row{display:contents;}
-  .event-stage-layout #arasujisquare{order:1;}
-  .event-stage-layout #winningconditionsquare{order:2;}
-  .event-stage-layout .event-card-row>.event-card:nth-child(2){order:3;}
-  .event-stage-layout .event-card-row>.event-card:nth-child(1){order:4;}
-  .event-stage-layout>.center-lower-card,.event-stage-layout>.center-card-row>.center-lower-card{margin-left:-7px;}
-  .event-stage-layout #arasujisquare{margin-left:0;}
+  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:475px;flex-direction:row;justify-content:center;gap:0;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/475));transform-origin:top center;}
+  .event-stage-layout.character-selection-layout>.center-card-row{display:contents;}
+  .event-stage-layout.character-selection-layout #arasujisquare{order:1;margin-left:0;}
+  .event-stage-layout.character-selection-layout #winningconditionsquare{order:2;}
+  .event-stage-layout.character-selection-layout .event-card-row>.event-card:nth-child(2){order:3;}
+  .event-stage-layout.character-selection-layout .event-card-row>.event-card:nth-child(1){order:4;}
+  .event-stage-layout.character-selection-layout>.center-lower-card,.event-stage-layout.character-selection-layout>.center-card-row>.center-lower-card{margin-left:-7px;}
   .center-card-row{width:100%;display:flex;align-items:center;justify-content:space-between;}
   .event-card-row{display:none;}
-  .event-stage-layout .event-card-row{display:contents;}
+  .event-stage-layout.character-selection-layout .event-card-row{display:contents;}
+  .event-stage-layout:not(.character-selection-layout) .event-card-row{
+    position:absolute;right:-8px;top:-48px;width:102px;height:100px;display:block;
+    z-index:5;pointer-events:auto;cursor:pointer;transform:rotate(3deg);transform-origin:center;
+  }
+  .event-stage-layout:not(.character-selection-layout) .event-card-row .event-card{
+    position:absolute;right:0;top:0;transform:scale(.6);transform-origin:top right;
+    box-shadow:0 5px 14px rgba(0,0,0,.28);
+  }
+  .event-stage-layout:not(.character-selection-layout) .event-card-row .event-card:first-child{right:32px;}
+  .event-card-modal-backdrop{position:fixed;inset:0;z-index:490;display:grid;place-items:center;background:rgba(0,0,0,.62);cursor:pointer;}
+  .event-card-modal-backdrop.hidden{display:none;}
+  .event-card-modal-row{display:flex;gap:14px;cursor:default;transform:scale(min(1.35,calc((100vw - 80px)/238)));}
+  .event-card-modal-row .event-card{box-shadow:0 16px 38px rgba(0,0,0,.45);}
+  .event-stage-layout:not(.character-selection-layout) #winningconditionsquare{cursor:pointer;}
   .center-lower-card{
     position:relative;box-sizing:border-box;border:0;border-radius:10px;overflow:hidden;
     background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;flex:0 0 auto;
@@ -588,6 +599,13 @@
   </div>
 </main>
 
+<div id="eventCardModalBackdrop" class="event-card-modal-backdrop hidden" aria-hidden="true">
+  <div id="eventCardModalRow" class="event-card-modal-row" role="dialog" aria-modal="true" aria-label="イベントカード拡大表示">
+    <div class="center-lower-card event-card"><div class="event-card-title"></div><div class="event-card-text"></div></div>
+    <div class="center-lower-card event-card"><div class="event-card-title"></div><div class="event-card-text"></div></div>
+  </div>
+</div>
+
 <!-- ★ 参加者：ホスト人数選択中ポップ -->
 <div id="hostSelectingPop" class="host-selecting-pop hidden">ホストが人数を選択中</div>
 
@@ -759,6 +777,9 @@ const stageGrid = document.getElementById('stageGrid');
 const cardZoomBackdrop = document.getElementById('cardZoomBackdrop');
 const cardZoomFrame = document.getElementById('cardZoomFrame');
 const centerLowerCardArea = document.getElementById('centerLowerCardArea');
+const eventCardModalBackdrop = document.getElementById('eventCardModalBackdrop');
+const eventCardModalRow = document.getElementById('eventCardModalRow');
+const winningconditionsquare = document.getElementById('winningconditionsquare');
 const arasujisquareBar = document.getElementById('arasujisquareBar');
 const arasujisquareStory = document.getElementById('arasujisquareStory');
 const eventCardRow = document.getElementById('eventCardRow');
@@ -1614,6 +1635,25 @@ function updateWinningConditionOverflow(){
   winningconditionGoal.classList.toggle('content-overflow', lineTops.size >= 8);
 }
 
+function setEventCardsExpanded(expanded){
+  const canExpand = centerLowerCardArea.classList.contains('event-stage-layout')
+    && !centerLowerCardArea.classList.contains('character-selection-layout');
+  const shouldExpand = Boolean(expanded && canExpand);
+  centerLowerCardArea.classList.toggle('event-cards-expanded', shouldExpand);
+  eventCardModalBackdrop.classList.toggle('hidden', !shouldExpand);
+  eventCardModalBackdrop.setAttribute('aria-hidden', String(!shouldExpand));
+}
+
+eventCardRow.addEventListener('click', () => {
+  setEventCardsExpanded(!centerLowerCardArea.classList.contains('event-cards-expanded'));
+});
+winningconditionsquare.addEventListener('click', () => setEventCardsExpanded(true));
+eventCardModalBackdrop.addEventListener('click', () => setEventCardsExpanded(false));
+eventCardModalRow.addEventListener('click', event => event.stopPropagation());
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') setEventCardsExpanded(false);
+});
+
 function renderStageInformation(){
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
   const wasHidden = centerLowerCardArea.classList.contains('hidden');
@@ -1624,10 +1664,12 @@ function renderStageInformation(){
   const isCharacterSelection = state.game?.phase === 'character-selection';
   centerLowerCardArea.classList.toggle('character-selection-layout', isCharacterSelection);
   centerLowerCardArea.classList.toggle('event-stage-layout', Boolean(stage?.eventCards?.length));
+  if (isCharacterSelection || !stage?.eventCards?.length) setEventCardsExpanded(false);
   if (!stage) return;
 
   const eventCards = stage.eventCards || [];
-  eventCardRow.querySelectorAll('.event-card').forEach((card, index) => {
+  [...eventCardRow.querySelectorAll('.event-card'), ...eventCardModalRow.querySelectorAll('.event-card')].forEach((card, cardIndex) => {
+    const index = cardIndex % 2;
     const eventCard = eventCards[index];
     card.querySelector('.event-card-title').textContent = eventCard?.title || '';
     const text = card.querySelector('.event-card-text');
