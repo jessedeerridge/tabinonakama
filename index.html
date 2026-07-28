@@ -220,18 +220,19 @@
   .event-card-row{display:none;}
   .event-stage-layout.character-selection-layout .event-card-row{display:contents;}
   .event-stage-layout:not(.character-selection-layout) .event-card-row{
-    position:absolute;right:-4px;top:-18px;width:32px;height:36px;display:block;
+    position:absolute;right:-8px;top:-48px;width:68px;height:100px;display:block;
     z-index:5;pointer-events:auto;cursor:pointer;transform:rotate(3deg);transform-origin:center;
   }
   .event-stage-layout:not(.character-selection-layout) .event-card-row .event-card{
-    position:absolute;right:0;top:0;transform:scale(.2);transform-origin:top right;
+    position:absolute;right:0;top:0;transform:scale(.6);transform-origin:top right;
     box-shadow:0 5px 14px rgba(0,0,0,.28);
   }
-  .event-stage-layout:not(.character-selection-layout) .event-card-row .event-card:nth-child(2){display:none;}
+  /* ミニ表示にはルール面ではなく、2枚目のあらすじイベント面を使う。 */
+  .event-stage-layout:not(.character-selection-layout) .event-card-row .event-card:first-child{display:none;}
   .event-card-modal-backdrop{position:fixed;inset:0;z-index:490;display:grid;place-items:center;background:rgba(0,0,0,.18);cursor:pointer;}
   .event-card-modal-backdrop.hidden{display:none;}
-  .event-card-modal-row{display:flex;gap:14px;cursor:default;}
-  .event-card-modal-row .event-card{box-shadow:0 16px 38px rgba(0,0,0,.45);}
+  .event-card-modal-row{display:flex;align-items:flex-start;gap:14px;height:160px;cursor:default;}
+  .event-card-modal-row .event-card{flex:0 0 112px;width:112px;height:160px;box-shadow:0 16px 38px rgba(0,0,0,.45);}
   .event-stage-layout:not(.character-selection-layout) #winningconditionsquare{cursor:pointer;}
   .center-lower-card{
     position:relative;box-sizing:border-box;border:0;border-radius:10px;overflow:hidden;
