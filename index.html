@@ -209,8 +209,8 @@
   .center-lower-card-area.character-selection-layout{
     left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
   }
-  .center-lower-card-area.event-stage-layout{left:50%;width:520px;flex-direction:row;justify-content:center;gap:8px;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/520));transform-origin:top center;}
-  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:520px;transform:translateX(-50%);}
+  .center-lower-card-area.event-stage-layout{left:50%;width:505px;flex-direction:row;justify-content:center;gap:3px;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/505));transform-origin:top center;}
+  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:505px;transform:translateX(-50%);}
   .center-lower-card-area.event-stage-layout:not(.character-selection-layout){top:calc(68% - 101px);transform:translate(-50%,-80px);}
   .event-stage-layout>.center-card-row{display:contents;}
   .event-stage-layout #arasujisquare{order:1;}
@@ -230,6 +230,7 @@
   .event-card-title{position:absolute;left:13%;right:13%;top:calc(8% - 6px);height:16%;display:grid;place-items:center;text-align:center;font-size:10px;font-weight:900;line-height:1.05;}
   .event-card-text{position:absolute;left:50%;top:58%;width:95px;height:112px;transform:translate(-50%,-50%);display:block;padding:2px;box-sizing:border-box;overflow:hidden;white-space:pre-line;text-align:left;font-size:10px;line-height:1.08;}
   .event-card-text strong{display:block;margin-bottom:2px;font-weight:900;}
+  .event-card-gap{display:block;height:3px;}
   .event-card-hammer{display:inline-block;width:8px;height:8px;margin-right:2px;vertical-align:-1px;color:#111;}
   .event-card-hammer svg{display:block;width:100%;height:100%;fill:currentColor;}
   .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);z-index:2;}
@@ -884,7 +885,7 @@ defineStage(6, {
     },
     {
       title:'塚人',
-      text:'彼が正気を取り戻したとき、\n一瞬、恐怖の感覚しか思い出せ\nなかった。だが突如として、自\n分が閉じ込められ、逃げ場のな\nい状況にまでなぐちった。そう、\n彼は塚の中にいた。塚人にさら\nわれたのだ。そして人々がひそ\nひそ語たる、塚人の恐ろしい\n呪文の支配下にすでに落ちてい\nるのかもしれなかった。'
+      text:'彼が正気を取り戻したとき、一瞬、恐怖の感覚しか思い出せなかった。だが突如として、逃げ場のない状況にあることを悟った。そう、彼は塚の中にいた。塚人にさらわれたのだ。そして人々がひそひそ語たる、塚人の恐ろしい呪文の支配下にすでに落ちているのかもしれなかった。'
     }
   ]
 });
@@ -1641,16 +1642,29 @@ function renderStageInformation(){
       text.appendChild(hammer);
     }
     if (eventCard?.text) {
-      const cardText = index === 1 ? eventCard.text.replace(/\r?\n/g, '') : eventCard.text;
-      text.appendChild(document.createTextNode(cardText));
+      const textParts = (index === 1 ? eventCard.text.replace(/\r?\n/g, '') : eventCard.text).split(/\r?\n\r?\n/);
+      textParts.forEach((cardText, partIndex) => {
+        if (partIndex) {
+          const gap = document.createElement('span');
+          gap.className = 'event-card-gap';
+          text.appendChild(gap);
+        }
+        text.appendChild(document.createTextNode(cardText));
+      });
     }
     const playerText = eventCard?.playerText?.[Number(state.room?.maxPlayers)];
     if (playerText) text.appendChild(document.createTextNode(`${eventCard.playerTextSeparator ?? '\n\n'}${playerText}`));
-    if (eventCard?.afterPlayerText) text.appendChild(document.createTextNode(`\n\n${eventCard.afterPlayerText}`));
+    if (eventCard?.afterPlayerText) {
+      const gap = document.createElement('span');
+      gap.className = 'event-card-gap';
+      text.append(gap, document.createTextNode(eventCard.afterPlayerText));
+    }
     if (eventCard?.secondaryHeading) {
       const secondaryHeading = document.createElement('strong');
       secondaryHeading.textContent = eventCard.secondaryHeading;
-      text.append(document.createTextNode('\n\n'), secondaryHeading);
+      const gap = document.createElement('span');
+      gap.className = 'event-card-gap';
+      text.append(gap, secondaryHeading);
     }
     if (eventCard?.afterText) text.appendChild(document.createTextNode(eventCard.afterText));
     if (eventCard) fitBlockText(text, 10, 3, .1);
