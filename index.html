@@ -201,15 +201,15 @@
   .stage-tab:hover,.stage-tab:focus-visible{background:#111;color:#fff;}
   .center-lower-card-area.hidden{display:none;}
   .center-lower-card-area{
-    position:fixed;left:50%;top:calc(68% - 101px);transform:translate(-50%,-50%);
+    position:fixed;left:16px;top:calc(68% - 101px);transform:translateY(-80px);
     width:calc(100vw - 32px);display:flex;align-items:center;justify-content:space-between;
     z-index:2;pointer-events:none;
-    transition:top 1.35s cubic-bezier(.22,.72,.22,1),width 1.35s cubic-bezier(.22,.72,.22,1),transform 1.35s cubic-bezier(.22,.72,.22,1);
-    will-change:top,width,transform;
+    transition:left 1.35s cubic-bezier(.22,.72,.22,1),top 1.35s cubic-bezier(.22,.72,.22,1),width 1.35s cubic-bezier(.22,.72,.22,1),transform 1.35s cubic-bezier(.22,.72,.22,1);
+    will-change:left,top,width,transform;
   }
   /* キャラクター候補とは別の固定レイヤーで、選択中だけ場札一式を画面上部にまとめる。 */
   .center-lower-card-area.character-selection-layout{
-    top:70px;width:288px;transform:translate(-50%,0);
+    left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
   }
   @media (prefers-reduced-motion:reduce){
     .center-lower-card-area{transition-duration:.01ms;}
@@ -369,7 +369,7 @@
   .card-zoom-card{position:relative;width:var(--zoom-card-width);height:var(--zoom-card-height);}
   /* キャラクターカードは常に82x122の原版全体を拡縮し、欄や文字だけが別倍率にならないようにする。 */
   .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(var(--zoom-scale));transform-origin:top left;}
-  .character-picker{position:fixed;inset:60px 0 0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding-top:clamp(120px,calc(50vh - 160px),260px);box-sizing:border-box;pointer-events:none;}
+  .character-picker{position:fixed;inset:0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding-top:clamp(120px,calc(50vh - 160px),260px);box-sizing:border-box;pointer-events:none;}
   .character-picker.hidden{display:none;}
   .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
   .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
