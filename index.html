@@ -119,7 +119,7 @@
   .my-card.drag-source{visibility:hidden;}
   @keyframes playableCardsPulse{50%{--playable-card-scale:1.07}}
   .drag-card{position:fixed;z-index:1000;pointer-events:none;transform:translate(-50%,-50%) scale(var(--drag-card-scale,1));opacity:.94;transform-origin:center;}
-  .play-circle{position:absolute;width:64px;height:88px;border:0;border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:4;}
+  .play-circle{position:absolute;width:64px;height:88px;border:0;border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:6;}
   .play-circle.drop-hint::before{content:'';position:absolute;inset:0;border-radius:inherit;background:rgba(125,211,252,.22);opacity:0;transition:opacity .15s;}
   .player-circle.dragging .play-circle.drop-hint::before{opacity:1;}
   .played-card-slot{position:relative;width:54px;height:81px;transform:rotate(var(--tilt));animation:cardArrive .35s ease-out both;}
@@ -209,15 +209,15 @@
   .center-lower-card-area.character-selection-layout{
     left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
   }
-  .center-lower-card-area.event-stage-layout{left:50%;width:487px;flex-direction:row;justify-content:center;gap:0;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/487));transform-origin:top center;}
-  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:487px;transform:translateX(-50%);}
+  .center-lower-card-area.event-stage-layout{left:50%;width:481px;flex-direction:row;justify-content:center;gap:0;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/481));transform-origin:top center;}
+  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:481px;transform:translateX(-50%);}
   .center-lower-card-area.event-stage-layout:not(.character-selection-layout){top:calc(68% - 101px);transform:translate(-50%,-80px);}
   .event-stage-layout>.center-card-row{display:contents;}
   .event-stage-layout #arasujisquare{order:1;}
   .event-stage-layout #winningconditionsquare{order:2;}
   .event-stage-layout .event-card-row>.event-card:nth-child(2){order:3;}
   .event-stage-layout .event-card-row>.event-card:nth-child(1){order:4;}
-  .event-stage-layout>.center-lower-card,.event-stage-layout>.center-card-row>.center-lower-card{margin-left:-3px;}
+  .event-stage-layout>.center-lower-card,.event-stage-layout>.center-card-row>.center-lower-card{margin-left:-5px;}
   .event-stage-layout #arasujisquare{margin-left:0;}
   .center-card-row{width:100%;display:flex;align-items:center;justify-content:space-between;}
   .event-card-row{display:none;}
