@@ -209,9 +209,9 @@
   .center-lower-card-area.character-selection-layout{
     left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
   }
-  .center-lower-card-area.event-stage-layout{left:50%;width:520px;flex-direction:row;justify-content:center;gap:8px;transform:translateX(-50%) scale(min(1,calc((100vw - 8px)/520)));transform-origin:top center;}
-  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:520px;transform:translateX(-50%) scale(min(1,calc((100vw - 8px)/520)));}
-  .center-lower-card-area.event-stage-layout:not(.character-selection-layout){top:calc(68% - 101px);transform:translate(-50%,-80px) scale(min(1,calc((100vw - 8px)/520)));}
+  .center-lower-card-area.event-stage-layout{left:50%;width:520px;flex-direction:row;justify-content:center;gap:8px;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/520));transform-origin:top center;}
+  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:520px;transform:translateX(-50%);}
+  .center-lower-card-area.event-stage-layout:not(.character-selection-layout){top:calc(68% - 101px);transform:translate(-50%,-80px);}
   .event-stage-layout>.center-card-row{display:contents;}
   .event-stage-layout #arasujisquare{order:1;}
   .event-stage-layout #winningconditionsquare{order:2;}
@@ -862,10 +862,10 @@ defineStage(5, {
   eventCards: [
     {
       title:'柳じじい', heading:'イベント：古森',
-      hammer:true, text:'森カード8枚と〈柳じじい〉のカードを裏向きでシャッフルし、古森デッキを作る。\nそのあと、次のように配る。',
-      playerText:{ 3:'各プレイヤーに手札9枚、失われしたカード2枚', 4:'各プレイヤーに手札7枚、失われしたカード1枚' },
+      hammer:true, text:'森カード8枚と〈柳じじい(森9)〉を裏向きでシャッフルし、古森デッキを作る。そのあと、',
+      playerText:{ 3:'各プレイヤーに手札9枚、失われしたカード2枚 配る', 4:'各プレイヤーに手札7枚、失われたカード1枚 配る' }, playerTextSeparator:'\n',
       secondaryHeading:'柳じじい',
-      afterText:'各トリックで、リードプレイヤーがプレイする前に古森デッキから1枚を公開する。\nすべてのプレイヤーがプレイした後、勝利したカードよりも森カードの数字が高い場合（同数は除く）、このトリックは勝者となる（柳じじいの勝利）。その後、同じリードプレイヤーが最初にプレイする。〈1の指輪〉は、古森デッキのどのカードにも勝てる。'
+      afterText:'各トリックの前に古森デッキから1枚を公開する。このトリックでプレイされたカードの数字より森カードの数字が高い場合は、柳じじいがトリックを獲得する。（同数は除く）\nその後、前のリードプレイヤーが最初にプレイする。<1の指輪>は、古森デッキのどのカードにも勝てる。'
     },
     {
       title:'柳じじい',
@@ -1643,7 +1643,7 @@ function renderStageInformation(){
     }
     if (eventCard?.text) text.appendChild(document.createTextNode(eventCard.text));
     const playerText = eventCard?.playerText?.[Number(state.room?.maxPlayers)];
-    if (playerText) text.appendChild(document.createTextNode(`\n\n${playerText}`));
+    if (playerText) text.appendChild(document.createTextNode(`${eventCard.playerTextSeparator || '\n\n'}${playerText}`));
     if (eventCard?.afterPlayerText) text.appendChild(document.createTextNode(`\n\n${eventCard.afterPlayerText}`));
     if (eventCard?.secondaryHeading) {
       const secondaryHeading = document.createElement('strong');
