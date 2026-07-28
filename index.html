@@ -204,10 +204,24 @@
     position:fixed;left:50%;top:calc(68% - 101px);transform:translate(-50%,-50%);
     width:calc(100vw - 32px);display:flex;align-items:center;justify-content:space-between;
     z-index:2;pointer-events:none;
+    transition:top 1.4s cubic-bezier(.22,.75,.2,1),transform 1.4s cubic-bezier(.22,.75,.2,1);
   }
   .center-lower-card{
     position:relative;box-sizing:border-box;border:0;border-radius:10px;overflow:hidden;
     background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;flex:0 0 auto;
+    transform-origin:center;transition:transform 1.4s cubic-bezier(.22,.75,.2,1);
+  }
+  /* キャラクター選択中だけ、場札を独立した固定レイヤーとして上部にまとめる。
+     選択肢のレイアウトには参加させないため、候補カードの位置は変わらない。 */
+  .center-lower-card-area.character-selection-layout{top:68px;transform:translate(-50%,0);}
+  .center-lower-card-area.character-selection-layout>#arasujisquare{
+    transform:translateX(calc(50vw - 138px)) scale(.76);
+  }
+  .center-lower-card-area.character-selection-layout>#winningconditionsquare{
+    transform:translateX(calc(-50vw + 144px)) scale(.76);
+  }
+  @media (prefers-reduced-motion:reduce){
+    .center-lower-card-area,.center-lower-card{transition-duration:.01ms;}
   }
   #arasujisquare{width:112px;height:160px;background-image:url('arasujisquare.jpg');}
   #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
@@ -1552,6 +1566,9 @@ function updateWinningConditionOverflow(){
 function renderStageInformation(){
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
   centerLowerCardArea.classList.toggle('hidden', !stage);
+  // 選択中はあらすじ・勝利条件（除外カードとコインを含む）を画面上部へ。
+  // phase が進むと同じ要素を通常の場札位置までゆっくり移動させる。
+  centerLowerCardArea.classList.toggle('character-selection-layout', state.game?.phase === 'character-selection');
   if (!stage) return;
 
   arasujisquareBar.textContent = stage.chapterLabel;
