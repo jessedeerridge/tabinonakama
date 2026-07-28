@@ -213,6 +213,10 @@
   .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:520px;transform:translateX(-50%) scale(min(1,calc((100vw - 8px)/520)));}
   .center-lower-card-area.event-stage-layout:not(.character-selection-layout){top:calc(68% - 101px);transform:translate(-50%,-80px) scale(min(1,calc((100vw - 8px)/520)));}
   .event-stage-layout>.center-card-row{display:contents;}
+  .event-stage-layout #arasujisquare{order:1;}
+  .event-stage-layout #winningconditionsquare{order:2;}
+  .event-stage-layout .event-card-row>.event-card:nth-child(2){order:3;}
+  .event-stage-layout .event-card-row>.event-card:nth-child(1){order:4;}
   .center-card-row{width:100%;display:flex;align-items:center;justify-content:space-between;}
   .event-card-row{display:none;}
   .event-stage-layout .event-card-row{display:contents;}
@@ -225,6 +229,7 @@
   .event-card{width:112px;height:160px;background-image:url('eventback.jpg');}
   .event-card-title{position:absolute;left:13%;right:13%;top:calc(8% - 6px);height:16%;display:grid;place-items:center;text-align:center;font-size:10px;font-weight:900;line-height:1.05;}
   .event-card-text{position:absolute;left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);display:block;padding:2px;box-sizing:border-box;overflow:hidden;white-space:pre-line;text-align:left;font-size:8px;line-height:1.08;}
+  .event-card-row>.event-card:first-child .event-card-text{top:57%;height:112px;}
   .event-card-text strong{display:block;margin-bottom:2px;font-weight:900;}
   .event-card-hammer{display:inline-block;width:8px;height:8px;margin-right:2px;vertical-align:-1px;color:#111;}
   .event-card-hammer svg{display:block;width:100%;height:100%;fill:currentColor;}
@@ -863,7 +868,7 @@ defineStage(5, {
       afterText:'各トリックで、リードプレイヤーがプレイする前に古森デッキから1枚を公開する。\nすべてのプレイヤーがプレイした後、勝利したカードよりも森カードの数字が高い場合（同数は除く）、このトリックは勝者となる（柳じじいの勝利）。その後、同じリードプレイヤーが最初にプレイする。〈1の指輪〉は、古森デッキのどのカードにも勝てる。'
     },
     {
-      title:'柳じじい', heading:'柳じじぃ',
+      title:'柳じじい',
       text:'フロドとサムは、まずピピンが\n横たわっていた木の幹を叩いた。\n次に、哀れなメリーを捕らえてし\nる、まるで顎のように裂けた木の\n割れ目をこじ開けようと、必死に\n力を込めた。それはまったくの無\n駄だった。'
     }
   ]
@@ -879,7 +884,7 @@ defineStage(6, {
       afterPlayerText:'その後、「トム・ボンバディル」は塚デッキから5枚引き、手札に加える。'
     },
     {
-      title:'塚人', heading:'塚人',
+      title:'塚人',
       text:'彼が正気を取り戻したとき、\n一瞬、恐怖の感覚しか思い出せ\nなかった。だが突如として、自\n分が閉じ込められ、逃げ場のな\nい状況にまでなぐちった。そう、\n彼は塚の中にいた。塚人にさら\nわれたのだ。そして人々がひそ\nひそ語たる、塚人の恐ろしい\n呪文の支配下にすでに落ちてい\nるのかもしれなかった。'
     }
   ]
@@ -1646,7 +1651,7 @@ function renderStageInformation(){
       text.append(document.createTextNode('\n\n'), secondaryHeading);
     }
     if (eventCard?.afterText) text.appendChild(document.createTextNode(eventCard.afterText));
-    if (eventCard) fitBlockText(text, 8, 4);
+    if (eventCard) fitBlockText(text, 8, index === 0 ? 5.5 : 4);
   });
 
   // 配置を先に着地点へ確定し、各カードを直前の座標から補間することで逆方向への移動を防ぐ。
