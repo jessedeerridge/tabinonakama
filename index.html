@@ -232,13 +232,20 @@
   /* 第五章の古森デッキは、小イベントカードの左に獲得札と同じ大きさで置く。 */
   .old-forest-area{display:none;}
   .event-stage-layout:not(.character-selection-layout) .old-forest-area{
-    position:absolute;right:72px;top:22px;width:80px;height:56px;display:block;pointer-events:none;
+    position:absolute;right:74px;top:22px;width:80px;height:56px;display:block;pointer-events:none;perspective:240px;
   }
   .old-forest-deck,.old-forest-reveal{position:absolute;top:0;width:38px;height:56px;}
-  .old-forest-deck{right:0;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;box-shadow:2px 0 0 #fff,3px 0 0 #10233f,5px 0 0 #fff,6px 0 0 #10233f;}
+  .old-forest-deck{right:0;top:-1px;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;isolation:isolate;}
+  .old-forest-deck::before,.old-forest-deck::after{content:'';position:absolute;inset:0;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;z-index:-1;}
+  .old-forest-deck::before{transform:translateX(2px);}
+  .old-forest-deck::after{transform:translateX(4px);z-index:-2;}
   .old-forest-deck.empty{visibility:hidden;}
   .old-forest-reveal{left:0;transform:rotate(-2deg);transform-origin:center;}
   .old-forest-reveal>.my-card{transform:scale(.46);transform-origin:top left;}
+  .old-forest-reveal.drawing{animation:oldForestDraw .7s cubic-bezier(.22,.72,.22,1) both;transform-style:preserve-3d;z-index:3;}
+  .old-forest-reveal.drawing>.my-card{backface-visibility:hidden;}
+  .old-forest-reveal.drawing::after{content:'';position:absolute;inset:0;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;transform:rotateY(180deg);backface-visibility:hidden;}
+  @keyframes oldForestDraw{0%{transform:translateX(42px) rotate(0deg) rotateY(180deg)}100%{transform:translateX(0) rotate(-2deg) rotateY(0)}}
   .event-card-modal-backdrop{position:fixed;inset:0;z-index:490;display:grid;place-items:center;background:rgba(0,0,0,.18);cursor:pointer;}
   .event-card-modal-backdrop.hidden{display:none;}
   .event-card-modal-row{display:flex;align-items:flex-start;gap:14px;height:160px;cursor:default;transform:translateY(33.6px);}
@@ -1546,6 +1553,7 @@ let oldForestDrawTimer = null;
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
+let lastRenderedOldForestCardId = null;
 const seenCharacterSelections = new Set();
 const characterSelectionSources = new Map();
 const characterAnimationUntil = new Map();
@@ -1684,6 +1692,15 @@ function renderStageInformation(){
   oldForestReveal.replaceChildren();
   if (isOldForest && state.game?.oldForestRevealed) {
     oldForestReveal.appendChild(createCardElement(state.game.oldForestRevealed));
+    const revealedId = state.game.oldForestRevealed.id;
+    if (revealedId && revealedId !== lastRenderedOldForestCardId) {
+      oldForestReveal.classList.remove('drawing');
+      requestAnimationFrame(() => oldForestReveal.classList.add('drawing'));
+      lastRenderedOldForestCardId = revealedId;
+    }
+  } else {
+    oldForestReveal.classList.remove('drawing');
+    if (!isOldForest) lastRenderedOldForestCardId = null;
   }
   const wasHidden = centerLowerCardArea.classList.contains('hidden');
   const wasCharacterSelection = centerLowerCardArea.classList.contains('character-selection-layout');
