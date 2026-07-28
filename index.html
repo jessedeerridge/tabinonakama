@@ -838,6 +838,24 @@ defineStage(10, {
   title: '裂け谷での休息', story: '「ここはどこだ? 今は何時だ?」フロドは天井に向かって声を上げた。「ここはエルロンドの館、そして今は朝の十時だ」誰かが答えた。「知りたいのであれば、今日は十月二十四日の朝である」「ガンダルフ!」フロドは驚いて身を起こした。そこには、老魔法使いが窓辺の椅子に腰かけていた。',
   characters: ['elrond*,bilbo*', 'gloin,arwen,gandalf'], threats: [], winCondition:'short', goal:'allwin'
 });
+defineStage(11, {
+  title: '裂け谷での会議',
+  story: '会議で語られ、議論されたことすべてを今ここで語る必要はない。話題の多くは、外の世界、特に南方や山脈の東に広がる広大な土地の出来事についてだった。',
+  characters: ['frodo*,aragorn*,boromir*', 'gloin,bilbo_baggins'],
+  threats: [],
+  winCondition: 'short',
+  goal: 'allwin',
+  additionalElements: 'アラゴルンに〈折れたる剣〉を、ボロミアに〈ゴンドールの角笛〉を渡す。'
+});
+defineStage(12, {
+  title: 'アイゼンガルドでめ始め',
+  story: '「サルマン」私は言った。「そのような言葉は、無知なる者を欺くためにモルドールより遣わされた使者の口からしか聞いたことがない。私の耳を覆いさせるためだけに、あなたが私をこんなにも遠くへ呼び寄せたとは思えぬ」',
+  characters: ['gandalf*', 'radagast,shadowfax,gwaihir'],
+  threats: [],
+  winCondition: 'short',
+  goal: 'allwin',
+  additionalElements: '〈多彩なるサルマン〉を〈ガンダルフ〉に渡す。'
+});
 
 /* ★ 追加：ヘルプUI参照 */
 const helpBtn = document.getElementById('helpBtn');
