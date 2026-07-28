@@ -232,6 +232,7 @@
   .arasujisquare-bar{display:grid;place-items:center;font-size:11px;font-weight:900;}
   .arasujisquare-center{display:flex;align-items:center;justify-content:center;padding:2px;overflow:hidden;font-size:9px;font-weight:400;line-height:1.05;}
   .winningcondition-half{display:flex;align-items:center;padding:2px;overflow:hidden;font-size:9px;line-height:1.25;text-align:left;}
+  .winningcondition-half.content-overflow{align-items:flex-start;padding-top:0;}
   .winningcondition-content{width:100%;}
   .additional-elements{display:block;margin-top:3px;font-size:8px;line-height:1.15;}
   .additional-elements-mark{display:inline-block;width:7px;height:7px;margin-right:2px;vertical-align:-1px;color:#111;}
@@ -1017,6 +1018,7 @@ window.addEventListener('resize', () => {
   if (!cardZoomBackdrop.classList.contains('hidden')) positionZoomCards();
   if (!helpBackdrop.classList.contains('hidden')) updateCardListScale();
   if (arasujisquareStory.textContent) fitBlockText(arasujisquareStory, 9, 4);
+  updateWinningConditionOverflow();
   renderMyHand();
   updateCharacterChoiceScales();
 });
@@ -1386,6 +1388,16 @@ function fitBlockText(element, maxSize, minSize = 4){
   }
 }
 
+function updateWinningConditionOverflow(){
+  winningconditionGoal.classList.remove('content-overflow');
+  const content = winningconditionGoal.firstElementChild;
+  if (!content) return;
+  const styles = getComputedStyle(winningconditionGoal);
+  const availableHeight = winningconditionGoal.clientHeight
+    - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom);
+  winningconditionGoal.classList.toggle('content-overflow', content.scrollHeight > availableHeight);
+}
+
 function renderStageInformation(){
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
   centerLowerCardArea.classList.toggle('hidden', !stage);
@@ -1472,6 +1484,7 @@ function renderStageInformation(){
     goal.append(additional);
   }
   winningconditionGoal.append(goal);
+  updateWinningConditionOverflow();
 }
 
 function exchangeCandidates(game, sourceId){
