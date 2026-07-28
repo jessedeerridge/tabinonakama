@@ -328,7 +328,8 @@
   .my-card.yellow-one .card-badge::before{background:#111;}
   .my-card.yellow-one .card-number{color:var(--card-color);}
   .my-card.yellow-one .card-mark{height:18px;margin-top:-1px;}
-  .my-card.yellow-one .card-name{left:3px;right:3px;padding:0 7px;box-sizing:border-box;font-size:9px;letter-spacing:-.06em;white-space:nowrap;overflow:hidden;}
+  /* 固定文言なので、切り離したカードを監視し続ける ResizeObserver は使わない。 */
+  .my-card.yellow-one .card-name{left:3px;right:3px;padding:0 7px;box-sizing:border-box;font-size:4px;letter-spacing:-.06em;white-space:nowrap;overflow:hidden;}
   .character-card{
     --character-frame:#73583a;--character-panel:#fff8e8;
     border-color:var(--character-frame);background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;
@@ -689,7 +690,8 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
-  getDatabase, ref, set, get, update, onDisconnect, onValue, remove, runTransaction
+  getDatabase, ref, set, get, update, onDisconnect, onValue, remove, runTransaction,
+  query, orderByChild, startAt
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
 // ▼ Firebase 設定
@@ -955,22 +957,6 @@ const CARD_DECK = CARD_TYPES.flatMap(type =>
   }))
 );
 
-// 長い特殊カード名を、カード幅に合わせて一行に収める。
-const cardNameFitObserver = new ResizeObserver(entries => {
-  entries.forEach(({ target }) => {
-    target.style.fontSize = '9px';
-    const styles = getComputedStyle(target);
-    const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
-    const availableWidth = target.clientWidth - horizontalPadding;
-    const range = document.createRange();
-    range.selectNodeContents(target);
-    const textWidth = range.getBoundingClientRect().width;
-    if (!availableWidth || textWidth <= availableWidth) return;
-    const fittedSize = Math.max(4, 9 * availableWidth / textWidth);
-    target.style.fontSize = `${fittedSize}px`;
-  });
-});
-
 const characterNameMeasureContext = document.createElement('canvas').getContext('2d');
 const characterNameLayouts = new Map();
 
@@ -1040,8 +1026,6 @@ function createCardElement(cardData){
     initialElement.textContent = initial;
     name.append(initialElement, rest.join(''));
   }
-  if (isYellowOne) cardNameFitObserver.observe(name);
-
   // 左右とも数字とマークは同じ通常向きで表示する。
   card.append(createBadge('left'), createBadge('right'), name);
   return card;
@@ -2846,6 +2830,7 @@ let entranceRooms = [];
 const visibleRoomCount = 5;
 let activeEntranceCode = null;
 let entranceExpiryTimer = null;
+let unsubscribeEntranceRooms = null;
 roomList.style.maxHeight = `${visibleRoomCount * 86}px`;
 
 function scheduleEntranceRoomExpiry(){
@@ -2950,8 +2935,11 @@ async function createUniqueRoom(name){
     if (result.committed) return code;
   }
 }
-onValue(ref(db, 'rooms'), snapshot => {
-  const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+// rooms 直下を無条件で監視すると、ゲーム中の手札・場札を含む全ルームが更新のたびに
+// スマホへ再送される。入口に必要な直近のルームだけを監視し、入室後は必ず解除する。
+const entranceRoomsQuery = query(ref(db, 'rooms'), orderByChild('createdAt'), startAt(sixHoursAgo));
+unsubscribeEntranceRooms = onValue(entranceRoomsQuery, snapshot => {
   entranceRooms = Object.entries(snapshot.val() || {}).map(([code, room]) => {
     const people = room.players || room.users || {};
     const entries = Object.entries(people).filter(([, person]) => String(person?.name || '').trim());
@@ -2989,6 +2977,13 @@ async function enterRoom(roomCode, userName){
   });
   const roomData = joinResult.snapshot.val() || {};
   state.isHost = (roomData.hostId === state.userId);
+
+  // 入室画面用の全体監視をゲーム画面へ持ち越さない。特にiOS Safariでは、長時間の
+  // 大きなスナップショット受信とDOM再描画がメモリ圧迫によるタブ再読み込みにつながる。
+  unsubscribeEntranceRooms?.();
+  unsubscribeEntranceRooms = null;
+  clearTimeout(entranceExpiryTimer);
+  entranceExpiryTimer = null;
 
   updateHostUI();
 
