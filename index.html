@@ -241,6 +241,13 @@
   .old-forest-deck::before{transform:translateX(2px);}
   .old-forest-deck::after{transform:translateX(4px);z-index:-2;}
   .old-forest-deck.empty{visibility:hidden;}
+  .barrow-deck-area{display:none;position:absolute;right:72px;top:22px;width:38px;height:56px;pointer-events:none;}
+  .event-stage-layout:not(.character-selection-layout) .barrow-deck-area.active{display:block;}
+  .barrow-deck{position:absolute;inset:0;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;isolation:isolate;}
+  .barrow-deck::before,.barrow-deck::after{content:'';position:absolute;inset:0;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;z-index:-1;}
+  .barrow-deck::before{transform:translateX(2px);}
+  .barrow-deck::after{transform:translateX(4px);z-index:-2;}
+  .barrow-deck.empty{visibility:hidden;}
   .old-forest-reveal{left:0;transform:rotate(-2deg);transform-origin:center;}
   .old-forest-revealed-card{position:absolute;left:var(--reveal-left,0);top:0;width:38px;height:56px;transform:rotate(var(--reveal-tilt,-2deg));transform-origin:center;}
   .old-forest-revealed-card>.my-card{transform:scale(.46);transform-origin:top left;}
@@ -609,6 +616,9 @@
           <div id="oldForestReveal" class="old-forest-reveal"></div>
           <div id="oldForestDeck" class="old-forest-deck" aria-label="古森デッキの山札"></div>
         </div>
+        <div id="barrowDeckArea" class="barrow-deck-area" aria-label="塚デッキ">
+          <div id="barrowDeck" class="barrow-deck" aria-label="塚デッキの山札"></div>
+        </div>
       </div>
       <div class="center-card-row">
         <div id="arasujisquare" class="center-lower-card">
@@ -820,6 +830,8 @@ const oldForestArea = document.getElementById('oldForestArea');
 const oldForestReveal = document.getElementById('oldForestReveal');
 const oldForestDeck = document.getElementById('oldForestDeck');
 const oldForestCapturedArea = document.getElementById('oldForestCapturedArea');
+const barrowDeckArea = document.getElementById('barrowDeckArea');
+const barrowDeck = document.getElementById('barrowDeck');
 const winningconditionInfo = document.getElementById('winningconditionInfo');
 const winningconditionGoal = document.getElementById('winningconditionGoal');
 const ringcircle = document.getElementById('ringcircle');
@@ -1561,6 +1573,7 @@ let isRenderingSeatTabs = false;
 let latestPlayers = [];
 let trickClearTimer = null;
 let oldForestDrawTimer = null;
+let barrowDrawTimer = null;
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
@@ -1696,10 +1709,14 @@ document.addEventListener('keydown', event => {
 function renderStageInformation(){
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
   const isOldForest = Number(state.game?.stageNumber) === 5;
+  const isBarrow = Number(state.game?.stageNumber) === 6;
   oldForestArea.classList.toggle('active', isOldForest);
   oldForestArea.style.display = isOldForest && state.game?.phase !== 'character-selection' ? '' : 'none';
   oldForestDeck.classList.toggle('empty', !state.game?.oldForestDeck?.length);
   oldForestDeck.setAttribute('aria-label', `古森デッキ 残り${state.game?.oldForestDeck?.length || 0}枚`);
+  barrowDeckArea.classList.toggle('active', isBarrow && state.game?.phase !== 'character-selection');
+  barrowDeck.classList.toggle('empty', !state.game?.barrowDeck?.length);
+  barrowDeck.setAttribute('aria-label', `塚デッキ 残り${state.game?.barrowDeck?.length || 0}枚`);
   oldForestReveal.replaceChildren();
   const revealedCards = isOldForest ? [
     ...(state.game?.oldForestRevealedCards || []),
@@ -1929,11 +1946,35 @@ function isCharacterEffectTurn(playerId){
   const game = state.game;
   if (!playerId || !game || ['playing', 'character-selection'].includes(game.phase)) return false;
   const activePlayerId = game.pendingExchange?.sourceId
+    || (game.phase === 'barrow-draw-wait' ? game.barrowPlayerId : null)
     || (game.phase === 'tom-selection' ? game.tomPlayerId : null)
     || (game.phase === 'gandalf-selection' ? game.gandalfPlayerId : null)
     || (game.phase === 'strider-comparison' ? game.striderPlayerId : null)
     || game.exchangeQueue?.[0];
   return activePlayerId === playerId;
+}
+
+function scheduleBarrowDraw(){
+  clearTimeout(barrowDrawTimer);
+  const drawAt = state.game?.pendingBarrowDrawAt;
+  if (!drawAt || !state.roomCode) return;
+  barrowDrawTimer = setTimeout(async () => {
+    await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+      const game = room?.game;
+      if (!game?.pendingBarrowDrawAt || game.pendingBarrowDrawAt !== drawAt || Date.now() < drawAt) return;
+      const playerId = game.barrowPlayerId;
+      if (!playerId || !game.barrowDeck?.length) return;
+      room.hands ||= {};
+      room.hands[playerId] ||= { cards:[] };
+      room.hands[playerId].cards ||= [];
+      room.hands[playerId].cards.push(...game.barrowDeck.splice(0, 5));
+      delete game.pendingBarrowDrawAt;
+      delete game.barrowPlayerId;
+      beginCharacterEffectTurns(game);
+      beginNextExchange(game);
+      return room;
+    });
+  }, Math.max(0, drawAt - Date.now()) + 20);
 }
 
 function beginNextExchange(game){
@@ -2235,6 +2276,7 @@ function subscribeRoom(){
     renderStriderChoice();
     renderChapterComplete();
     scheduleOldForestDraw();
+    scheduleBarrowDraw();
     const exchangeOfferTransfer = state.game?.exchangeOfferTransfer;
     if (exchangeOfferTransfer?.movedAt && exchangeOfferTransfer.movedAt !== lastAnimatedExchangeOfferAt) {
       requestAnimationFrame(() => animateExchangeOffer(exchangeOfferTransfer, previousExchangePositions));
@@ -2985,8 +3027,16 @@ async function chooseCharacter(characterName, source){
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
       room.game.startingPlayerId = room.game.turnPlayerId || room.game.playerOrder[0];
-      beginCharacterEffectTurns(room.game);
-      beginNextExchange(room.game);
+      if (Number(room.game.stageNumber) === 6 && room.game.barrowDeck?.length) {
+        room.game.barrowPlayerId = Object.entries(room.game.characterSelections)
+          .find(([, selected]) => selected.name === 'トム・ボンバディル')?.[0] || null;
+        room.game.pendingBarrowDrawAt = Date.now() + 1000;
+        room.game.phase = 'barrow-draw-wait';
+        room.game.turnPlayerId = null;
+      } else {
+        beginCharacterEffectTurns(room.game);
+        beginNextExchange(room.game);
+      }
     }
     return room;
   });
@@ -3725,6 +3775,7 @@ async function dealInitialHands(stageNumber){
   const hands = {};
   // 第五章では森1～8を通常の手札へ混ぜず、柳じじいを加えた専用山札にする。
   const isOldForest = Number(stageNumber) === 5;
+  const isBarrow = Number(stageNumber) === 6;
   const deck = CARD_DECK.filter(card => !isOldForest || card.color !== 'green').map(card => ({ ...card }));
   for (let i = deck.length - 1; i > 0; i--){
     const j = Math.floor(Math.random() * (i + 1));
@@ -3735,11 +3786,17 @@ async function dealInitialHands(stageNumber){
   const dealtAt = Date.now();
   let cardsToDeal = deck;
   let excludedCards = [];
+  let barrowDeck = [];
   if (isOldForest) {
     const cardsPerPlayer = playerOrder.length === 3 ? 9 : playerOrder.length === 4
       ? 7 : Math.floor(deck.length / playerOrder.length);
     cardsToDeal = deck.slice(0, cardsPerPlayer * playerOrder.length);
     excludedCards = deck.slice(cardsToDeal.length).map((card, index) => ({ ...card, id:`excluded-${index}-${dealtAt}` }));
+  } else if (isBarrow) {
+    const barrowCardCount = playerOrder.length === 3 ? 10 : playerOrder.length === 4 ? 5 : 0;
+    barrowDeck = deck.filter(card => card.color !== 'yellow').slice(0, barrowCardCount);
+    const barrowCards = new Set(barrowDeck);
+    cardsToDeal = deck.filter(card => !barrowCards.has(card));
   } else {
     // 指輪1はゲーム進行に必要なため残し、それ以外から1枚を表向きで除外する。
     const excludedIndex = deck.findIndex(card => !(card.color === 'yellow' && card.number === 1));
@@ -3771,6 +3828,7 @@ async function dealInitialHands(stageNumber){
       [oldForestDeck[i], oldForestDeck[j]] = [oldForestDeck[j], oldForestDeck[i]];
     }
   }
+  barrowDeck = barrowDeck.map((card, index) => ({ ...card, id:`barrow-${index}-${dealtAt}` }));
   await update(ref(db, `rooms/${state.roomCode}`), {
     hands,
     game: {
@@ -3780,7 +3838,8 @@ async function dealInitialHands(stageNumber){
       ringCircleOn: false,
       ...(excludedCard ? { excludedCard, excludedCardTilt:excludedCardTilts[0] } : {}),
       ...(isOldForest && excludedCards.length ? { excludedCards, excludedCardTilts } : {}),
-      ...(oldForestDeck ? { oldForestDeck } : {})
+      ...(oldForestDeck ? { oldForestDeck } : {}),
+      ...(barrowDeck.length ? { barrowDeck } : {})
     }
   });
 }
