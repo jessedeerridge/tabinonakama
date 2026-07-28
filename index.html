@@ -364,7 +364,7 @@
   .card-zoom-card{position:relative;width:var(--zoom-card-width);height:var(--zoom-card-height);}
   /* キャラクターカードは常に82x122の原版全体を拡縮し、欄や文字だけが別倍率にならないようにする。 */
   .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(var(--zoom-scale));transform-origin:top left;}
-  .character-picker{position:fixed;inset:0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding-top:clamp(120px,calc(50vh - 160px),260px);box-sizing:border-box;pointer-events:none;transform:translateY(-15px);}
+  .character-picker{position:fixed;inset:0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding-top:clamp(120px,calc(50vh - 160px),260px);box-sizing:border-box;pointer-events:none;transform:translateY(-30px);}
   .character-picker.hidden{display:none;}
   .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
   .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
@@ -1567,17 +1567,15 @@ function renderStageInformation(){
   // 配置を先に着地点へ確定し、各カードを直前の座標から補間することで逆方向への移動を防ぐ。
   if (!wasHidden && wasCharacterSelection !== isCharacterSelection
       && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    requestAnimationFrame(() => {
-      cards.forEach((card, index) => {
-        const previous = previousRects[index];
-        const current = card.getBoundingClientRect();
-        if (!previous?.width || !current.width) return;
-        card.getAnimations().forEach(animation => animation.cancel());
-        card.animate([
-          { transform:`translate(${previous.left - current.left}px,${previous.top - current.top}px)` },
-          { transform:'translate(0,0)' }
-        ], { duration:1350, easing:'cubic-bezier(.22,.72,.22,1)' });
-      });
+    cards.forEach((card, index) => {
+      const previous = previousRects[index];
+      const current = card.getBoundingClientRect();
+      if (!previous?.width || !current.width) return;
+      card.getAnimations().forEach(animation => animation.cancel());
+      card.animate([
+        { transform:`translate(${previous.left - current.left}px,${previous.top - current.top}px)` },
+        { transform:'translate(0,0)' }
+      ], { duration:1350, easing:'cubic-bezier(.22,.72,.22,1)' });
     });
   }
 
@@ -2656,17 +2654,12 @@ async function chooseCharacter(characterName, source){
 
 function renderCharacterPicker(){
   const game = state.game;
-  const canShowPicker = game?.phase === 'character-selection' && state.seatedTable !== null;
-  characterPicker.classList.toggle('hidden', !canShowPicker);
-  if (!canShowPicker) {
-    characterPickerRow.replaceChildren();
-    return;
-  }
   const selections = game?.characterSelections || {};
+  // フェーズが切り替わる最後の選択でも、候補を消す前に出発座標を確保する。
   const oldRects = new Map();
   characterPickerRow.querySelectorAll('.character-choice').forEach(choice => oldRects.set(choice.dataset.characterName, choice.getBoundingClientRect()));
   Object.entries(selections).forEach(([playerId, character]) => {
-    const key = `${game.startedAt || game.stageNumber}:${playerId}:${character.name}`;
+    const key = `${game?.startedAt || game?.stageNumber}:${playerId}:${character.name}`;
     if (seenCharacterSelections.has(key)) return;
     seenCharacterSelections.add(key);
     const sourceRect = characterSelectionSources.get(character.name) || oldRects.get(character.name);
@@ -2675,6 +2668,12 @@ function renderCharacterPicker(){
       requestAnimationFrame(() => animateCharacterSelection(playerId, character, sourceRect));
     }
   });
+  const canShowPicker = game?.phase === 'character-selection' && state.seatedTable !== null;
+  characterPicker.classList.toggle('hidden', !canShowPicker);
+  if (!canShowPicker) {
+    characterPickerRow.replaceChildren();
+    return;
+  }
   const alreadyChose = Boolean(selections[state.userId]);
   // 選択済みの本人にも、全員の選択が終わるまでは残りの候補を表示し続ける。
   characterPicker.classList.toggle('locked', alreadyChose);
