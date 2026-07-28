@@ -199,6 +199,13 @@
   }
   #arasujisquare{width:112px;height:160px;background-image:url('arasujisquare.jpg');}
   #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
+  .event-card-row{display:none;position:absolute;right:-34px;bottom:calc(100% + 4px);gap:4px;}
+  .center-lower-card-area.has-event-cards .event-card-row{display:flex;}
+  .event-card{width:112px;height:160px;background-image:url('arasujisquare.jpg');}
+  .center-lower-card-area.has-event-cards #winningconditionsquare{transform:translateY(-30px);}
+  /* 勝利条件カードだけを上げ、カードに重なるゲーム部品は盤面上の位置を維持する。 */
+  .center-lower-card-area.has-event-cards .ringcircle,
+  .center-lower-card-area.has-event-cards .excluded-card-slot{margin-top:30px;}
   .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);z-index:2;}
   .ringcircle.on{background-image:url('ringcircleon.jpg');}
   .excluded-card-slot{position:absolute;left:20px;top:93px;width:38px;height:56px;transform:rotate(var(--excluded-tilt,0deg));transform-origin:center;z-index:2;}
@@ -531,6 +538,10 @@
         <div id="arasujisquareStory" class="arasujisquare-center"></div>
       </div>
       <div id="winningconditionsquare" class="center-lower-card">
+        <div id="eventCardRow" class="event-card-row" aria-label="イベントカード">
+          <div class="center-lower-card event-card" aria-label="イベントカード1"></div>
+          <div class="center-lower-card event-card" aria-label="イベントカード2"></div>
+        </div>
         <div id="ringcircle" class="ringcircle"></div>
         <div id="excludedCardSlot" class="excluded-card-slot hidden"></div>
         <div id="winningconditionInfo" class="winningcondition-half left"></div>
@@ -760,6 +771,7 @@ const CHARACTER_NAMES = {
   shadowfax: '飛蔭（とびかげ）'
 };
 const WIN_LENGTH_LABELS = { short: '短い', long: '長い' };
+const EVENT_CARD_STAGE_NUMBERS = new Set([5, 6, 9, 12]);
 const WIN_GOAL_LABELS = {
   allwin: '「選んだキャラクターの目的をすべて達成」',
   everywin: '「すべてのキャラクターの目的を達成」'
@@ -1511,6 +1523,7 @@ function updateWinningConditionOverflow(){
 function renderStageInformation(){
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
   centerLowerCardArea.classList.toggle('hidden', !stage);
+  centerLowerCardArea.classList.toggle('has-event-cards', Boolean(stage && EVENT_CARD_STAGE_NUMBERS.has(stage.number)));
   if (!stage) return;
 
   arasujisquareBar.textContent = stage.chapterLabel;
