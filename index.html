@@ -464,8 +464,8 @@
   .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(var(--zoom-scale));transform-origin:top left;}
   .character-picker{position:fixed;inset:0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding-top:clamp(120px,calc(50vh - 160px),260px);box-sizing:border-box;pointer-events:none;transform:translateY(-30px);}
   .character-picker.hidden{display:none;}
-  .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
-  .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
+  /* 案内ポップを外しても、候補カードの従来位置は変えない。 */
+  .character-picker-row{width:calc(100vw - 24px);margin-top:45px;display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
   .character-picker-row.two-rows{display:grid;grid-template-columns:repeat(var(--choice-columns),minmax(0,104px));justify-content:center;row-gap:clamp(8px,2vh,14px);}
   .character-choice{position:relative;flex:0 0 auto;width:min(104px,calc((100vw - 54px)/4));aspect-ratio:82/122;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transition:transform .15s ease;}
   .character-picker-row.two-rows .character-choice{width:100%;}
@@ -749,7 +749,6 @@
 </div>
 
 <section id="characterPicker" class="character-picker hidden" aria-live="polite">
-  <h2 class="character-picker-title">カードを選んでください。</h2>
   <div id="characterPickerRow" class="character-picker-row"></div>
 </section>
 
