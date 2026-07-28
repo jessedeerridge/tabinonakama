@@ -861,7 +861,7 @@ defineStage(5, {
   eventCards: [
     {
       title:'柳じじい', heading:'イベント：古森',
-      hammer:true, text:'森カード8枚と〈柳じじい(森9)〉を裏向きでシャッフルし、古森デッキを作る。そのあと、',
+      hammer:true, text:'森カード8枚と〈柳じじい(森9)〉を混ぜて、古森デッキを作る。そのあと、',
       playerText:{ 3:'各プレイヤーに手札9枚、失われしたカード2枚 配る', 4:'各プレイヤーに手札7枚、失われたカード1枚 配る' }, playerTextSeparator:'\n',
       secondaryHeading:'柳じじい',
       afterText:'各トリックの前に古森デッキから1枚を公開する。このトリックでプレイされたカードの数字より森カードの数字が高い場合は、柳じじいがトリックを獲得する。（同数は除く）\nその後、前のリードプレイヤーが最初にプレイする。<1の指輪>は、古森デッキのどのカードにも勝てる。'
@@ -1640,7 +1640,10 @@ function renderStageInformation(){
       hammer.innerHTML = HAMMER_ICON_SVG;
       text.appendChild(hammer);
     }
-    if (eventCard?.text) text.appendChild(document.createTextNode(eventCard.text));
+    if (eventCard?.text) {
+      const cardText = index === 1 ? eventCard.text.replace(/\r?\n/g, '') : eventCard.text;
+      text.appendChild(document.createTextNode(cardText));
+    }
     const playerText = eventCard?.playerText?.[Number(state.room?.maxPlayers)];
     if (playerText) text.appendChild(document.createTextNode(`${eventCard.playerTextSeparator ?? '\n\n'}${playerText}`));
     if (eventCard?.afterPlayerText) text.appendChild(document.createTextNode(`\n\n${eventCard.afterPlayerText}`));
