@@ -1614,6 +1614,7 @@ const characterSelectionSources = new Map();
 const characterAnimationUntil = new Map();
 let lastAnimatedExchangeAt = null;
 let lastAnimatedExchangeOfferAt = null;
+let lastAnimatedElrondTransferAt = null;
 const exchangeDropPositions = new Map();
 
 function generateRoomCode(length = 5){
@@ -2446,6 +2447,41 @@ function animateExchangeTransfer(transfer, oldPositions){
   });
 }
 
+function animateElrondTransfer(transfer, oldPositions){
+  if (!transfer?.completedAt || transfer.completedAt === lastAnimatedElrondTransferAt) return;
+  lastAnimatedElrondTransferAt = transfer.completedAt;
+  (transfer.cards || []).forEach(({ card, targetId }) => {
+    if (!card || !targetId) return;
+    const from = oldPositions.get(`card:${card.id}`);
+    const exactTarget = targetId === state.userId
+      ? myHandEl.querySelector(`[data-card-id="${CSS.escape(card.id)}"]`)
+      : playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(targetId)}"] .mini-card[data-card-id="${CSS.escape(card.id)}"]`);
+    const targetElement = exactTarget
+      || playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(targetId)}"] .mini-hand`);
+    const to = targetElement?.getBoundingClientRect();
+    if (!from || !to) return;
+    // 保留位置から各手札へ、交換完了時と同じ裏向きのカードで滑らかに配る。
+    const flight = document.createElement('div');
+    flight.classList.add('exchange-card-flight', 'card-back');
+    const startScale = Math.min(from.width / 82, from.height / 122, 1);
+    const endScale = targetId === state.userId
+      ? currentHandCardScale()
+      : Math.min(to.width / 82, to.height / 122, 1);
+    flight.style.left = `${from.left}px`;
+    flight.style.top = `${from.top}px`;
+    flight.style.transform = `scale(${startScale})`;
+    document.body.appendChild(flight);
+    if (exactTarget) exactTarget.style.opacity = '0';
+    flight.animate([
+      { left:`${from.left}px`, top:`${from.top}px`, transform:`scale(${startScale})`, opacity:1 },
+      { left:`${to.left}px`, top:`${to.top}px`, transform:`scale(${endScale})`, opacity:1 }
+    ], { duration:1400, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' }).finished.finally(() => {
+      flight.remove();
+      exactTarget?.style.removeProperty('opacity');
+    });
+  });
+}
+
 function animateMyHandReflow(previousRects){
   myHandEl.querySelectorAll('[data-card-id]').forEach(card => {
     const previous = previousRects.get(card.dataset.cardId);
@@ -2505,6 +2541,13 @@ function subscribeRoom(){
     const exchangeTransfer = state.game?.exchangeTransfer;
     if (exchangeTransfer?.completedAt && exchangeTransfer.completedAt !== lastAnimatedExchangeAt) {
       requestAnimationFrame(() => animateExchangeTransfer(exchangeTransfer, previousExchangePositions));
+    }
+    const elrondTransfer = state.game?.elrondTransfer;
+    if (elrondTransfer?.completedAt && elrondTransfer.completedAt !== lastAnimatedElrondTransferAt) {
+      requestAnimationFrame(() => {
+        animateMyHandReflow(previousMyHandRects);
+        animateElrondTransfer(elrondTransfer, previousExchangePositions);
+      });
     }
     const transfer = state.game?.lostCardTransfer;
     if (transfer?.movedAt && transfer.movedAt !== previousTransferAt && excludedSourceRect) {
@@ -2655,11 +2698,17 @@ async function chooseElrondTransferCard(cardId, droppedTargetId){
     pending.targetIds[state.userId] = targetId;
     pending.transferred[state.userId] = true;
     if (order.every(id => pending.transferred[id])) {
+      const completedCards = [];
       Object.entries(pending.cards).forEach(([sourceId, heldCard]) => {
         const recipientId = pending.targetIds[sourceId];
-        if (recipientId && heldCard) room.hands[recipientId].cards.push(heldCard);
+        if (recipientId && heldCard) {
+          room.hands[recipientId].cards.push(heldCard);
+          completedCards.push({ card:heldCard, sourceId, targetId:recipientId });
+        }
       });
-      game.elrondTransferCompletedAt = Date.now();
+      const completedAt = Date.now();
+      game.elrondTransferCompletedAt = completedAt;
+      game.elrondTransfer = { cards:completedCards, completedAt };
       game.elrondEffectCompleted = true;
       delete game.pendingElrondTransfers;
       // エルロンドは効果キュー先頭に残っているため、完了後に一度だけ取り除く。
@@ -3805,6 +3854,8 @@ function renderPlayerCircle(players){
     tag.textContent = p.name;
     tag.style.left = `${x}%`;
     tag.style.top = `${y}%`;
+    // 選択中は中央の勝利条件・あらすじ・イベントカードより奥に手札を置く。
+    if (!isMe && state.game?.phase === 'character-selection') tag.style.zIndex = '1';
     // 初期効果・交換がすべて終わり、通常プレイに入ってから手番を明示する。
     tag.classList.toggle('current-turn', p.id !== state.userId
       && state.game?.phase === 'playing' && state.game?.turnPlayerId === p.id);
@@ -3828,8 +3879,14 @@ function renderPlayerCircle(players){
         && !state.game?.pendingElrondTransfers?.transferred?.[p.id]) miniHand.classList.add('elrond-pending');
 
       // キャラクターカードは獲得カード置き場で公開するため、手札の裏面には含めない。
+      const colorOrder = { red:0, green:1, orange:2, gray:3, yellow:4 };
       const hiddenCards = handData.cards.filter(card => card?.kind !== 'character');
       const isPublicHand = state.game?.characterSelections?.[p.id]?.name === 'ゴールドベリ';
+      // 公開時も本人の手札と同じスート・数字順で並べる。
+      if (isPublicHand) hiddenCards.sort((left, right) => {
+        const typeDifference = (colorOrder[left.color] ?? 3) - (colorOrder[right.color] ?? 3);
+        return typeDifference || (Number(left.number) || 0) - (Number(right.number) || 0);
+      });
       miniHand.classList.toggle('public-hand', isPublicHand);
       const count = hiddenCards.length;
       const spread = 70;
@@ -3838,6 +3895,7 @@ function renderPlayerCircle(players){
       hiddenCards.forEach((v, idx2) => {
         const card = document.createElement('div');
         card.className = 'mini-card';
+        if (v.id) card.dataset.cardId = v.id;
         card.textContent = '';
 
         if (isPublicHand) {
@@ -3846,7 +3904,8 @@ function renderPlayerCircle(players){
         }
 
         const angleDeg = (count > 1) ? base + (spread/(count-1))*idx2 : 0;
-        const publicOffsetX = isPublicHand && count > 1 ? -55 + (110 / (count - 1)) * idx2 : 0;
+        // 表面を判別できる重なりは残しつつ、扇全体が横へ広がりすぎない幅に抑える。
+        const publicOffsetX = isPublicHand && count > 1 ? -36 + (72 / (count - 1)) * idx2 : 0;
         card.style.transform = `translate(calc(-50% + ${publicOffsetX}px),0) rotate(${angleDeg}deg)`;
         card.style.zIndex = String(10 + idx2);
         miniHand.appendChild(card);
