@@ -1392,10 +1392,12 @@ function updateWinningConditionOverflow(){
   winningconditionGoal.classList.remove('content-overflow');
   const content = winningconditionGoal.firstElementChild;
   if (!content) return;
-  const styles = getComputedStyle(winningconditionGoal);
-  const availableHeight = winningconditionGoal.clientHeight
-    - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom);
-  winningconditionGoal.classList.toggle('content-overflow', content.scrollHeight > availableHeight);
+  const range = document.createRange();
+  range.selectNodeContents(content);
+  const lineTops = new Set(Array.from(range.getClientRects())
+    .filter(rect => rect.width > 0 && rect.height > 0)
+    .map(rect => Math.round(rect.top * 2) / 2));
+  winningconditionGoal.classList.toggle('content-overflow', lineTops.size >= 8);
 }
 
 function renderStageInformation(){
