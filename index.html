@@ -236,9 +236,9 @@
   .additional-elements{display:block;margin-top:3px;font-size:8px;line-height:1.15;}
   .additional-elements-mark{margin-right:2px;font-weight:900;}
   .winningcondition-content strong{font-weight:900;}
-  .stage-title,.character-heading,.character-line,.goal-heading{white-space:nowrap;}
+  .chapter-heading,.stage-title,.character-heading,.character-line,.goal-heading{white-space:nowrap;}
   .stage-title{letter-spacing:normal;}
-  .character-heading,.goal-heading{letter-spacing:-.08em;}
+  .chapter-heading,.character-heading,.goal-heading{font-size:8px;letter-spacing:-.08em;}
   .character-heading{display:block;margin-top:2px;}
   .character-line{display:block;font-size:8px;letter-spacing:normal;}
   @media (max-width:520px){
@@ -282,7 +282,7 @@
     border-color:#aeb8c5;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;
   }
   .character-card .character-label{
-    position:absolute;left:0;right:-4px;top:1px;width:auto;min-width:0;max-width:none;padding:0 4.5px 0 18px;
+    position:absolute;left:auto;right:-4px;top:1px;width:max-content;min-width:0;max-width:calc(100% + 4px);padding:0 4.5px 0 18px;
     box-sizing:border-box;background:var(--character-frame);color:#3f3021;font-size:9px;font-weight:900;isolation:isolate;
     line-height:1.1;text-align:right;white-space:nowrap;overflow:hidden;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);
     display:flex;align-items:center;justify-content:flex-end;
@@ -835,7 +835,16 @@ function fitCharacterName(target){
     if (!target.isConnected) return;
     let size = 9;
     target.style.fontSize = `${size}px`;
-    // 欄はカードの左端から右端までに固定し、全文字が収まるまで文字だけを縮める。
+    target.style.width = '';
+    const styles = getComputedStyle(target);
+    const padding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    const desiredWidth = Math.ceil(range.getBoundingClientRect().width + padding);
+    const maximumWidth = target.parentElement.clientWidth + 4;
+    // 短い名前は欄も短くし、カード左端までの最大幅を超える名前だけ最大幅に固定する。
+    target.style.width = `${Math.min(desiredWidth, maximumWidth)}px`;
+    // 最大幅でも長い場合は、全文字が収まるまで文字だけを縮める。
     while (size > 1 && target.scrollWidth > target.clientWidth) {
       size = Math.max(1, size - .25);
       target.style.fontSize = `${size}px`;
@@ -1396,6 +1405,7 @@ function renderStageInformation(){
   const info = document.createElement('div');
   info.className = 'winningcondition-content';
   const heading = document.createElement('strong');
+  heading.className = 'chapter-heading';
   heading.textContent = `${stage.chapterLabel}：`;
   const title = document.createElement('strong');
   title.className = 'stage-title';
