@@ -1607,9 +1607,9 @@ function createVictoryConditionIcon(cardData, playerId){
     const twoTricks = line(...countSquares(2));
     appendOr(oneTrick, twoTricks);
   } else if (victory.includes('最も少ない')) {
-    icon.append(label('min'), square());
+    icon.append(square(), label('x min'));
   } else if (victory.includes('最も多く')) {
-    icon.append(label('max'), square());
+    icon.append(square(), label('x max'));
   } else {
     // 補足文に「指輪」が登場するビルボなどは黒のまま。枚数目標が指輪カードの場合だけ黄色にする。
     const color = /指輪カードを\d+枚/.test(victory) ? 'yellow' : 'black';
