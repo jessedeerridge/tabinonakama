@@ -152,6 +152,7 @@
   .threat-card.chapter-thirteen-threat{background-image:url('kyoi17.jpg');}
   .threat-card.concealed{border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.18);}
   .threat-card.concealed>*{display:none;}
+  .threat-card.owner-concealed{transform:rotate(180deg);}
   /* character-card の共通規則より詳細度を上げ、通常の脅威カードと同じ茶枠・黒塗りを保つ。 */
   .character-card.special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505;}
   .character-card.special-threat-card .character-label{left:-4px;right:auto;width:max-content;min-width:0;max-width:calc(100% + 4px);height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
@@ -1381,29 +1382,52 @@ function createCardElement(cardData){
   return card;
 }
 
+function populateEventCardElement(card, eventCard, { playerCount, eventIndex = -1, maxFontSize = 10, minFontSize = 3 } = {}){
+  const title = card.querySelector('.event-card-title');
+  const text = card.querySelector('.event-card-text');
+  title.textContent = eventCard?.title || '';
+  text.replaceChildren();
+  if (eventCard?.heading) {
+    const heading = document.createElement('strong');
+    heading.className = `event-card-heading${eventCard.headingSingleLine ? ' single-line' : ''}`;
+    heading.textContent = eventCard.heading; text.appendChild(heading);
+  }
+  if (eventCard?.hammer) {
+    const hammer = document.createElement('span'); hammer.className = 'event-card-hammer';
+    hammer.innerHTML = HAMMER_ICON_SVG; text.appendChild(hammer);
+  }
+  if (eventCard?.text) {
+    const value = eventIndex === 1 ? eventCard.text.replace(/\r?\n/g, '') : eventCard.text;
+    value.split(/\r?\n\r?\n/).forEach((part, index) => {
+      if (index) { const gap = document.createElement('span'); gap.className = 'event-card-gap'; text.appendChild(gap); }
+      text.appendChild(document.createTextNode(part));
+    });
+  }
+  const playerText = typeof eventCard?.playerText === 'string' ? eventCard.playerText : eventCard?.playerText?.[Number(playerCount)];
+  if (playerText) text.appendChild(document.createTextNode(`${eventCard.playerTextSeparator ?? '\n\n'}${playerText}`));
+  if (eventCard?.afterPlayerText) {
+    const gap = document.createElement('span'); gap.className = 'event-card-gap'; text.append(gap, document.createTextNode(eventCard.afterPlayerText));
+  }
+  if (eventCard?.secondaryHeading) {
+    const gap = document.createElement('span'); gap.className = `event-card-gap${eventCard.wideSecondaryHeadingGap ? ' before-secondary-heading' : ''}`;
+    const heading = document.createElement('strong'); heading.textContent = eventCard.secondaryHeading; text.append(gap, heading);
+  }
+  if (eventCard?.afterText) text.appendChild(document.createTextNode(eventCard.afterText));
+  fitBlockText(text, maxFontSize, minFontSize, .1);
+}
+
+function concreteEventCardData(eventCard, playerCount){
+  return JSON.parse(JSON.stringify({ ...eventCard, playerText:eventCard?.playerText?.[Number(playerCount)] || '' }));
+}
+
 function createEquipmentCardElement(cardData){
   const card = document.createElement('div');
   card.className = 'my-card equipment-card event-equipment-card';
   card.style.backgroundImage = `url('${cardData.image || 'eventback.jpg'}')`;
   card.setAttribute('aria-label', `所持イベントカード ${cardData.name}`);
-  const title = document.createElement('div');
-  title.className = 'event-card-title';
-  title.textContent = cardData.name;
-  const text = document.createElement('div');
-  text.className = 'event-card-text';
-  if (cardData.specialName) {
-    const heading = document.createElement('strong');
-    heading.className = 'event-card-heading';
-    heading.textContent = cardData.specialName;
-    text.appendChild(heading);
-  }
-  const hammer = document.createElement('span');
-  hammer.className = 'event-card-hammer';
-  hammer.innerHTML = HAMMER_ICON_SVG;
-  text.append(hammer, document.createTextNode(cardData.effect || ''));
-  card.append(title, text);
-  // 元イベント札と同じ文字領域を、カード縮尺に合わせて一括で収める。
-  requestAnimationFrame(() => fitBlockText(text, 7.32, 2.2, .1));
+  card.innerHTML = '<div class="event-card-title"></div><div class="event-card-text"></div>';
+  const eventData = cardData.eventData || { title:cardData.name, heading:cardData.specialName, hammer:true, text:cardData.effect || '' };
+  requestAnimationFrame(() => populateEventCardElement(card, eventData, { maxFontSize:7.32, minFontSize:2.2 }));
   card.setAttribute('role', 'button'); card.tabIndex = 0;
   const open = event => { event.preventDefault(); event.stopPropagation(); openSingleCardZoom(card); };
   card.addEventListener('click', open); card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') open(event); });
@@ -2057,6 +2081,7 @@ function createVictoryConditionIcon(cardData, playerId){
 
   const moriaEventIndex = Number(state.game?.moriaEventIndex);
   const moriaDarknessConcealed = Number(state.game?.stageNumber) === 14 && moriaEventIndex === 2
+    && playerId !== state.userId
     && ['サム', 'アラゴルン', 'レゴラス', 'ギムリ'].includes(name) && !achieved;
   if (Number(state.game?.stageNumber) === 14 && moriaEventIndex === 0 && name === 'ガンダルフ') {
     icon.append(square('', 'orange'), square('', 'gray'), square('', 'green'));
@@ -2270,6 +2295,7 @@ let lastAnimatedThreatDrawAt = null;
 const animatingThreatCardIds = new Set();
 const activeThreatDrawTransfers = new Set();
 const animatedThreatDrawTransfers = new Set();
+const animatedThreatDrawPlayers = new Set();
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
@@ -2604,60 +2630,11 @@ function renderStageInformation(){
   }
   eventCardRow.querySelectorAll('.event-card').forEach((card, index) => {
     const eventCard = eventCards[index];
-    card.querySelector('.event-card-title').textContent = eventCard?.title || '';
-    const text = card.querySelector('.event-card-text');
-    text.replaceChildren();
-    if (eventCard?.heading) {
-      const heading = document.createElement('strong');
-      heading.className = `event-card-heading${eventCard.headingSingleLine ? ' single-line' : ''}`;
-      heading.textContent = eventCard.heading;
-      text.appendChild(heading);
-    }
-    if (eventCard?.hammer) {
-      const hammer = document.createElement('span');
-      hammer.className = 'event-card-hammer';
-      hammer.innerHTML = HAMMER_ICON_SVG;
-      text.appendChild(hammer);
-    }
-    if (eventCard?.text) {
-      const textParts = (index === 1 ? eventCard.text.replace(/\r?\n/g, '') : eventCard.text).split(/\r?\n\r?\n/);
-      textParts.forEach((cardText, partIndex) => {
-        if (partIndex) {
-          const gap = document.createElement('span');
-          gap.className = 'event-card-gap';
-          text.appendChild(gap);
-        }
-        text.appendChild(document.createTextNode(cardText));
-      });
-    }
-    const playerText = eventCard?.playerText?.[Number(state.room?.maxPlayers)];
-    if (playerText) text.appendChild(document.createTextNode(`${eventCard.playerTextSeparator ?? '\n\n'}${playerText}`));
-    if (eventCard?.afterPlayerText) {
-      const gap = document.createElement('span');
-      gap.className = 'event-card-gap';
-      text.append(gap, document.createTextNode(eventCard.afterPlayerText));
-    }
-    if (eventCard?.secondaryHeading) {
-      const secondaryHeading = document.createElement('strong');
-      secondaryHeading.textContent = eventCard.secondaryHeading;
-      const gap = document.createElement('span');
-      gap.className = `event-card-gap${eventCard.wideSecondaryHeadingGap ? ' before-secondary-heading' : ''}`;
-      text.append(gap, secondaryHeading);
-    }
-    if (eventCard?.afterText) text.appendChild(document.createTextNode(eventCard.afterText));
-    if (eventCard) {
-      // ミニ表示で隠している面も原寸で計測し、拡大した2面の文字比率を元カードと揃える。
-      const isHiddenFace = getComputedStyle(card).display === 'none';
-      if (isHiddenFace) {
-        card.style.display = 'block';
-        card.style.visibility = 'hidden';
-      }
-      fitBlockText(text, 10, 3, .1);
-      if (isHiddenFace) {
-        card.style.removeProperty('display');
-        card.style.removeProperty('visibility');
-      }
-    }
+    if (!eventCard) return;
+    const isHiddenFace = getComputedStyle(card).display === 'none';
+    if (isHiddenFace) { card.style.display = 'block'; card.style.visibility = 'hidden'; }
+    populateEventCardElement(card, eventCard, { playerCount:state.room?.maxPlayers, eventIndex:index });
+    if (isHiddenFace) { card.style.removeProperty('display'); card.style.removeProperty('visibility'); }
   });
   // 拡大時は、選択中のイベント面と対応するあらすじ面の2枚だけを表示する。
   const sourceEventCards = Array.from(eventCardRow.querySelectorAll('.event-card')).slice(0, eventCards.length);
@@ -3315,7 +3292,11 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
   const darknessConcealed = Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 2
     && transfer.playerId !== state.userId;
   const displayedThreatCard = { ...transfer.card, concealed:darknessConcealed };
-  flight.appendChild(createCardElement(displayedThreatCard));
+  const displayedThreatElement = createCardElement(displayedThreatCard);
+  if (!darknessConcealed && Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 2) {
+    displayedThreatElement.classList.add('owner-concealed');
+  }
+  flight.appendChild(displayedThreatElement);
   const startScale = sourceRect.width / 82;
   const destinationScale = targetRect.width / 82;
   const leftReveal = sourceRect.left - sourceRect.width - 5;
@@ -3545,9 +3526,11 @@ function subscribeRoom(){
     const threatTransfer = state.game?.threatDrawTransfer;
     const threatTransferKey = threatTransfer?.card?.id && threatTransfer?.movedAt
       ? `${threatTransfer.card.id}:${threatTransfer.movedAt}` : null;
-    const shouldAnimateThreatDraw = Boolean(threatTransferKey
+    const threatDrawPlayerKey = threatTransfer?.playerId ? `${state.game?.startedAt || state.game?.stageNumber}:${threatTransfer.playerId}` : null;
+    const shouldAnimateThreatDraw = Boolean(threatTransferKey && threatDrawPlayerKey
       && threatTransfer.movedAt !== lastAnimatedThreatDrawAt
       && !animatedThreatDrawTransfers.has(threatTransferKey)
+      && !animatedThreatDrawPlayers.has(threatDrawPlayerKey)
       && !activeThreatDrawTransfers.has(threatTransferKey)
       && !document.querySelector(`[data-threat-draw-transfer="${CSS.escape(threatTransferKey)}"]`)
       && threatSourceRect?.width);
@@ -3555,6 +3538,7 @@ function subscribeRoom(){
       // 再描画や重複購読が続いても、同じ転送を描画前に一度だけ確保する。
       activeThreatDrawTransfers.add(threatTransferKey);
       animatedThreatDrawTransfers.add(threatTransferKey);
+      animatedThreatDrawPlayers.add(threatDrawPlayerKey);
       lastAnimatedThreatDrawAt = threatTransfer.movedAt;
       animatingThreatCardIds.add(threatTransfer.card.id);
     }
@@ -4613,7 +4597,8 @@ async function chooseCharacter(characterName, source){
         room.game.equipmentCards ||= {}; room.game.equipmentCards[ownerId] ||= [];
         room.game.equipmentCards[ownerId].push({
           kind:'equipment', name:event.title, specialName:event.secondaryHeading || event.heading,
-          effect:[event.text, event.playerText?.[Number(room.maxPlayers)], event.afterText].filter(Boolean).join('\n'), image:'eventback.jpg',
+          effect:[event.text, event.playerText?.[Number(room.maxPlayers)], event.afterText].filter(Boolean).join('\n'),
+          eventData:concreteEventCardData(event, room.maxPlayers), image:'eventback.jpg',
           id:`${ownerId}-moria-event-${room.game.moriaEventIndex}-${Date.now()}`
         });
         if (room.game.moriaEventIndex === 3) {
@@ -5453,9 +5438,11 @@ function renderPlayerCircle(players){
       holder.className = 'capture-card';
       holder.style.setProperty('--stack-rotate', '0deg');
       const objectiveAchieved = victoryConditionStatus(state.room, p.id).status === 'achieved';
-      const concealed = (threatCard.name === '見えざる者' && !isMe && !objectiveAchieved)
-        || (Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 2 && !isMe && !objectiveAchieved);
-      holder.appendChild(createCardElement({ ...threatCard, concealed }));
+      const darknessActive = Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 2 && !objectiveAchieved;
+      const concealed = (threatCard.name === '見えざる者' && !isMe && !objectiveAchieved) || (darknessActive && !isMe);
+      const threatElement = createCardElement({ ...threatCard, concealed });
+      if (darknessActive && isMe) threatElement.classList.add('owner-concealed');
+      holder.appendChild(threatElement);
       threatBundle.appendChild(holder);
       if (isMe && threatCard.kind === 'special-threat') {
         const threatConditionIcon = createThreatConditionIcon(p.id, threatCard.name);
