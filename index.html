@@ -423,6 +423,8 @@
   .my-card.yellow-one .card-name{left:3px;right:3px;padding:0 7px;box-sizing:border-box;font-size:9px;letter-spacing:-.06em;white-space:nowrap;overflow:hidden;}
   .character-card{
     --character-frame:#73583a;--character-panel:#fff8e8;
+    --character-label-frame:color-mix(in srgb,var(--character-frame) 50%,transparent);
+    --character-label-panel:color-mix(in srgb,var(--character-panel) 50%,transparent);
     border-color:var(--character-frame);background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #fff9e9;
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-synthesis:none;
@@ -441,12 +443,12 @@
   .character-card.character-red{--character-frame:#c94c47;border-color:#c94c47;box-shadow:0 4px 12px rgba(100,25,25,.25),inset 0 0 0 2px #f7d4cf;}
   .character-card .character-label{
     position:absolute;left:auto;right:-4px;top:1px;width:max-content;min-width:0;max-width:calc(100% + 4px);padding:0 4.5px 0 16px;
-    box-sizing:border-box;background:var(--character-frame);color:#3f3021;font-size:9px;font-weight:900;isolation:isolate;
+    box-sizing:border-box;background:var(--character-label-frame);color:#3f3021;font-size:9px;font-weight:900;isolation:isolate;
     line-height:1.1;text-align:right;white-space:nowrap;overflow:hidden;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);
     display:flex;align-items:center;justify-content:flex-end;
   }
   .character-card .character-label::before{
-    content:'';position:absolute;inset:1px;background:var(--character-panel);z-index:-1;
+    content:'';position:absolute;inset:1px;background:var(--character-label-panel);z-index:-1;
     clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);
   }
   .character-card .character-label:not(.character-special){height:15.3px;}
