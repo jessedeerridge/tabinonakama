@@ -255,11 +255,16 @@
   .event-stage-layout.chapter-fourteen.character-selection-layout .event-card-row{
     order:3;display:flex;width:224px;flex:0 0 224px;gap:7px;margin-left:-7px;padding:0 7px 8px 0;
     overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;
-    scrollbar-width:thin;pointer-events:auto;
+    scrollbar-width:none;pointer-events:auto;touch-action:pan-x;
   }
+  .event-stage-layout.chapter-fourteen.character-selection-layout .event-card-row::-webkit-scrollbar{display:none;}
   .event-stage-layout.chapter-fourteen.character-selection-layout .event-card-row>.event-card{
-    order:initial;margin:0;flex:0 0 112px;scroll-snap-align:start;
+    order:initial;margin:0;flex:0 0 112px;scroll-snap-align:center;cursor:pointer;
   }
+  .event-stage-layout.chapter-fourteen.character-selection-layout .event-card-row>.event-card.moria-selected{
+    outline:4px solid #142b4a;outline-offset:-4px;
+  }
+  .moria-event-spacer{width:112px;height:160px;flex:0 0 112px;border-radius:10px;background:url('eventback.jpg') center/cover no-repeat;scroll-snap-align:none;pointer-events:none;}
   .center-card-row{width:100%;display:flex;align-items:center;justify-content:space-between;}
   .event-card-row{display:none;}
   .event-stage-layout.character-selection-layout .event-card-row{display:contents;}
@@ -314,7 +319,8 @@
   .event-card-modal-backdrop{position:fixed;inset:0;z-index:490;display:grid;place-items:center;background:rgba(0,0,0,.18);cursor:pointer;}
   .event-card-modal-backdrop.hidden{display:none;}
   .event-card-modal-row{display:flex;align-items:flex-start;gap:14px;height:160px;cursor:default;transform:translateY(33.6px);}
-  .event-card-modal-row.chapter-fourteen{width:min(490px,calc(100vw - 20px));overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;padding-bottom:8px;}
+  .event-card-modal-row.chapter-fourteen{width:min(490px,calc(100vw - 20px));overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;padding-bottom:8px;scrollbar-width:none;}
+  .event-card-modal-row.chapter-fourteen::-webkit-scrollbar{display:none;}
   .event-card-modal-row.chapter-fourteen .event-card{scroll-snap-align:center;}
   .event-card-modal-row .event-card{flex:0 0 112px;width:112px;height:160px;box-shadow:0 16px 38px rgba(0,0,0,.45);}
   .event-stage-layout:not(.character-selection-layout) #winningconditionsquare{cursor:pointer;}
@@ -2276,6 +2282,7 @@ function updateWinningConditionOverflow(){
     .filter(rect => rect.width > 0 && rect.height > 0)
     .map(rect => Math.round(rect.top * 2) / 2));
   winningconditionGoal.classList.toggle('content-overflow', lineTops.size >= 8);
+  fitBlockText(winningconditionGoal, 9, 3, .1);
 }
 
 function setEventCardsExpanded(expanded){
@@ -2287,7 +2294,59 @@ function setEventCardsExpanded(expanded){
   eventCardModalBackdrop.setAttribute('aria-hidden', String(!shouldExpand));
 }
 
-eventCardRow.addEventListener('click', () => {
+let moriaScrollTimer = null;
+let moriaScrollStart = 0;
+let moriaScrollDragging = false;
+const MORIA_CARD_STEP = 119;
+const MORIA_FIRST_CENTER = 63;
+
+function setMoriaScrollPosition(index, behavior = 'smooth'){
+  const safeIndex = Math.max(0, Math.min(3, Number(index) || 0));
+  eventCardRow.scrollTo({ left:MORIA_FIRST_CENTER + safeIndex * MORIA_CARD_STEP, behavior });
+}
+
+async function syncMoriaScroll(index){
+  if (!state.roomCode || Number(state.game?.stageNumber) !== 14) return;
+  if (Number(state.game?.moriaEventScrollIndex ?? 0) === index) return;
+  await update(ref(db, `rooms/${state.roomCode}/game`), { moriaEventScrollIndex:index });
+}
+
+eventCardRow.addEventListener('pointerdown', () => {
+  if (!centerLowerCardArea.classList.contains('chapter-fourteen')) return;
+  moriaScrollStart = eventCardRow.scrollLeft;
+  moriaScrollDragging = true;
+});
+eventCardRow.addEventListener('pointerup', () => { moriaScrollDragging = false; });
+eventCardRow.addEventListener('pointercancel', () => { moriaScrollDragging = false; });
+eventCardRow.addEventListener('scroll', () => {
+  if (!centerLowerCardArea.classList.contains('chapter-fourteen')) return;
+  const min = MORIA_FIRST_CENTER;
+  const max = MORIA_FIRST_CENTER + 3 * MORIA_CARD_STEP;
+  if (eventCardRow.scrollLeft < min || eventCardRow.scrollLeft > max) {
+    eventCardRow.scrollLeft = Math.max(min, Math.min(max, eventCardRow.scrollLeft));
+  }
+  clearTimeout(moriaScrollTimer);
+  moriaScrollTimer = setTimeout(() => {
+    const index = Math.max(0, Math.min(3, Math.round((eventCardRow.scrollLeft - MORIA_FIRST_CENTER) / MORIA_CARD_STEP)));
+    setMoriaScrollPosition(index);
+    syncMoriaScroll(index);
+  }, 120);
+}, { passive:true });
+
+eventCardRow.addEventListener('click', async event => {
+  if (centerLowerCardArea.classList.contains('chapter-fourteen')
+      && centerLowerCardArea.classList.contains('character-selection-layout')) {
+    if (Math.abs(eventCardRow.scrollLeft - moriaScrollStart) > 5) return;
+    const card = event.target.closest('.event-card[data-moria-index]');
+    const isFrodo = state.game?.characterSelections?.[state.userId]?.name === 'フロド';
+    if (!card || !isFrodo || !state.roomCode) return;
+    const index = Number(card.dataset.moriaIndex);
+    await update(ref(db, `rooms/${state.roomCode}/game`), {
+      moriaEventIndex:index, moriaEventScrollIndex:index
+    });
+    setMoriaScrollPosition(index);
+    return;
+  }
   setEventCardsExpanded(!centerLowerCardArea.classList.contains('event-cards-expanded'));
 });
 winningconditionsquare.addEventListener('click', () => setEventCardsExpanded(true));
@@ -2363,6 +2422,7 @@ function renderStageInformation(){
   if (!stage) return;
 
   const eventCards = stage.eventCards || [];
+  eventCardRow.querySelectorAll('.moria-event-spacer').forEach(spacer => spacer.remove());
   while (eventCardRow.querySelectorAll(':scope > .event-card').length < eventCards.length) {
     const card = document.createElement('div');
     card.className = 'center-lower-card event-card';
@@ -2371,7 +2431,26 @@ function renderStageInformation(){
   }
   eventCardRow.querySelectorAll(':scope > .event-card').forEach((card, index) => {
     card.style.display = index < eventCards.length ? '' : 'none';
+    card.classList.toggle('moria-selected', isChapterFourteen && Number(state.game?.moriaEventIndex) === index);
+    if (isChapterFourteen) card.dataset.moriaIndex = String(index);
+    else delete card.dataset.moriaIndex;
   });
+  if (isChapterFourteen) {
+    const before = document.createElement('div');
+    const after = document.createElement('div');
+    before.className = after.className = 'moria-event-spacer';
+    before.setAttribute('aria-hidden', 'true');
+    after.setAttribute('aria-hidden', 'true');
+    eventCardRow.prepend(before);
+    eventCardRow.insertBefore(after, oldForestArea);
+    if (!moriaScrollDragging) requestAnimationFrame(() => {
+      setMoriaScrollPosition(state.game?.moriaEventScrollIndex ?? state.game?.moriaEventIndex ?? 0,
+        eventCardRow.dataset.moriaReady === 'true' ? 'smooth' : 'auto');
+      eventCardRow.dataset.moriaReady = 'true';
+    });
+  } else {
+    delete eventCardRow.dataset.moriaReady;
+  }
   eventCardRow.querySelectorAll('.event-card').forEach((card, index) => {
     const eventCard = eventCards[index];
     card.querySelector('.event-card-title').textContent = eventCard?.title || '';
