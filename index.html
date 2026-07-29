@@ -152,7 +152,8 @@
   .threat-card.chapter-thirteen-threat{background-image:url('kyoi17.jpg');}
   .threat-card.concealed{border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.18);}
   .threat-card.concealed>*{display:none;}
-  .threat-card.owner-concealed{transform:rotate(180deg);}
+  .capture-card.owner-concealed{transform:rotate(180deg);}
+  .threat-draw-flight .threat-card.owner-concealed{transform:rotate(180deg);transform-origin:center;}
   /* character-card の共通規則より詳細度を上げ、通常の脅威カードと同じ茶枠・黒塗りを保つ。 */
   .character-card.special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505;}
   .character-card.special-threat-card .character-label{left:-4px;right:auto;width:max-content;min-width:0;max-width:calc(100% + 4px);height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
@@ -2000,6 +2001,18 @@ async function decideMithril(useCoat){
   });
 }
 
+function darknessThreatIsRevealed(room, playerId, character){
+  if (victoryConditionStatus(room, playerId, character).status === 'achieved') return true;
+  const trickCount = room?.game?.capturedTricks?.[playerId]?.length || 0;
+  // 「ちょうど」の目的は、その数に到達した時点で一度公開する（後から超過して失敗する可能性は残る）。
+  if (character?.name === 'メリー') return trickCount === 1 || trickCount === 2;
+  if (['“でぶちゃん”のボルジャー', '小馬のビル'].includes(character?.name)) return trickCount === 1;
+  if (character?.name === 'アラゴルン' && !room?.game?.equipmentChoices?.[playerId]) {
+    return trickCount === Number(threatNumberForPlayer(room.game, playerId));
+  }
+  return false;
+}
+
 function skipsCharacterThreatDraw(game, characterName){
   // 〈バーリンの墓所〉はイベントカード自体がギムリの脅威となるため、通常の脅威ドローを行わない。
   return Number(game?.stageNumber) === 14 && Number(game?.moriaEventIndex) === 1 && characterName === 'ギムリ';
@@ -2087,9 +2100,10 @@ function createVictoryConditionIcon(cardData, playerId){
   };
 
   const moriaEventIndex = Number(state.game?.moriaEventIndex);
+  const darknessRevealed = darknessThreatIsRevealed(state.room, playerId, cardData);
   const moriaDarknessConcealed = Number(state.game?.stageNumber) === 14 && moriaEventIndex === 2
     && playerId !== state.userId
-    && ['サム', 'アラゴルン', 'レゴラス', 'ギムリ'].includes(name) && !achieved;
+    && ['サム', 'アラゴルン', 'レゴラス', 'ギムリ'].includes(name) && !darknessRevealed;
   if (Number(state.game?.stageNumber) === 14 && moriaEventIndex === 0 && name === 'ガンダルフ') {
     icon.append(square('', 'orange'), square('', 'gray'), square('', 'green'));
   } else if (Number(state.game?.stageNumber) === 14 && moriaEventIndex === 1 && name === 'ギムリ') {
@@ -5494,11 +5508,11 @@ function renderPlayerCircle(players){
       holder.className = 'capture-card';
       holder.style.setProperty('--stack-rotate', '0deg');
       const objectiveAchieved = victoryConditionStatus(state.room, p.id).status === 'achieved';
-      const darknessActive = Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 2 && !objectiveAchieved;
+      const darknessRevealed = darknessThreatIsRevealed(state.room, p.id, character);
+      const darknessActive = Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 2 && !darknessRevealed;
       const concealed = (threatCard.name === '見えざる者' && !isMe && !objectiveAchieved) || (darknessActive && !isMe);
-      const threatElement = createCardElement({ ...threatCard, concealed });
-      if (darknessActive && isMe) threatElement.classList.add('owner-concealed');
-      holder.appendChild(threatElement);
+      if (darknessActive && isMe) holder.classList.add('owner-concealed');
+      holder.appendChild(createCardElement({ ...threatCard, concealed }));
       threatBundle.appendChild(holder);
       if (isMe && threatCard.kind === 'special-threat') {
         const threatConditionIcon = createThreatConditionIcon(p.id, threatCard.name);
