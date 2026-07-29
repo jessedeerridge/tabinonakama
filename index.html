@@ -2133,6 +2133,7 @@ let threatDrawTimer = null;
 let lastAnimatedBarrowDrawAt = null;
 let lastAnimatedThreatDrawAt = null;
 const animatingThreatCardIds = new Set();
+const activeThreatDrawTransfers = new Set();
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
@@ -2935,15 +2936,17 @@ function animateBarrowDraw(sourceRect, transfer){
   lastAnimatedBarrowDrawAt = transfer.movedAt;
 }
 
-async function animateThreatDraw(sourceRect, transfer){
+async function animateThreatDraw(sourceRect, transfer, transferKey){
   if (!sourceRect?.width || !transfer?.card) {
     if (transfer?.card?.id) animatingThreatCardIds.delete(transfer.card.id);
+    activeThreatDrawTransfers.delete(transferKey);
     return;
   }
   const target = playerCircle.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
   const targetRect = target?.getBoundingClientRect();
   if (!targetRect?.width) {
     animatingThreatCardIds.delete(transfer.card.id);
+    activeThreatDrawTransfers.delete(transferKey);
     return;
   }
   const flight = document.createElement('div');
@@ -2955,8 +2958,8 @@ async function animateThreatDraw(sourceRect, transfer){
   const targetLeft = targetRect.left;
   const targetTop = targetRect.top;
   Object.assign(flight.style, { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(180deg)` });
+  flight.dataset.threatDrawTransfer = transferKey;
   document.body.appendChild(flight);
-  lastAnimatedThreatDrawAt = transfer.movedAt;
   try {
     await flight.animate([
       { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(180deg)` },
@@ -2974,6 +2977,7 @@ async function animateThreatDraw(sourceRect, transfer){
     // 実カードを表示してから飛行カードを外し、到着時に背景が見えるフレームを作らない。
     await new Promise(resolve => requestAnimationFrame(resolve));
     flight.remove();
+    activeThreatDrawTransfers.delete(transferKey);
   }
 }
 
@@ -3168,9 +3172,17 @@ function subscribeRoom(){
     state.game = state.room.game || null;
     state.hands = state.room.hands || {};
     const threatTransfer = state.game?.threatDrawTransfer;
-    const shouldAnimateThreatDraw = Boolean(threatTransfer?.movedAt
-      && threatTransfer.movedAt !== lastAnimatedThreatDrawAt && threatSourceRect?.width);
-    if (shouldAnimateThreatDraw && threatTransfer.card?.id) animatingThreatCardIds.add(threatTransfer.card.id);
+    const threatTransferKey = threatTransfer?.card?.id && threatTransfer?.movedAt
+      ? `${threatTransfer.card.id}:${threatTransfer.movedAt}` : null;
+    const shouldAnimateThreatDraw = Boolean(threatTransferKey
+      && threatTransfer.movedAt !== lastAnimatedThreatDrawAt
+      && !activeThreatDrawTransfers.has(threatTransferKey) && threatSourceRect?.width);
+    if (shouldAnimateThreatDraw) {
+      // 再描画や重複購読が続いても、同じ転送を描画前に一度だけ確保する。
+      activeThreatDrawTransfers.add(threatTransferKey);
+      lastAnimatedThreatDrawAt = threatTransfer.movedAt;
+      animatingThreatCardIds.add(threatTransfer.card.id);
+    }
     const waiting = (!state.isHost && !state.room.maxPlayers);
     hostSelectingPop.classList.toggle('hidden', !waiting);
     renderHands();
@@ -3189,7 +3201,7 @@ function subscribeRoom(){
     if (barrowTransfer?.movedAt && barrowTransfer.movedAt !== lastAnimatedBarrowDrawAt) {
       requestAnimationFrame(() => animateBarrowDraw(barrowSourceRect, barrowTransfer));
     }
-    if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer);
+    if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey);
     const exchangeOfferTransfer = state.game?.exchangeOfferTransfer;
     if (exchangeOfferTransfer?.movedAt && exchangeOfferTransfer.movedAt !== lastAnimatedExchangeOfferAt) {
       requestAnimationFrame(() => animateExchangeOffer(exchangeOfferTransfer, previousExchangePositions));
