@@ -316,6 +316,21 @@
   .threat-deck::before{transform:translateX(2px);}
   .threat-deck::after{transform:translateX(4px);z-index:-2;}
   .threat-deck.empty{visibility:hidden;}
+  .threat-deck-area.deck-transition-out{animation:deckSlideOutRight .85s ease-in forwards;}
+  .old-forest-area.deck-transition-in,.barrow-deck-area.deck-transition-in,.balrog-deck-area.deck-transition-in{animation:deckSlideInRight .85s ease-out both;}
+  @keyframes deckSlideOutRight{to{transform:translateX(90px);opacity:0}}
+  @keyframes deckSlideInRight{from{transform:translateX(90px);opacity:0}to{transform:translateX(0);opacity:1}}
+  .balrog-deck-area{display:none;position:absolute;right:72px;top:-27px;width:170px;height:56px;z-index:10;pointer-events:none;}
+  .center-lower-card-area:not(.character-selection-layout)>.balrog-deck-area.active{display:flex;align-items:flex-start;gap:5px;}
+  .balrog-deck{flex:0 0 38px;width:38px;height:56px;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;}
+  .balrog-deck.empty{visibility:hidden;}
+  .balrog-revealed{display:flex;gap:3px;}
+  .balrog-revealed-card{position:relative;width:38px;height:56px;perspective:180px;}
+  .balrog-revealed-card>.my-card{transform:scale(.46);transform-origin:top left;backface-visibility:hidden;}
+  .balrog-revealed-card.revealing>.my-card{animation:balrogCardReveal .7s ease-out both;}
+  .balrog-revealed-card.revealing::after{content:'';position:absolute;inset:0;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;animation:balrogBackReveal .7s ease-out both;backface-visibility:hidden;}
+  @keyframes balrogCardReveal{from{transform:scale(.46) rotateY(180deg)}to{transform:scale(.46) rotateY(0)}}
+  @keyframes balrogBackReveal{from{transform:rotateY(0)}to{transform:rotateY(180deg)}}
   .old-forest-reveal{left:0;transform:rotate(-2deg);transform-origin:center;}
   .old-forest-revealed-card{position:absolute;left:var(--reveal-left,0);top:0;width:38px;height:56px;transform:rotate(var(--reveal-tilt,-2deg));transform-origin:center;}
   .old-forest-revealed-card>.my-card{transform:scale(.46);transform-origin:top left;}
@@ -733,6 +748,10 @@
       <div id="threatDeckArea" class="threat-deck-area" aria-label="脅威デッキ">
         <div id="threatDeck" class="threat-deck" aria-label="脅威デッキの山札"></div>
       </div>
+      <div id="balrogDeckArea" class="balrog-deck-area" aria-label="バルログデッキ">
+        <div id="balrogDeck" class="balrog-deck" aria-label="バルログデッキの山札"></div>
+        <div id="balrogRevealed" class="balrog-revealed" aria-label="バルログの公開カード"></div>
+      </div>
       <div class="center-card-row">
         <div id="arasujisquare" class="center-lower-card">
           <div id="arasujisquareBar" class="arasujisquare-bar"></div>
@@ -973,6 +992,9 @@ const barrowDeckArea = document.getElementById('barrowDeckArea');
 const barrowDeck = document.getElementById('barrowDeck');
 const threatDeckArea = document.getElementById('threatDeckArea');
 const threatDeck = document.getElementById('threatDeck');
+const balrogDeckArea = document.getElementById('balrogDeckArea');
+const balrogDeck = document.getElementById('balrogDeck');
+const balrogRevealed = document.getElementById('balrogRevealed');
 const winningconditionInfo = document.getElementById('winningconditionInfo');
 const winningconditionGoal = document.getElementById('winningconditionGoal');
 const ringcircle = document.getElementById('ringcircle');
@@ -2359,6 +2381,7 @@ function setEventCardsExpanded(expanded){
 }
 
 let moriaScrollTimer = null;
+let lastRenderedBalrogRevealAt = null;
 let moriaScrollStart = 0;
 let moriaScrollDragging = false;
 const MORIA_CARD_STEP = 119;
@@ -2432,8 +2455,10 @@ function renderStageInformation(){
   const isChapterFourteen = Number(state.game?.stageNumber) === 14;
   const isOldForest = Number(state.game?.stageNumber) === 5;
   const isBarrow = Number(state.game?.stageNumber) === 6;
+  const isBalrogBridge = Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 3;
+  const replacementDeckActive = ['playing'].includes(state.game?.phase) && (isOldForest || isBarrow || isBalrogBridge);
   oldForestArea.classList.toggle('active', isOldForest);
-  oldForestArea.style.display = isOldForest && state.game?.phase !== 'character-selection' ? '' : 'none';
+  oldForestArea.style.display = isOldForest && state.game?.phase === 'playing' ? '' : 'none';
   oldForestDeck.classList.toggle('empty', !state.game?.oldForestDeck?.length);
   oldForestDeck.setAttribute('aria-label', `古森デッキ 残り${state.game?.oldForestDeck?.length || 0}枚`);
   barrowDeckArea.classList.toggle('active', isBarrow && state.game?.phase !== 'character-selection');
@@ -2442,10 +2467,24 @@ function renderStageInformation(){
   const threatDefinition = stage?.threats?.[0];
   const hasThreatDeck = Boolean(threatDefinition && state.game?.phase !== 'character-selection');
   threatDeckArea.classList.toggle('active', hasThreatDeck);
+  threatDeckArea.classList.toggle('deck-transition-out', replacementDeckActive);
+  oldForestArea.classList.toggle('deck-transition-in', replacementDeckActive && isOldForest);
+  barrowDeckArea.classList.toggle('deck-transition-in', replacementDeckActive && isBarrow);
   threatDeck.classList.toggle('empty', !state.game?.threatDeck?.length);
   const threatDeckName = threatDefinition?.max === 7 ? '脅威1-7デッキ' : '黒の乗手デッキ';
   threatDeckArea.setAttribute('aria-label', threatDeckName);
   threatDeck.setAttribute('aria-label', `${threatDeckName} 残り${state.game?.threatDeck?.length || 0}枚`);
+  balrogDeckArea.classList.toggle('active', replacementDeckActive && isBalrogBridge);
+  balrogDeckArea.classList.toggle('deck-transition-in', replacementDeckActive && isBalrogBridge);
+  balrogDeck.classList.toggle('empty', !state.game?.balrogDeck?.length);
+  balrogDeck.setAttribute('aria-label', `バルログデッキ 残り${state.game?.balrogDeck?.length || 0}枚`);
+  balrogRevealed.replaceChildren();
+  (state.game?.balrogRevealed || []).forEach(cardData => {
+    const holder = document.createElement('div'); holder.className = 'balrog-revealed-card';
+    if (state.game.balrogRevealAt && state.game.balrogRevealAt !== lastRenderedBalrogRevealAt) holder.classList.add('revealing');
+    holder.appendChild(createCardElement(cardData)); balrogRevealed.appendChild(holder);
+  });
+  if (state.game?.balrogRevealAt) lastRenderedBalrogRevealAt = state.game.balrogRevealAt;
   oldForestReveal.replaceChildren();
   const revealedCards = isOldForest ? [
     ...(state.game?.oldForestRevealedCards || []),
@@ -2912,6 +2951,8 @@ function beginNextExchange(game){
   game.phase = 'playing';
   game.turnPlayerId = game.startingPlayerId || game.playerOrder?.[0] || null;
   delete game.startingPlayerId;
+  game.deckTransitionAt = Date.now();
+  drawBalrogCards(game);
   // 最初の1枚は全プレイヤーのキャラクター効果が完了した直後に公開する。
   drawOldForestCard(game);
 }
@@ -2924,6 +2965,28 @@ function drawOldForestCard(game){
   }
   game.oldForestRevealed = game.oldForestDeck.shift();
   delete game.pendingOldForestDrawAt;
+}
+
+function shuffleInPlace(cards){
+  for (let index = cards.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(Math.random() * (index + 1));
+    [cards[index], cards[swap]] = [cards[swap], cards[index]];
+  }
+  return cards;
+}
+
+function drawBalrogCards(game){
+  if (Number(game?.stageNumber) !== 14 || Number(game.moriaEventIndex) !== 3 || game.chapterOutcome) return;
+  const count = (game.playerOrder || []).length === 3 ? 2 : 3;
+  game.balrogDiscard ||= [];
+  if (game.balrogRevealed?.length) game.balrogDiscard.push(...game.balrogRevealed);
+  game.balrogDeck ||= [];
+  if (game.balrogDeck.length < count) {
+    game.balrogDeck.push(...shuffleInPlace(game.balrogDiscard.splice(0)));
+  }
+  game.balrogRevealed = game.balrogDeck.splice(0, count);
+  game.balrogRevealAt = Date.now();
+  delete game.pendingBalrogDrawAt;
 }
 
 function oldForestWinsTrick(game, plays){
@@ -3410,6 +3473,7 @@ function subscribeRoom(){
     scheduleOldForestDraw();
     scheduleBarrowDraw();
     scheduleThreatDraw();
+    scheduleBalrogDraw();
     scheduleOutcomeCheck();
     const barrowTransfer = state.game?.barrowDrawTransfer;
     if (barrowTransfer?.movedAt && barrowTransfer.movedAt !== lastAnimatedBarrowDrawAt) {
@@ -3840,9 +3904,24 @@ function scheduleTrickClear(){
       if (!game.finished && Number(game.stageNumber) === 5 && game.oldForestDeck?.length) {
         game.pendingOldForestDrawAt = Date.now() + 1000;
       }
+      if (!game.finished && Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3) {
+        game.pendingBalrogDrawAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS;
+      }
       return game;
     });
   }, Math.max(0, captureAt - Date.now()) + 20);
+}
+
+function scheduleBalrogDraw(){
+  const drawAt = state.game?.pendingBalrogDrawAt;
+  if (!drawAt || !state.roomCode) return;
+  setTimeout(async () => {
+    await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+      if (!game?.pendingBalrogDrawAt || game.pendingBalrogDrawAt !== drawAt || Date.now() < drawAt) return;
+      drawBalrogCards(game);
+      return game;
+    });
+  }, Math.max(0, drawAt - Date.now()) + 20);
 }
 
 function scheduleOutcomeCheck(){
@@ -3995,7 +4074,7 @@ function renderMyHand(){
       && (!shadowfaxReserved || shadowfaxReserved.inHand || normalized.id !== shadowfaxReserved.id);
     const canPlay = normalized.kind !== 'character' && canPlayReserved && state.game?.phase === 'playing'
       && !state.game.pendingCapture && !state.game.pendingYellowOneDecision
-      && !state.game.pendingOldForestDrawAt && !state.game.pendingOutcomeCheckAt
+      && !state.game.pendingOldForestDrawAt && !state.game.pendingBalrogDrawAt && !state.game.pendingOutcomeCheckAt
       && state.game.turnPlayerId === myId && canFollowSuit(normalized);
     if (canPlay) {
       hasPlayableCards = true;
@@ -4158,7 +4237,8 @@ async function playCard(cardIndex, expectedCard){
   if (!state.roomCode) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
     if (!room?.game || room.game.phase !== 'playing' || room.game.pendingCapture
-      || room.game.pendingYellowOneDecision || room.game.pendingOldForestDrawAt || room.game.pendingOutcomeCheckAt
+      || room.game.pendingYellowOneDecision || room.game.pendingOldForestDrawAt
+      || room.game.pendingBalrogDrawAt || room.game.pendingOutcomeCheckAt
       || room.game.turnPlayerId !== state.userId) return;
     const hand = room.hands?.[state.userId]?.cards;
     const card = hand?.[cardIndex];
@@ -4188,6 +4268,14 @@ async function playCard(cardIndex, expectedCard){
         && (room.game.shadowfaxReservedCard?.playerId !== id || room.game.shadowfaxReservedCard.inHand || handCard.id !== room.game.shadowfaxReservedCard.id)));
     if (existing.length + 1 === trickPlayers.length) {
       const plays = [...existing, room.game.trick[state.userId]];
+      if (Number(room.game.stageNumber) === 14 && Number(room.game.moriaEventIndex) === 3) {
+        const fellowshipTotal = plays.reduce((total, play) => total + Number(play.card.number || 0), 0);
+        const balrogTotal = (room.game.balrogRevealed || []).reduce((total, item) => total + Number(item.number || 0), 0);
+        if (balrogTotal > fellowshipTotal) {
+          room.game.finished = true;
+          room.game.chapterOutcome = { status:'failed', reason:'balrog', decidedAt:Date.now() };
+        }
+      }
       const lead = plays[0].card.color;
       const winnerPlay = plays.filter(p=>p.card.color===lead).reduce((best,p)=>p.card.number>best.card.number?p:best);
       const winnerId = Object.entries(room.game.trick).find(([,p])=>p===winnerPlay)?.[0] || state.userId;
@@ -4412,6 +4500,38 @@ async function chooseCharacter(characterName, source){
           effect:[event.text, event.playerText?.[Number(room.maxPlayers)], event.afterText].filter(Boolean).join('\n'), image:'eventback.jpg',
           id:`${ownerId}-moria-event-${room.game.moriaEventIndex}-${Date.now()}`
         });
+        if (room.game.moriaEventIndex === 3) {
+          ownerCharacter.specialName = '神秘の火に仕える者';
+          const allTravelCards = [
+            ...Object.values(room.hands || {}).flatMap(hand => (hand.cards || []).filter(card => card.kind !== 'character')),
+            ...(room.game.excludedCards || []), ...(room.game.excludedCard ? [room.game.excludedCard] : [])
+          ];
+          const balrogCards = allTravelCards.filter(card => card.color === 'red')
+            .map(card => ({ ...card, kind:'balrog-shadow' }));
+          const fellowshipDeck = shuffleInPlace(allTravelCards.filter(card => card.color !== 'red'));
+          const cardsPerPlayer = room.game.playerOrder.length === 3 ? 9 : 7;
+          room.game.playerOrder.forEach(playerId => {
+            const characterCard = (room.hands[playerId]?.cards || []).find(card => card.kind === 'character');
+            room.hands[playerId].cards = [characterCard, ...fellowshipDeck.splice(0, cardsPerPlayer)].filter(Boolean);
+          });
+          const frodoId = Object.entries(room.game.characterSelections).find(([, selected]) => selected.name === 'フロド')?.[0];
+          const ringHolderId = room.game.playerOrder.find(playerId => room.hands[playerId].cards
+            .some(card => card.color === 'yellow' && Number(card.number) === 1));
+          if (frodoId && ringHolderId && frodoId !== ringHolderId) {
+            const ringIndex = room.hands[ringHolderId].cards.findIndex(card => card.color === 'yellow' && Number(card.number) === 1);
+            const replacementIndex = room.hands[frodoId].cards.findIndex(card => card.kind !== 'character');
+            [room.hands[ringHolderId].cards[ringIndex], room.hands[frodoId].cards[replacementIndex]]
+              = [room.hands[frodoId].cards[replacementIndex], room.hands[ringHolderId].cards[ringIndex]];
+          }
+          room.game.excludedCards = fellowshipDeck;
+          room.game.excludedCardTilts = fellowshipDeck.map(() => Math.floor(Math.random() * 5) - 2);
+          delete room.game.excludedCard;
+          delete room.game.excludedCardTilt;
+          balrogCards.push({ kind:'balrog-shadow', color:'red', name:'バルログ', number:5, id:`balrog-${Date.now()}` });
+          room.game.balrogDeck = shuffleInPlace(balrogCards);
+          room.game.balrogDiscard = [];
+          room.game.balrogRevealed = [];
+        }
       }
     }
     const stageElevenEquipment = Number(room.game.stageNumber) === 11 ? STAGE_ELEVEN_EQUIPMENT[characterName] : null;
