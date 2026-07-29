@@ -157,14 +157,13 @@
   .character-card.special-threat-card .character-effect-icon{color:#111;}
   .character-card.special-threat-card.concealed{background:#fff url('tabicardura.jpg') center/cover no-repeat;border-color:#10233f;box-shadow:0 4px 12px rgba(0,0,0,.18);}
   .character-card.special-threat-card.concealed>*{display:none;}
-  .character-card.equipment-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505;}
+  .character-card.equipment-card{--character-frame:#aeb8c5;--character-panel:#fff8e8;border-color:#aeb8c5;background:#302f2c center/cover no-repeat;color:#3f3021;cursor:pointer;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;}
   .character-card.equipment-card .character-label{left:auto;right:-4px;width:max-content;max-width:calc(100% + 4px);padding:0 6px 0 12px;text-align:right;justify-content:flex-end;clip-path:polygon(14% 0,100% 0,100% 100%,14% 100%,0 50%);}
-  .character-card.equipment-card .character-label::before{background:#050505;clip-path:polygon(14% 0,100% 0,100% 100%,14% 100%,0 50%);}
+  .character-card.equipment-card .character-label::before{background:var(--character-panel);clip-path:polygon(14% 0,100% 0,100% 100%,14% 100%,0 50%);}
   .character-card.equipment-card .character-special{left:auto;right:-4px;top:17px;width:max-content;max-width:calc(100% + 4px);padding:2px 6px 2px 12px;text-align:right;}
-  .character-card.equipment-card .character-effect{min-height:44px;padding:11px 5px 3px;color:#27231f;}
-  .character-card.equipment-card .character-effect::before{background:#fff8e8;}
+  .character-card.equipment-card .character-effect{min-height:57px;padding:12px 5px 4px;color:#27231f;font-size:5.35px;line-height:1.12;}
+  .character-card.equipment-card .character-effect::before{background:var(--character-panel);}
   .character-card.equipment-card .character-effect-icon{color:#111;}
-  .character-card.equipment-card .character-meta{position:absolute;right:4px;bottom:2px;color:#fff;font:700 5px/1 system-ui;text-shadow:0 1px 2px #000;}
   .most-suit-marker{position:absolute;left:50%;top:56px;transform:translateX(-50%);display:flex;align-items:center;gap:2px;color:#fff;font:700 8px/10px system-ui;white-space:nowrap;z-index:30;}
   .most-suit-marker .victory-condition-square{width:10px;height:10px;font-size:0;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
@@ -339,6 +338,8 @@
   .exchange-note{position:absolute;right:12px;bottom:8px;font-size:10px;font-weight:700;}
   .threat-choice-grid{display:grid;grid-template-columns:repeat(4,36px);gap:8px;justify-content:center;margin-top:8px;}
   .threat-choice{width:36px;height:36px;padding:0;border:0;border-radius:3px;background:#111;color:#fff;font-weight:900;}
+  .threat-choice-grid.equipment-range-grid{grid-template-columns:repeat(3,52px);}
+  .threat-choice-grid.equipment-range-grid .threat-choice{width:52px;}
   .player-tag .mini-hand.public-hand{width:156px;height:58px;}
   .player-tag .mini-card.public-mini-card{width:38px;height:56px;border:0;background:transparent;box-shadow:none;overflow:hidden;}
   .public-mini-card>.my-card{position:absolute;left:0;top:0;transform:scale(.4634);transform-origin:top left;}
@@ -1210,8 +1211,7 @@ function createEquipmentCardElement(cardData){
   fitCharacterName(name); fitCharacterName(special);
   const effect = document.createElement('div'); effect.className = 'character-effect';
   effect.appendChild(createCharacterEffectRow('special', cardData.effect));
-  const meta = document.createElement('div'); meta.className = 'character-meta'; meta.textContent = `${cardData.rank}　${cardData.cardNumber}`;
-  card.append(name, special, effect, meta);
+  card.append(name, special, effect);
   card.setAttribute('role', 'button'); card.tabIndex = 0;
   const open = event => { event.preventDefault(); event.stopPropagation(); openSingleCardZoom(card); };
   card.addEventListener('click', open); card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') open(event); });
@@ -1583,6 +1583,9 @@ function createVictoryConditionIcon(cardData, playerId){
     separator.textContent = 'or';
     icon.append(left, separator, right);
   };
+  const rangedCount = (count, expanded = false) => expanded
+    ? line(...countSquares(count))
+    : line(square(), label(`x ${count}`));
   const countSquares = (count, color = 'black') => {
     const items = [];
     if (count >= 4) return [square('', color), label(`x${count}`)];
@@ -1641,7 +1644,8 @@ function createVictoryConditionIcon(cardData, playerId){
     icon.append(square(String(threatNumber ?? 'x'), 'orange'));
   } else if (name === 'アラゴルン') {
     if (equipmentChoice) {
-      appendOr(line(...countSquares(equipmentChoice.min)), line(...countSquares(equipmentChoice.max)));
+      const expandBoth = equipmentChoice.min === 1 && equipmentChoice.max === 2;
+      appendOr(rangedCount(equipmentChoice.min, expandBoth), rangedCount(equipmentChoice.max, expandBoth));
     } else if (threatNumber != null) icon.append(...countSquares(Number(threatNumber)));
     else icon.append(square());
   } else if (victory.includes('脅威カードと同じ数字')) {
@@ -1653,9 +1657,9 @@ function createVictoryConditionIcon(cardData, playerId){
     const twoTricks = line(...countSquares(2));
     appendOr(oneTrick, twoTricks);
   } else if (victory.includes('最も少ない')) {
-    icon.append(square(), label('x min'));
+    icon.append(square(), label('min'));
   } else if (victory.includes('最も多く')) {
-    icon.append(square(), label('x max'));
+    icon.append(square(), label('max'));
   } else {
     // 補足文に「指輪」が登場するビルボなどは黒のまま。枚数目標が指輪カードの場合だけ黄色にする。
     const color = /指輪カードを\d+枚/.test(victory) ? 'yellow' : 'black';
@@ -2284,7 +2288,9 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'アラゴルン' && !(game.threatCards?.[sourceId] || []).some(card => card.kind === 'threat')) {
+    if (characterName === 'アラゴルン'
+      && !(game.threatCards?.[sourceId] || []).some(card => card.kind === 'threat')
+      && !game.equipmentChoices?.[sourceId]) {
       game.phase = 'aragorn-threat-selection';
       game.threatDrawPlayerId = sourceId;
       game.turnPlayerId = null;
@@ -2439,10 +2445,12 @@ function renderThreatChoice(){
   const visible = state.game?.phase === 'aragorn-threat-selection' && state.game?.threatDrawPlayerId === state.userId;
   threatChoiceDialog.classList.toggle('hidden', !visible);
   threatChoiceGrid.replaceChildren();
+  threatChoiceGrid.classList.remove('equipment-range-grid');
   if (!visible) return;
   const isEquipmentChoice = Number(state.game?.stageNumber) === 11;
   threatChoiceMessage.textContent = isEquipmentChoice ? '目的となる数字範囲を選んでください。' : '脅威カードを選んでください。';
   if (isEquipmentChoice) {
+    threatChoiceGrid.classList.add('equipment-range-grid');
     [[1,2],[3,4],[5,6]].forEach(([min,max]) => {
       const button = document.createElement('button'); button.className = 'threat-choice'; button.textContent = `${min}～${max}`;
       attachTwoSecondHold(button, () => chooseAragornEquipmentRange(min, max)); threatChoiceGrid.append(button);
@@ -2460,6 +2468,7 @@ function renderThreatChoice(){
 }
 
 async function chooseAragornEquipmentRange(min, max){
+  threatChoiceDialog.classList.add('hidden');
   await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
     if (game?.phase !== 'aragorn-threat-selection' || game.threatDrawPlayerId !== state.userId || Number(game.stageNumber) !== 11) return;
     if (![[1,2],[3,4],[5,6]].some(range => range[0] === min && range[1] === max)) return;
