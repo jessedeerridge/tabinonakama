@@ -4983,18 +4983,16 @@ async function playCard(cardIndex, expectedCard){
         }
       }
       const lead = plays[0].card.color;
-      const yellowOnePlay = Number(room.game.stageNumber) === 17
-        ? plays.find(play => play.card.color === 'yellow' && Number(play.card.number) === 1) : null;
       const riverPlays = Number(room.game.stageNumber) === 17 ? plays.filter(play => play.card.color === 'river') : [];
-      const winnerPlay = yellowOnePlay || (riverPlays.length
+      const winnerPlay = riverPlays.length
         ? riverPlays.reduce((best, play) => Number(play.card.number) > Number(best.card.number) ? play : best)
-        : plays.filter(p=>p.card.color===lead).reduce((best,p)=>p.card.number>best.card.number?p:best));
+        : plays.filter(p=>p.card.color===lead).reduce((best,p)=>p.card.number>best.card.number?p:best);
       const winnerId = Object.entries(room.game.trick).find(([,p])=>p===winnerPlay)?.[0] || state.userId;
       const leadPlayerId = Object.entries(room.game.trick).find(([, play]) => play.order === 0)?.[0] || winnerId;
       const oldForestWins = oldForestWinsTrick(room.game, plays);
       const yellowOneEntry = Object.entries(room.game.trick)
         .find(([, play]) => play.card.color === 'yellow' && play.card.number === 1);
-      if (!oldForestWins && yellowOneEntry && yellowOneEntry[0] !== winnerId && Number(room.game.stageNumber) !== 17) {
+      if (!oldForestWins && yellowOneEntry && yellowOneEntry[0] !== winnerId) {
         // 通常判定では黄1が勝てない場合だけ、所持者の選択まで回収を保留する。
         room.game.pendingYellowOneDecision = {
           playerId:yellowOneEntry[0], normalWinnerId:winnerId,
