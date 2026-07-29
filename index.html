@@ -383,6 +383,10 @@
   .exchange-card-flight{position:fixed;z-index:1002;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
   .exchange-card-flight.exchange-offer-flight{transform-origin:center;}
   .exchange-card-flight.card-back{border:1px solid #10233f;border-radius:10px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
+  .threat-draw-flight{transform-style:preserve-3d;}
+  .threat-draw-flight::before{content:'';position:absolute;inset:0;border:4px solid #4a2f20;border-radius:10px;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-sizing:border-box;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505;transform:rotateY(180deg);backface-visibility:hidden;}
+  .threat-draw-flight>.my-card{position:absolute;inset:0;backface-visibility:hidden;}
+  .threat-capture.threat-draw-target-hidden{opacity:0;}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
@@ -2093,6 +2097,7 @@ let barrowDrawTimer = null;
 let threatDrawTimer = null;
 let lastAnimatedBarrowDrawAt = null;
 let lastAnimatedThreatDrawAt = null;
+const animatingThreatCardIds = new Set();
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
@@ -2895,14 +2900,20 @@ function animateBarrowDraw(sourceRect, transfer){
   lastAnimatedBarrowDrawAt = transfer.movedAt;
 }
 
-function animateThreatDraw(sourceRect, transfer){
-  if (!sourceRect?.width || !transfer?.card) return;
+async function animateThreatDraw(sourceRect, transfer){
+  if (!sourceRect?.width || !transfer?.card) {
+    if (transfer?.card?.id) animatingThreatCardIds.delete(transfer.card.id);
+    return;
+  }
   const target = playerCircle.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
   const targetRect = target?.getBoundingClientRect();
-  if (!targetRect?.width) return;
-  target.style.opacity = '0';
-  const flight = createCardElement(transfer.card);
-  flight.classList.add('exchange-card-flight');
+  if (!targetRect?.width) {
+    animatingThreatCardIds.delete(transfer.card.id);
+    return;
+  }
+  const flight = document.createElement('div');
+  flight.classList.add('exchange-card-flight', 'threat-draw-flight');
+  flight.appendChild(createCardElement(transfer.card));
   const startScale = sourceRect.width / 82;
   const destinationScale = targetRect.width / 82;
   const leftReveal = sourceRect.left - sourceRect.width - 5;
@@ -2910,16 +2921,22 @@ function animateThreatDraw(sourceRect, transfer){
   const targetTop = targetRect.top;
   Object.assign(flight.style, { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(180deg)` });
   document.body.appendChild(flight);
-  flight.animate([
-    { offset:0, left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(180deg)` },
-    { offset:.42, left:`${leftReveal}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(0deg)` },
-    { offset:.58, left:`${leftReveal}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(0deg)` },
-    { offset:1, left:`${targetLeft}px`, top:`${targetTop}px`, transform:`scale(${destinationScale}) rotateY(0deg)` }
-  ], { duration:1200, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished.finally(() => {
-    flight.remove();
-    target.style.removeProperty('opacity');
-  });
   lastAnimatedThreatDrawAt = transfer.movedAt;
+  try {
+    await flight.animate([
+      { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(180deg)` },
+      { left:`${leftReveal}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(0deg)` }
+    ], { duration:600, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    await flight.animate([
+      { left:`${leftReveal}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(0deg)` },
+      { left:`${targetLeft}px`, top:`${targetTop}px`, transform:`scale(${destinationScale}) rotateY(0deg)` }
+    ], { duration:800, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
+  } finally {
+    flight.remove();
+    animatingThreatCardIds.delete(transfer.card.id);
+    playerCircle.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`)?.classList.remove('threat-draw-target-hidden');
+  }
 }
 
 function captureMyHandRects(){
@@ -3112,6 +3129,10 @@ function subscribeRoom(){
     state.room = snap.val() || {};
     state.game = state.room.game || null;
     state.hands = state.room.hands || {};
+    const threatTransfer = state.game?.threatDrawTransfer;
+    const shouldAnimateThreatDraw = Boolean(threatTransfer?.movedAt
+      && threatTransfer.movedAt !== lastAnimatedThreatDrawAt && threatSourceRect?.width);
+    if (shouldAnimateThreatDraw && threatTransfer.card?.id) animatingThreatCardIds.add(threatTransfer.card.id);
     const waiting = (!state.isHost && !state.room.maxPlayers);
     hostSelectingPop.classList.toggle('hidden', !waiting);
     renderHands();
@@ -3130,10 +3151,7 @@ function subscribeRoom(){
     if (barrowTransfer?.movedAt && barrowTransfer.movedAt !== lastAnimatedBarrowDrawAt) {
       requestAnimationFrame(() => animateBarrowDraw(barrowSourceRect, barrowTransfer));
     }
-    const threatTransfer = state.game?.threatDrawTransfer;
-    if (threatTransfer?.movedAt && threatTransfer.movedAt !== lastAnimatedThreatDrawAt) {
-      requestAnimationFrame(() => animateThreatDraw(threatSourceRect, threatTransfer));
-    }
+    if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer);
     const exchangeOfferTransfer = state.game?.exchangeOfferTransfer;
     if (exchangeOfferTransfer?.movedAt && exchangeOfferTransfer.movedAt !== lastAnimatedExchangeOfferAt) {
       requestAnimationFrame(() => animateExchangeOffer(exchangeOfferTransfer, previousExchangePositions));
@@ -4893,6 +4911,7 @@ function renderPlayerCircle(players){
       const threatBundle = document.createElement('div');
       threatBundle.className = 'capture-trick threat-capture';
       threatBundle.dataset.threatCardId = threatCard.id;
+      if (animatingThreatCardIds.has(threatCard.id)) threatBundle.classList.add('threat-draw-target-hidden');
       threatBundle.style.left = `${(characterOffsetCount + equipmentCards.length + threatIndex) * 40}px`;
       threatBundle.style.zIndex = String(characterOffsetCount + threatIndex + 1);
       const holder = document.createElement('div');
