@@ -203,14 +203,14 @@
   .victory-condition-square.gray{background:#a9aca8;color:#111;}
   .victory-condition-square.orange,.victory-condition-square.gray,.victory-condition-square.yellow{border:.5px solid #142b4a;}
   .victory-condition-square.wide{width:24px;font-size:8px;}
-  .victory-condition-trick{position:relative;width:19px;height:18px;display:inline-block;}
-  .victory-condition-trick .victory-condition-square{position:absolute;left:0;top:3px;z-index:3;}
+  .victory-condition-trick{position:relative;width:19px;height:19px;display:inline-block;}
+  .victory-condition-trick .victory-condition-square{position:absolute;left:0;top:4px;z-index:3;}
   .victory-condition-trick::before,.victory-condition-trick::after{
-    content:'';position:absolute;width:15px;height:15px;box-sizing:border-box;border:1px solid #142b4a;border-radius:2px;background-color:#edf2f7;
+    content:'';position:absolute;width:15px;height:15px;box-sizing:border-box;border:.5px solid #142b4a;border-radius:2px;background-color:#edf2f7;
     background-image:repeating-linear-gradient(135deg,transparent 0,transparent 3px,rgba(20,43,74,.28) 3px,rgba(20,43,74,.28) 4px);
   }
   .victory-condition-trick::before{left:2px;top:2px;z-index:2;}
-  .victory-condition-trick::after{left:4px;top:1px;z-index:1;}
+  .victory-condition-trick::after{left:4px;top:0;z-index:1;}
   .victory-condition-fail{position:relative;margin-right:-5px;top:-1px;z-index:4;color:#c94c47;font-size:12px;line-height:15px;}
   .character-card-unit{position:relative;flex:0 0 82px;width:82px;height:122px;}
   .character-card-unit>.character-card{width:82px;height:122px;}
