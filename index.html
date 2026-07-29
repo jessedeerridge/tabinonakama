@@ -379,6 +379,10 @@
   .excluded-card-item .my-card{transform:scale(.46);transform-origin:top left;}
   .excluded-card-slot.hidden{display:none;}
   .excluded-card-slot.gandalf-pick{pointer-events:auto;cursor:pointer;animation:excludedCardPulse 1.05s ease-in-out infinite;}
+  .excluded-card-slot.galadriel-drop-hint{pointer-events:auto;}
+  /* 他プレイヤーの交換先と同じ、青い角丸の面だけをドラッグ中に表示する。 */
+  .excluded-card-slot.galadriel-drop-hint::after{content:'';position:absolute;left:50%;top:50%;width:68px;height:68px;box-sizing:border-box;border:0;border-radius:14px;transform:translate(-50%,-50%);background:rgba(56,189,248,.42);pointer-events:none;opacity:0;z-index:40;}
+  .excluded-card-slot.galadriel-drag-target::after{opacity:1;}
   @keyframes excludedCardPulse{50%{transform:scale(1.12)}}
   .lost-card-flight{position:fixed;z-index:1001;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
   .yellow-one-decision{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:310;width:min(230px,calc(100vw - 20px));padding:10px 6px 25px;box-sizing:border-box;border:1px solid #332a16;border-radius:13px;background:rgba(15,15,15,.97);color:#fff;box-shadow:0 18px 40px rgba(0,0,0,.42);text-align:center;}
@@ -2477,6 +2481,7 @@ let lastAnimatedExchangeAt = null;
 let lastAnimatedExchangeOfferAt = null;
 let lastAnimatedGlorfindelExchangeAt = null;
 let lastAnimatedElrondTransferAt = null;
+let lastAnimatedGaladrielLostTransferAt = null;
 const exchangeDropPositions = new Map();
 
 function generateRoomCode(length = 5){
@@ -2964,7 +2969,11 @@ function renderStageInformation(){
     && state.game?.tomPlayerId === state.userId;
   const canGlorfindelPick = Boolean(excludedCard) && state.game?.phase === 'glorfindel-selection'
     && state.game?.glorfindelPlayerId === state.userId;
+  const canGaladrielExchange = Boolean(excludedCard) && state.game?.phase === 'galadriel-lost-selection'
+    && state.game?.specialSelectionPlayerId === state.userId;
   excludedCardSlot.classList.toggle('gandalf-pick', canGandalfPick || canTomPick || canGlorfindelPick);
+  excludedCardSlot.classList.toggle('galadriel-drop-hint', canGaladrielExchange);
+  excludedCardSlot.setAttribute('aria-label', canGaladrielExchange ? '失われしカードとの交換先' : '失われしカード');
   excludedCardSlot.style.width = `${38 + Math.max(0, excludedCards.length - 1) * 16}px`;
   excludedCards.forEach((cardData, index) => {
     const item = document.createElement('div');
@@ -3865,6 +3874,58 @@ function animateSimultaneousExchangeTransfer(transfer, oldPositions){
   });
 }
 
+function animateGaladrielLostTransfer(transfer, oldPositions, excludedFromRect){
+  if (!transfer?.completedAt || transfer.completedAt === lastAnimatedGaladrielLostTransferAt) return;
+  lastAnimatedGaladrielLostTransferAt = transfer.completedAt;
+  const isOwner = transfer.playerId === state.userId;
+  const excludedTarget = excludedCardSlot.querySelector('.excluded-card-item');
+  const excludedToRect = excludedTarget?.getBoundingClientRect();
+  const incomingTarget = isOwner
+    ? myHandEl.querySelector(`[data-card-id="${CSS.escape(transfer.incomingCard?.id || '')}"]`)
+    : playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(transfer.playerId)}"] .mini-hand`);
+  const incomingToRect = incomingTarget?.getBoundingClientRect();
+
+  // 操作した本人には手札から除外位置への飛行を重ねず、ドロップした札をその場へ自然に確定する。
+  // 他プレイヤーには、交換が起きたことが分かるように手札から除外位置への裏向き移動も見せる。
+  if (!isOwner && transfer.outgoingCard && excludedToRect) {
+    const outgoingFromRect = oldPositions.get(`card:${transfer.outgoingCard.id}`) || oldPositions.get(transfer.playerId);
+    if (outgoingFromRect) {
+      const flight = document.createElement('div');
+      flight.classList.add('exchange-card-flight', 'card-back');
+      const startScale = Math.min(outgoingFromRect.width / 82, outgoingFromRect.height / 122, 1);
+      const endScale = Math.min(excludedToRect.width / 82, excludedToRect.height / 122, 1);
+      Object.assign(flight.style, { left:`${outgoingFromRect.left}px`, top:`${outgoingFromRect.top}px`, transform:`scale(${startScale})` });
+      excludedTarget.style.opacity = '0';
+      document.body.appendChild(flight);
+      flight.animate([
+        { left:`${outgoingFromRect.left}px`, top:`${outgoingFromRect.top}px`, transform:`scale(${startScale})` },
+        { left:`${excludedToRect.left}px`, top:`${excludedToRect.top}px`, transform:`scale(${endScale})` }
+      ], { duration:900, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' }).finished.finally(() => {
+        flight.remove(); excludedTarget.style.removeProperty('opacity');
+      });
+    }
+  }
+
+  if (!transfer.incomingCard || !excludedFromRect?.width || !incomingToRect?.width) return;
+  const incomingFlight = isOwner ? createCardElement(transfer.incomingCard) : document.createElement('div');
+  incomingFlight.classList.add('exchange-card-flight');
+  if (!isOwner) incomingFlight.classList.add('card-back');
+  const incomingStartScale = Math.min(excludedFromRect.width / 82, excludedFromRect.height / 122, 1);
+  const incomingEndScale = isOwner ? currentHandCardScale()
+    : Math.min(incomingToRect.width / 82, incomingToRect.height / 122, 1);
+  Object.assign(incomingFlight.style, {
+    left:`${excludedFromRect.left}px`, top:`${excludedFromRect.top}px`, transform:`scale(${incomingStartScale})`
+  });
+  incomingTarget.style.opacity = '0';
+  document.body.appendChild(incomingFlight);
+  incomingFlight.animate([
+    { left:`${excludedFromRect.left}px`, top:`${excludedFromRect.top}px`, transform:`scale(${incomingStartScale})` },
+    { left:`${incomingToRect.left}px`, top:`${incomingToRect.top}px`, transform:`scale(${incomingEndScale})` }
+  ], { duration:900, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' }).finished.finally(() => {
+    incomingFlight.remove(); incomingTarget.style.removeProperty('opacity');
+  });
+}
+
 function animateMyHandReflow(previousRects){
   myHandEl.querySelectorAll('[data-card-id]').forEach(card => {
     const previous = previousRects.get(card.dataset.cardId);
@@ -3973,6 +4034,13 @@ function subscribeRoom(){
       requestAnimationFrame(() => animateBarrowDraw(barrowSourceRect, barrowTransfer));
     }
     if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey);
+    const galadrielLostTransfer = state.game?.galadrielLostTransfer;
+    if (galadrielLostTransfer?.completedAt
+        && galadrielLostTransfer.completedAt !== lastAnimatedGaladrielLostTransferAt) {
+      requestAnimationFrame(() => animateGaladrielLostTransfer(
+        galadrielLostTransfer, previousExchangePositions, excludedSourceRect
+      ));
+    }
     const exchangeOfferTransfer = state.game?.exchangeOfferTransfer;
     if (exchangeOfferTransfer?.movedAt && exchangeOfferTransfer.movedAt !== lastAnimatedExchangeOfferAt) {
       requestAnimationFrame(() => animateExchangeOffer(exchangeOfferTransfer, previousExchangePositions));
@@ -4664,8 +4732,9 @@ function renderMyHand(){
     }
     if (specialSelection && normalized.kind !== 'character') {
       card.classList.add('effect-pick');
-      card.addEventListener('click', () => state.game?.phase === 'galadriel-lost-selection'
-        ? exchangeGaladrielLostCard(normalized.id) : reserveSpecialCard(normalized.id));
+      if (state.game?.phase === 'galadriel-lost-selection') {
+        card.addEventListener('pointerdown', event => beginGaladrielLostCardDrag(event, normalized, card));
+      } else card.addEventListener('click', () => reserveSpecialCard(normalized.id));
     }
     if (normalized.id === radagastReservedId || (shadowfaxReserved && !shadowfaxReserved.inHand && normalized.id === shadowfaxReserved.id)) card.classList.add('reserved-card');
     if (shadowfaxReserved && !shadowfaxReserved.inHand && normalized.id === shadowfaxReserved.id) {
@@ -4742,6 +4811,48 @@ function scheduleMirrorDraft(){
   }, Math.max(0, readyAt - Date.now()) + 20);
 }
 
+function beginGaladrielLostCardDrag(event, cardData, source){
+  if (event.button !== undefined && event.button !== 0) return;
+  if (state.game?.phase !== 'galadriel-lost-selection'
+      || state.game?.specialSelectionPlayerId !== state.userId || !state.game?.excludedCard) return;
+  event.preventDefault();
+  source.setPointerCapture(event.pointerId);
+  source.classList.add('drag-source');
+  excludedCardSlot.classList.add('galadriel-drag-target');
+  const floating = createCardElement(cardData);
+  floating.classList.add('drag-card');
+  floating.style.setProperty('--drag-card-scale', currentHandCardScale());
+  document.body.appendChild(floating);
+  const move = currentEvent => {
+    floating.style.left = `${currentEvent.clientX}px`;
+    floating.style.top = `${currentEvent.clientY}px`;
+  };
+  const cleanup = () => {
+    source.removeEventListener('pointermove', move);
+    source.removeEventListener('pointerup', finish);
+    source.removeEventListener('pointercancel', cleanup);
+    floating.remove();
+    source.classList.remove('drag-source');
+    excludedCardSlot.classList.remove('galadriel-drag-target');
+  };
+  const finish = currentEvent => {
+    const slotRect = excludedCardSlot.getBoundingClientRect();
+    // 表示している通常ヒント（68px四方）全体を、そのままドロップ判定範囲にする。
+    const rect = {
+      left:slotRect.left + slotRect.width / 2 - 34, right:slotRect.left + slotRect.width / 2 + 34,
+      top:slotRect.top + slotRect.height / 2 - 34, bottom:slotRect.top + slotRect.height / 2 + 34
+    };
+    const dropped = currentEvent.clientX >= rect.left && currentEvent.clientX <= rect.right
+      && currentEvent.clientY >= rect.top && currentEvent.clientY <= rect.bottom;
+    cleanup();
+    if (dropped) exchangeGaladrielLostCard(cardData.id);
+  };
+  move(event);
+  source.addEventListener('pointermove', move);
+  source.addEventListener('pointerup', finish, { once:true });
+  source.addEventListener('pointercancel', cleanup, { once:true });
+}
+
 async function exchangeGaladrielLostCard(cardId){
   if (!state.roomCode || state.game?.phase !== 'galadriel-lost-selection') return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
@@ -4750,8 +4861,14 @@ async function exchangeGaladrielLostCard(cardId){
     const cards = room.hands?.[state.userId]?.cards || [];
     const cardIndex = cards.findIndex(card => card.id === cardId && card.kind !== 'character');
     if (cardIndex < 0) return;
-    const outgoing = cards[cardIndex]; cards[cardIndex] = game.excludedCard; game.excludedCard = outgoing;
+    const outgoing = cards[cardIndex];
+    const incoming = game.excludedCard;
+    cards[cardIndex] = incoming;
+    game.excludedCard = outgoing;
     game.excludedCardTilt = Math.floor(Math.random() * 5) - 2;
+    game.galadrielLostTransfer = {
+      playerId:state.userId, outgoingCard:outgoing, incomingCard:incoming, completedAt:Date.now()
+    };
     game.galadrielLostExchangeCompleted = true;
     delete game.specialSelectionPlayerId;
     if (game.exchangeQueue?.[0] === state.userId) game.exchangeQueue.shift();
@@ -5915,10 +6032,12 @@ function renderPlayerCircle(players){
     const mirrorReceivedCards = [1, 2].flatMap(round => Object.values(state.game?.mirrorDraft?.offers?.[round] || {})
       .map(byTarget => byTarget?.[p.id]).filter(Boolean));
     mirrorReceivedCards.forEach((heldCard, heldIndex) => {
-      const receivedCard = document.createElement('div'); receivedCard.className = 'exchange-received-card face-up';
+      const receivedCard = document.createElement('div'); receivedCard.className = 'exchange-received-card';
       receivedCard.style.setProperty('--received-index', heldIndex); receivedCard.style.setProperty('--received-offset-x', `${heldIndex * 9}px`);
       receivedCard.style.setProperty('--received-offset-y', `${heldIndex * 3}px`); receivedCard.dataset.cardId = heldCard.id;
-      receivedCard.appendChild(createCardElement(heldCard)); tag.appendChild(receivedCard);
+      // 鏡で譲渡した札は、受取人を含む全員に待機中の内容を公開しない。
+      receivedCard.setAttribute('aria-label', `ガラドリエルの鏡で受け取った裏向きの保留カード（${heldIndex + 1}/${mirrorReceivedCards.length}）`);
+      tag.appendChild(receivedCard);
     });
     const heldElrondEntry = Object.entries(state.game?.pendingElrondTransfers?.targetIds || {})
       .find(([sourceId, targetId]) => targetId === p.id && state.game?.pendingElrondTransfers?.cards?.[sourceId]);
@@ -6118,12 +6237,9 @@ function renderPlayerCircle(players){
       const threatBundle = document.createElement('div');
       threatBundle.className = 'capture-trick threat-capture';
       threatBundle.dataset.threatCardId = threatCard.id;
-      const currentThreatTransfer = state.game?.threatDrawTransfer;
-      const currentThreatTransferKey = currentThreatTransfer?.card?.id && currentThreatTransfer?.movedAt
-        ? `${currentThreatTransfer.card.id}:${currentThreatTransfer.movedAt}` : null;
-      const awaitsThreatLanding = currentThreatTransfer?.card?.id === threatCard.id
-        && currentThreatTransferKey && !landedThreatDrawTransfers.has(currentThreatTransferKey);
-      if (animatingThreatCardIds.has(threatCard.id) || awaitsThreatLanding) {
+      // 永続データ上は既に獲得済みなので、実際に飛行演出が動いている間だけ到着先を隠す。
+      // 転送記録だけが残った再接続・再描画で、脅威カードが永久に消えたように見えるのを防ぐ。
+      if (animatingThreatCardIds.has(threatCard.id)) {
         threatBundle.classList.add('threat-draw-target-hidden');
       }
       threatBundle.style.left = `${(characterOffsetCount + equipmentCards.length + threatIndex) * 40}px`;
