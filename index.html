@@ -2311,6 +2311,7 @@ const OUTCOME_CHECK_DELAY_MS = 0;
 let oldForestDrawTimer = null;
 let barrowDrawTimer = null;
 let threatDrawTimer = null;
+let effectTransitionTimer = null;
 let lastAnimatedBarrowDrawAt = null;
 let lastAnimatedThreatDrawAt = null;
 const animatingThreatCardIds = new Set();
@@ -2616,7 +2617,9 @@ function renderStageInformation(){
   threatDeckArea.classList.toggle('deck-transition-out', replacementDeckActive);
   oldForestArea.classList.toggle('deck-transition-in', replacementDeckActive && isOldForest);
   barrowDeckArea.classList.toggle('deck-transition-in', replacementDeckActive && isBarrow);
-  threatDeck.classList.toggle('empty', !state.game?.threatDeck?.length);
+  const keepThreatDeckForLanding = ['threat-draw-wait', 'effect-transition-wait'].includes(state.game?.phase)
+    || replacementDeckActive;
+  threatDeck.classList.toggle('empty', !state.game?.threatDeck?.length && !keepThreatDeckForLanding);
   const threatDeckName = threatDefinition?.max === 7 ? '脅威1-7デッキ' : '黒の乗手デッキ';
   threatDeckArea.setAttribute('aria-label', threatDeckName);
   threatDeck.setAttribute('aria-label', `${threatDeckName} 残り${state.game?.threatDeck?.length || 0}枚`);
@@ -3089,13 +3092,53 @@ function beginNextExchange(game){
   }
   delete game.exchangeQueue;
   delete game.pendingExchange;
+  const animationReadyAt = effectAnimationsReadyAt(game);
+  if (animationReadyAt > Date.now() + 20) {
+    // 最後の効果カードが着地するまでは脅威デッキを残し、交換先デッキを出さない。
+    game.phase = 'effect-transition-wait';
+    game.effectTransitionReadyAt = animationReadyAt;
+    game.turnPlayerId = null;
+    return;
+  }
+  finishCharacterEffectTransition(game);
+}
+
+function effectAnimationsReadyAt(game){
+  const deadlines = [
+    Number(game.threatDrawTransfer?.movedAt || 0) + 2700,
+    Number(game.lostCardTransfer?.movedAt || 0) + 900,
+    Number(game.barrowDrawTransfer?.movedAt || 0) + 1400,
+    Number(game.exchangeOfferTransfer?.movedAt || 0) + 1500,
+    Number(game.exchangeTransfer?.completedAt || 0) + 1500,
+    Number(game.elrondTransfer?.completedAt || 0) + 1500,
+    Number(game.glorfindelExchangeTransfer?.completedAt || 0) + 1500
+  ];
+  return Math.max(0, ...deadlines);
+}
+
+function finishCharacterEffectTransition(game){
   game.phase = 'playing';
   game.turnPlayerId = game.startingPlayerId || game.playerOrder?.[0] || null;
   delete game.startingPlayerId;
+  delete game.effectTransitionReadyAt;
   game.deckTransitionAt = Date.now();
   drawBalrogCards(game);
-  // 最初の1枚は全プレイヤーのキャラクター効果が完了した直後に公開する。
+  // 移動がすべて着地した後で、初めて交換先のデッキを公開する。
   drawOldForestCard(game);
+}
+
+function scheduleEffectTransition(){
+  clearTimeout(effectTransitionTimer);
+  const readyAt = state.game?.effectTransitionReadyAt;
+  if (!readyAt || state.game?.phase !== 'effect-transition-wait' || !state.roomCode) return;
+  effectTransitionTimer = setTimeout(async () => {
+    await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+      if (!game?.effectTransitionReadyAt || game.phase !== 'effect-transition-wait'
+          || game.effectTransitionReadyAt !== readyAt || Date.now() < readyAt) return;
+      finishCharacterEffectTransition(game);
+      return game;
+    });
+  }, Math.max(0, readyAt - Date.now()) + 20);
 }
 
 function drawOldForestCard(game){
@@ -3650,6 +3693,7 @@ function subscribeRoom(){
     scheduleOldForestDraw();
     scheduleBarrowDraw();
     scheduleThreatDraw();
+    scheduleEffectTransition();
     scheduleBalrogDraw();
     scheduleOutcomeCheck();
     const barrowTransfer = state.game?.barrowDrawTransfer;
