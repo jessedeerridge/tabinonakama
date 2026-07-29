@@ -515,8 +515,9 @@
   body.victory-complete .excluded-card-slot.gandalf-pick,
   body.victory-complete .my-card.exchange-pick,
   body.victory-complete .character-choice.ring-required-pulse{animation:none!important;}
-  .chapter-complete-banner{position:fixed;left:50%;top:50%;z-index:1200;display:flex;flex-direction:column;align-items:center;gap:9px;pointer-events:none;transform:translate(-50%,-50%);}
+  .chapter-complete-banner{position:fixed;left:50%;top:50%;z-index:1200;display:flex;flex-direction:column;align-items:center;gap:9px;pointer-events:none;transform:translate(-50%,-50%);visibility:hidden;}
   .chapter-complete-banner.hidden{display:none;}
+  .chapter-complete-banner.running,.chapter-complete-banner.arrived{visibility:visible;}
   .chapter-complete-message{padding:9px 21px;background:#000;color:#fff;font-family:serif;font-size:clamp(18px,5vw,30px);font-weight:900;line-height:1;letter-spacing:.12em;white-space:nowrap;transform:translateX(calc(-50vw - 110%));will-change:transform;}
   .chapter-complete-banner.running .chapter-complete-message{animation:chapterCompleteFlow .8s ease-out both;}
   .chapter-complete-banner.arrived .chapter-complete-message{transform:translateX(0);}
@@ -1696,6 +1697,14 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   return { status:isFinished ? 'failed' : 'pending' };
 }
 
+function frodoHasMithril(room){
+  const game = room?.game;
+  const frodoPlayerId = Object.entries(game?.characterSelections || {})
+    .find(([, character]) => character.name === 'フロド')?.[0];
+  return Boolean(frodoPlayerId && (game?.equipmentCards?.[frodoPlayerId] || [])
+    .some(card => card.name === MITHRIL_COAT.name));
+}
+
 function chapterOutcome(room){
   const playerIds = room?.game?.playerOrder || [];
   if (!playerIds.length) return null;
@@ -1708,7 +1717,7 @@ function chapterOutcome(room){
     if (statuses.filter(status => status === 'failed').length >= 2) return 'failed';
     const oneFailureCanBeResolved = statuses.filter(status => status === 'achieved').length === playerIds.length - 1
       && statuses.filter(status => status === 'failed').length === 1;
-    if (oneFailureCanBeResolved && room.stageThirteenMithrilAvailable === false) return 'failed';
+    if (oneFailureCanBeResolved && !frodoHasMithril(room)) return 'failed';
     if (room.game.finished === true && statuses.filter(status => status === 'achieved').length !== playerIds.length - 1) return 'failed';
     return null;
   }
@@ -1776,8 +1785,9 @@ function renderChapterComplete(){
   void chapterCompleteBanner.offsetWidth;
   chapterCompleteBanner.classList.add('running');
   chapterCompleteBanner.addEventListener('animationend', () => {
-    chapterCompleteBanner.classList.remove('running');
+    // 到着位置を先に固定してから animation を外し、終了フレームでの一瞬の巻き戻りを防ぐ。
     chapterCompleteBanner.classList.add('arrived');
+    chapterCompleteBanner.classList.remove('running');
     chapterCompleteMessage.style.removeProperty('animation-delay');
   }, { once:true });
 }
@@ -1786,7 +1796,7 @@ function canDecideMithril(room = state.room){
   const game = room?.game;
   if (Number(game?.stageNumber) !== 13 || game.chapterOutcome || game.mithrilDecision) return false;
   if (game.pendingCapture || game.pendingOutcomeCheckAt) return false;
-  if (room?.stageThirteenMithrilAvailable === false) return false;
+  if (!frodoHasMithril(room)) return false;
   const statuses = (game.playerOrder || []).map(playerId => victoryConditionStatus(room, playerId).status);
   return statuses.filter(status => status === 'achieved').length === statuses.length - 1
     && statuses.filter(status => status === 'failed').length === 1;
