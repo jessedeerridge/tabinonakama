@@ -1649,9 +1649,13 @@ let chapterCompleteTimer = null;
 let renderedChapterCompleteAt = null;
 function achievedLongChapterCharacters(room = state.room){
   const achieved = new Set(Object.keys(room?.longChapterProgress?.characters || {}));
-  Object.entries(room?.game?.characterSelections || {}).forEach(([playerId, character]) => {
-    if (victoryConditionStatus(room, playerId).status === 'achieved') achieved.add(character.name);
-  });
+  // ラウンド全体が成功した場合だけ、そのラウンドの個別目的を長編進捗として認める。
+  // 失敗時に一部プレイヤーだけ目的を満たしていても、ネイビー枠には反映しない。
+  if (room?.game?.chapterOutcome?.status === 'complete') {
+    Object.entries(room?.game?.characterSelections || {}).forEach(([playerId, character]) => {
+      if (victoryConditionStatus(room, playerId).status === 'achieved') achieved.add(character.name);
+    });
+  }
   return achieved;
 }
 
@@ -4914,11 +4918,13 @@ chapterContinueBtn.addEventListener('click', async () => {
         if (Number(room.longChapterProgress.stageNumber) !== Number(room.game.stageNumber)) {
           room.longChapterProgress = { stageNumber:room.game.stageNumber, characters:{} };
         }
-        Object.entries(room.game.characterSelections || {}).forEach(([playerId, character]) => {
-          if (victoryConditionStatus(room, playerId).status === 'achieved') {
-            room.longChapterProgress.characters[character.name] = true;
-          }
-        });
+        if (room.game.chapterOutcome.status === 'complete') {
+          Object.entries(room.game.characterSelections || {}).forEach(([playerId, character]) => {
+            if (victoryConditionStatus(room, playerId).status === 'achieved') {
+              room.longChapterProgress.characters[character.name] = true;
+            }
+          });
+        }
       }
       room.game.continueClaim = claim;
       return room;
