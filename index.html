@@ -114,11 +114,12 @@
     box-sizing:border-box;overflow:hidden;color:#27231f;
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(0,0,0,.62);
   }
-  @property --playable-card-scale{syntax:'<number>';inherits:true;initial-value:1;}
-  .my-hand.has-playable-cards{animation:playableCardsPulse 1.05s ease-in-out infinite;}
-  .my-card.playable{cursor:grab;touch-action:none;transform:scale(var(--playable-card-scale));}
+  /* 手札全体へ継承するカスタムプロパティのアニメーションは、複雑なカードの全子要素を
+     毎フレーム再計算させてしまう。合成可能な transform を対象カードだけに適用する。 */
+  .my-hand.has-playable-cards .my-card.playable{animation:playableCardsPulse 1.05s ease-in-out infinite;}
+  .my-card.playable{cursor:grab;touch-action:none;}
   .my-card.drag-source{visibility:hidden;}
-  @keyframes playableCardsPulse{50%{--playable-card-scale:1.07}}
+  @keyframes playableCardsPulse{50%{transform:scale(1.07)}}
   .drag-card{position:fixed;z-index:1000;pointer-events:none;transform:translate(-50%,-50%) scale(var(--drag-card-scale,1));opacity:.94;transform-origin:center;}
   .play-circle{position:absolute;width:64px;height:88px;border:0;border-radius:14px;transform:translate(-50%,-50%);display:grid;place-items:center;z-index:8;}
   .play-circle.drop-hint::before{content:'';position:absolute;inset:0;border-radius:inherit;background:rgba(56,189,248,.42);opacity:0;transition:opacity .15s;}
@@ -492,7 +493,7 @@
   .character-choice.ring-required-pulse{animation:ringRequiredPulse 1.05s ease-in-out infinite;}
   @keyframes ringRequiredPulse{50%{transform:translateY(-7px) scale(1.06)}}
   /* 全員の目的達成後は、章完了演出に視線を集めるためカードのパルスを止める。 */
-  body.victory-complete .my-hand.has-playable-cards,
+  body.victory-complete .my-hand.has-playable-cards .my-card.playable,
   body.victory-complete .excluded-card-slot.gandalf-pick,
   body.victory-complete .my-card.exchange-pick,
   body.victory-complete .character-choice.ring-required-pulse{animation:none!important;}
@@ -3942,6 +3943,7 @@ let entranceRooms = [];
 const visibleRoomCount = 5;
 let activeEntranceCode = null;
 let entranceExpiryTimer = null;
+let unsubscribeEntranceRooms = null;
 roomList.style.maxHeight = `${visibleRoomCount * 86}px`;
 
 function scheduleEntranceRoomExpiry(){
@@ -4046,7 +4048,7 @@ async function createUniqueRoom(name){
     if (result.committed) return code;
   }
 }
-onValue(ref(db, 'rooms'), snapshot => {
+unsubscribeEntranceRooms = onValue(ref(db, 'rooms'), snapshot => {
   const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
   entranceRooms = Object.entries(snapshot.val() || {}).map(([code, room]) => {
     const people = room.players || room.users || {};
@@ -4095,6 +4097,14 @@ async function enterRoom(roomCode, userName){
   joinBox.classList.add('hidden');
   lobby.classList.remove('hidden');
   lobby.classList.add('entered');
+
+  // 一覧監視を残すと、入室後も全ルームのゲーム更新を毎回ダウンロードし、非表示の
+  // 入室画面を再構築してしまう。特に手番中は更新が集中するため、モバイル端末の
+  // メモリ・CPUを圧迫しないよう、入室が確定した時点で監視と期限タイマーを止める。
+  unsubscribeEntranceRooms?.();
+  unsubscribeEntranceRooms = null;
+  clearTimeout(entranceExpiryTimer);
+  entranceExpiryTimer = null;
 
   await restoreSeatFromDB();
 
