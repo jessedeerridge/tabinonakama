@@ -424,12 +424,15 @@
   .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:68px;height:68px;box-sizing:border-box;border:0;border-radius:14px;transform:translate(-50%,-50%);background:rgba(56,189,248,.42);pointer-events:none;opacity:0;z-index:40;}
   .player-tag.exchange-drag-target .exchange-hand-hint{opacity:1;}
   .exchange-received-card{position:absolute;left:calc(50% + var(--received-offset-x,0px));top:calc(100% + 30px + var(--received-offset-y,0px));width:54px;height:81px;border:1px solid #10233f;border-radius:7px;background:#fff url('tabicardura.jpg') center/cover no-repeat;transform:translate(-50%,-50%) rotate(var(--received-tilt,0deg));transform-origin:center;pointer-events:none;z-index:calc(42 + var(--received-index,0));box-shadow:0 3px 8px rgba(0,0,0,.2);}
+  /* 他プレイヤーの交換保留札は、獲得トリック内のカードと同じ38x56pxで表示する。 */
+  .player-tag:not(.me) .exchange-received-card{width:38px;height:56px;border-radius:5px;}
   /* 他プレイヤーの手札へ置いた長き暗闇の保留札は、獲得カードと同じ38×56pxで表示する。 */
   .player-tag:not(.me) .exchange-received-card.darkness-held-card{width:38px;height:56px;border-radius:5px;}
   .player-tag.me .exchange-received-card{top:-5px;transform:translate(-50%,-100%) rotate(calc(180deg + var(--received-tilt,0deg)));}
   .exchange-received-card.face-up{border:0;background:transparent;box-shadow:none;}
   .player-tag.me .exchange-received-card.face-up{transform:translate(-50%,-100%) rotate(var(--received-tilt,0deg));}
   .exchange-received-card.face-up>.my-card{position:absolute;left:0;top:0;transform:scale(.66);transform-origin:top left;}
+  .player-tag:not(.me) .exchange-received-card.face-up>.my-card{transform:scale(.4634);}
   .exchange-received-card.return-pick{pointer-events:auto;cursor:grab;touch-action:none;}
   .exchange-received-card.return-pick{z-index:100;}
   .exchange-received-card.return-pick::after{content:'';position:absolute;inset:0;z-index:5;}
@@ -1092,7 +1095,9 @@ const CHARACTER_IMAGE_FILES = {
   radagast: 'radagast.jpg',
   shadowfax: 'shadowfax.jpg',
   orophin_rumil: 'orophin_rumil.jpg',
-  haldir: 'haldir.jpg'
+  haldir: 'haldir.jpg',
+  galadriel: 'galadriel.jpg',
+  celeborn: 'celeborn.jpg'
 };
 const WIN_LENGTH_LABELS = { short: '短い', long: '長い' };
 const WIN_GOAL_LABELS = {
@@ -1275,7 +1280,7 @@ defineStage(16, {
   eventCards: [
     {
       title:'鏡', heading:'イベント：ガラドリエルの鏡', headingSingleLine:true,
-      text:'ゲームの準備の開始時に、キャラクターカードをシャッフルし、各プレイヤーに1枚ずつ配る。次に、メインデッキから各プレイヤーに4枚ずつカードを配る。プレイヤーはその中から1枚を選び、他の各プレイヤーに1枚ずつ渡し、残りを自分の手札にする（同じプレイヤーから2枚以上受け取ることはできない）。これをもう1回行い、残りを配って1枚を失われしカードとする。最後に、〈フロド〉の左隣から通常どおり準備を完了する。'
+      text:'ゲームの準備の開始時に、キャラクターカードをシャッフルし、各プレイヤーに1枚ずつ配る。次に、メインデッキから各プレイヤーに4枚ずつカードを配る。プレイヤーはその中から1枚を選び、他の各プレイヤーに1枚ずつ渡し、残りを自分の手札にする（同じプレイヤーから2枚以上受け取ることはできない）。これをもう1回行い、残りを配って1枚を失われしカードとする。'
     },
     {
       title:'鏡',
@@ -1725,12 +1730,24 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   }
 
   if (character.name === 'ガラドリエル') {
+    const otherCurrentCounts = otherIds.map(id => (game.capturedTricks?.[id] || []).length);
+    const remainingByPlayer = id => (room.hands?.[id]?.cards || []).filter(card => card?.kind !== 'character').length;
+    const myMaximum = trickCount + remainingByPlayer(playerId);
+    const otherMaximumCounts = otherIds.map((id, index) => otherCurrentCounts[index] + remainingByPlayer(id));
+    const uniqueMostLocked = trickCount > Math.max(...otherMaximumCounts);
+    const uniqueLeastLocked = myMaximum < Math.min(...otherCurrentCounts);
+    if (uniqueMostLocked || uniqueLeastLocked) return { status:'achieved' };
+    const canStillBeUniqueMost = myMaximum > Math.max(...otherCurrentCounts);
+    // 最少になるには、自分がこれ以上勝たない場合でも、全員を自分より1勝以上上へ押し上げる
+    // だけの未決着トリックが必要。各人の理論上の最大値だけを見ると、同じ1トリックを複数人が
+    // 勝つものとして二重計上してしまうため、必要勝利数の合計でも不可能判定する。
+    const winsNeededForUniqueLeast = otherCurrentCounts.reduce((total, count) => total + Math.max(0, trickCount + 1 - count), 0);
+    const eachOtherCanExceedMe = otherMaximumCounts.every(count => count > trickCount);
+    const canStillBeUniqueLeast = eachOtherCanExceedMe && winsNeededForUniqueLeast <= remainingRounds;
+    if (!canStillBeUniqueMost && !canStillBeUniqueLeast) return { status:'failed' };
     if (!isFinished) return { status:'pending' };
-    const counts = playerIds.map(id => (game.capturedTricks?.[id] || []).length);
-    const myIndex = playerIds.indexOf(playerId);
-    const others = counts.filter((_, index) => index !== myIndex);
-    const isUniqueMost = trickCount > Math.max(...others);
-    const isUniqueLeast = trickCount < Math.min(...others);
+    const isUniqueMost = trickCount > Math.max(...otherCurrentCounts);
+    const isUniqueLeast = trickCount < Math.min(...otherCurrentCounts);
     return { status:isUniqueMost || isUniqueLeast ? 'achieved' : 'failed' };
   }
 
@@ -1741,7 +1758,12 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
       return counts;
     }, {});
     if (Object.values(rankCounts).some(count => count >= 3)) return { status:'achieved' };
-    return { status:isFinished ? 'failed' : 'pending' };
+    const possibleRankCounts = [...capturedCards, ...remainingCards].reduce((counts, card) => {
+      const number = Number(card.number);
+      if (Number.isFinite(number)) counts[number] = (counts[number] || 0) + 1;
+      return counts;
+    }, {});
+    return { status:!isFinished && Object.values(possibleRankCounts).some(count => count >= 3) ? 'pending' : 'failed' };
   }
 
   if (character.name === 'ギルドール・イングロリオン') {
@@ -2233,6 +2255,10 @@ function createVictoryConditionIcon(cardData, playerId){
     icon.append(label('most'), square('', 'gray'));
   } else if (name === 'アルウェン') {
     icon.append(label('most'), square('', 'green'));
+  } else if (name === 'ガラドリエル') {
+    icon.append(square('min/max'));
+  } else if (name === 'ケレボルン') {
+    icon.append(square('n'), square('n'), square('n'));
   } else if (name === 'ボロミア') {
     icon.classList.add('multiline');
     const fail = label('✕');
@@ -2403,6 +2429,9 @@ const animatingThreatCardIds = new Set();
 const activeThreatDrawTransfers = new Set();
 const animatedThreatDrawTransfers = new Set();
 const animatedThreatDrawPlayers = new Set();
+// 転送データと到着先カードは同じRealtime Database更新で届くため、DOM描画の完了とは別に
+// 「着地済み」を記録する。飛行カードが着くまで実カードを表示しないための唯一の判定源にする。
+const landedThreatDrawTransfers = new Set();
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
@@ -2696,6 +2725,7 @@ document.addEventListener('keydown', event => {
 function renderStageInformation(){
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
   const isChapterFourteen = Number(state.game?.stageNumber) === 14;
+  const usesCompactWinningConditionInfo = [14, 15].includes(Number(state.game?.stageNumber));
   const isOldForest = Number(state.game?.stageNumber) === 5;
   const isBarrow = Number(state.game?.stageNumber) === 6;
   const isBalrogBridge = Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 3;
@@ -2950,9 +2980,9 @@ function renderStageInformation(){
     });
   }
   winningconditionInfo.append(info);
-  // 14章は登場人物と追加情報が多いため、左欄全体を同じ小さめの基準サイズから収める。
+  // 14・15章は登場人物と追加情報が多いため、左欄全体を同じ小さめの基準サイズから収める。
   // 個別要素へ別サイズを指定せず、すべての行を均一な文字サイズに保つ。
-  fitBlockText(winningconditionInfo, isChapterFourteen ? 7.5 : 9, 2.5, .1);
+  fitBlockText(winningconditionInfo, usesCompactWinningConditionInfo ? 7.5 : 9, 2.5, .1);
 
   winningconditionGoal.replaceChildren();
   const goal = document.createElement('div');
@@ -3559,6 +3589,7 @@ function animateBarrowDraw(sourceRect, transfer){
 async function animateThreatDraw(sourceRect, transfer, transferKey){
   if (!sourceRect?.width || !transfer?.card) {
     if (transfer?.card?.id) animatingThreatCardIds.delete(transfer.card.id);
+    if (transferKey) landedThreatDrawTransfers.add(transferKey);
     activeThreatDrawTransfers.delete(transferKey);
     return;
   }
@@ -3566,6 +3597,7 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
   const targetRect = target?.getBoundingClientRect();
   if (!targetRect?.width) {
     animatingThreatCardIds.delete(transfer.card.id);
+    landedThreatDrawTransfers.add(transferKey);
     activeThreatDrawTransfers.delete(transferKey);
     return;
   }
@@ -3613,6 +3645,8 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
       { left:`${latestTargetRect?.left ?? targetLeft}px`, top:`${latestTargetRect?.top ?? targetTop}px`, transform:`scale(${latestTargetRect?.width ? latestTargetRect.width / 82 : destinationScale}) rotateY(0deg)` }
     ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
   } finally {
+    // 先に着地済みへ切り替え、次の同期再描画でも到着先が再び隠れないようにする。
+    landedThreatDrawTransfers.add(transferKey);
     animatingThreatCardIds.delete(transfer.card.id);
     const destination = playerCircle.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
     destination?.classList.remove('threat-draw-target-hidden');
@@ -3822,8 +3856,7 @@ function subscribeRoom(){
       && !animatedThreatDrawTransfers.has(threatTransferKey)
       && !animatedThreatDrawPlayers.has(threatDrawPlayerKey)
       && !activeThreatDrawTransfers.has(threatTransferKey)
-      && !document.querySelector(`[data-threat-draw-transfer="${CSS.escape(threatTransferKey)}"]`)
-      && threatSourceRect?.width);
+      && !document.querySelector(`[data-threat-draw-transfer="${CSS.escape(threatTransferKey)}"]`));
     if (shouldAnimateThreatDraw) {
       // 再描画や重複購読が続いても、同じ転送を描画前に一度だけ確保する。
       activeThreatDrawTransfers.add(threatTransferKey);
@@ -4249,7 +4282,7 @@ async function decideYellowOne(wins){
     room.game.tricksWon[winnerId] = (room.game.tricksWon[winnerId] || 0) + 1;
     // 第15章は目隠しのカードが表になった時点から最低2秒間、場に残して確認できるようにする。
     const gatherAt = Number(room.game.stageNumber) === 15
-      ? Math.max(Date.now() + 250, pending.requestedAt + 2000)
+      ? Date.now() + 2000
       : Date.now() + 250;
     room.game.pendingCapture = {
       winnerId, cards:pending.cards,
@@ -4839,8 +4872,8 @@ function characterCardData(character, playerId){
     'ギムリ':{specialName:'ドゥリンの民',victory:'引いた脅威カードと同じ数字の山カードを獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.10',rank:'無し',frameColor:'銀'},
     'オロフィンとルーミル':{specialName:'ガラズリム',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ハルディア〉と交換する。最初のトリックをリードする。',cardNumber:'3.21',rank:'黒',frameColor:'緑',image:'orophin_rumil.jpg'},
     'ハルディア':{specialName:'境界守護者',victory:'トリックに勝利して、引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。最初のトリックをリードする。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'haldir.jpg'},
-    'ガラドリエル':{specialName:'ロスローリエンの奥方',victory:'最も多く、もしくは最も少なくトリックを獲得する（同数は不可）。',effect:'失われしカードもしくは〈ガンダルフ〉と交換する。',cardNumber:'3.25',rank:'黒',frameColor:'緑',image:'arwen.jpg'},
-    'ケレボルン':{specialName:'ロスローリエンの殿',victory:'同じ数字のカードを3枚獲得する。',effect:'任意のキャラクターと交換する。',cardNumber:'3.26',rank:'黒',frameColor:'緑',image:'elrond.jpg'}
+    'ガラドリエル':{specialName:'ロスローリエンの奥方',victory:'最も多く、もしくは最も少なくトリックを獲得する（同数は不可）。',effect:'失われしカードもしくは〈ガンダルフ〉と交換する。',cardNumber:'3.25',rank:'黒',frameColor:'緑'},
+    'ケレボルン':{specialName:'ロスローリエンの殿',victory:'同じ数字のカードを3枚獲得する。',effect:'任意のキャラクターと交換する。',cardNumber:'3.26',rank:'黒',frameColor:'緑'}
   };
   const details = { ...(characterDetails[character.name] || {}) };
   if (Number(state.game?.stageNumber) === 13 && character.name === 'フロド') {
@@ -5729,7 +5762,7 @@ function renderPlayerCircle(players){
       playedEl.classList.add('played-card');
       const gimliIsBlindfolded = Number(state.game?.stageNumber) === 15
         && state.game?.characterSelections?.[p.id]?.name === 'ギムリ'
-        && !state.game?.pendingCapture && !state.game?.pendingYellowOneDecision;
+        && !state.game?.pendingCapture;
       if (gimliIsBlindfolded) {
         playedEl.classList.add('blindfolded-card');
         playedEl.setAttribute('aria-label', '目隠しで裏向きにプレイしたカード');
@@ -5831,7 +5864,14 @@ function renderPlayerCircle(players){
       const threatBundle = document.createElement('div');
       threatBundle.className = 'capture-trick threat-capture';
       threatBundle.dataset.threatCardId = threatCard.id;
-      if (animatingThreatCardIds.has(threatCard.id)) threatBundle.classList.add('threat-draw-target-hidden');
+      const currentThreatTransfer = state.game?.threatDrawTransfer;
+      const currentThreatTransferKey = currentThreatTransfer?.card?.id && currentThreatTransfer?.movedAt
+        ? `${currentThreatTransfer.card.id}:${currentThreatTransfer.movedAt}` : null;
+      const awaitsThreatLanding = currentThreatTransfer?.card?.id === threatCard.id
+        && currentThreatTransferKey && !landedThreatDrawTransfers.has(currentThreatTransferKey);
+      if (animatingThreatCardIds.has(threatCard.id) || awaitsThreatLanding) {
+        threatBundle.classList.add('threat-draw-target-hidden');
+      }
       threatBundle.style.left = `${(characterOffsetCount + equipmentCards.length + threatIndex) * 40}px`;
       threatBundle.style.zIndex = String(characterOffsetCount + threatIndex + 1);
       const holder = document.createElement('div');
