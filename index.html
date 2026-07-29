@@ -1176,13 +1176,13 @@ defineStage(14, {
   story: '「奴がどう予期しているかは、我々には分からん。」ボロミアは言った。「奴はすべての道を監視しているかもしれん。通りそうな道も、そうでない道も。そうだとすれば、モリアに入るのはまさに罠へ飛び込むようなものだ。暗黒の塔の門を叩くのと変わらん。モリアという名は、まさしく“黒”を意味するのだ。」',
   characters: ['frodo*', 'gandalf,aragorn,legolas,gimli,boromir,sam,merry,pippin'],
   threats: [{ name:'脅威', min:1, max:7 }],
-  winCondition: 'long', goal: 'everywin', cardNumber:'3.12', rank:'無し',
+  winCondition: 'long', goal: 'everywin',
   additionalElements: '〈ミスリルの胴着〉をフロドに渡す。各ラウンドで、他のプレイヤーがキャラクターを選ぶ前に、フロドは〈イベント：モリア〉を1つ選ぶ。\n勝利するには、すべての〈イベント：モリア〉を達成し、次に〈イベント：橋〉を達成する必要がある。',
   eventCards: [
-    { title:'ドゥリンの扉', heading:'イベント：モリア', hammer:true, text:'必ず〈ガンダルフ〉を選ぶ。\nこのカードを〈ガンダルフ〉に渡す。', secondaryHeading:'友の扉', afterText:'✦ 丘、山、森カードを各1枚以上勝利して獲得する。\n3.13' },
-    { title:'バーリンの墓所', heading:'イベント：モリア', hammer:true, text:'必ず〈ギムリ〉を選ぶ。このカードを〈ギムリ〉に脅威カードとして渡す。', secondaryHeading:'悲嘆', afterText:'✦ 〈ギムリ〉は連続した数字の山カードを4枚勝利して獲得しなければならない（例2,3,4,5）。\n3.14' },
-    { title:'長き暗闇', heading:'イベント：モリア', hammer:true, text:'必ず〈アラゴルン〉を選ぶ。\nすべての脅威カードを裏向きに置く（目的を達成したら公開する）。\n交換は、すべて同時に行う。', secondaryHeading:'恐怖', afterText:'✦ 一度章を達成しても、〈長き暗闇〉は再び選ぶことができる。\n3.15' },
-    { title:'カザド＝ドゥームの橋', heading:'イベント：橋', hammer:true, text:'このイベントは、〈イベント：モリア〉をすべて達成していないかぎり、選べない。必ず〈ガンダルフ〉を選ぶ（〈ガンダルフ、神秘の火に仕える者〉を使用する）。影のカード8枚と〈バルログ〉のカードを裏向きでシャッフルし、バルログデッキを作る。そのあと、次のように配る。\n・3人ゲーム：各プレイヤー手札9枚、失われしカード2枚\n・4人ゲーム：各プレイヤー手札7枚、失われしカード1枚', secondaryHeading:'ドゥリンの橋', afterText:'各トリックで、リードプレイヤーがプレイする前に、バルログデッキからプレイヤー人数に応じた枚数を公開する（3人なら2枚、4人なら3枚）。全員がプレイしたあと、プレイされたカードの数字の合計より、バルログの公開したカードの数字の合計が多い場合（同数は除く）、全員敗北となる。バルログデッキが枯渇したら、シャッフルし直して新しい山を作る。\n3.16' }
+    { title:'ドゥリンの扉', heading:'イベント：モリア', hammer:true, text:'必ず〈ガンダルフ〉を選ぶ。\nこのカードを〈ガンダルフ〉に渡す。', secondaryHeading:'友の扉', afterText:'✦ 丘、山、森カードを各1枚以上勝利して獲得する。' },
+    { title:'バーリンの墓所', heading:'イベント：モリア', hammer:true, text:'必ず〈ギムリ〉を選ぶ。このカードを〈ギムリ〉に脅威カードとして渡す。', secondaryHeading:'悲嘆', afterText:'✦ 〈ギムリ〉は連続した数字の山カードを4枚勝利して獲得しなければならない（例2,3,4,5）。' },
+    { title:'長き暗闇', heading:'イベント：モリア', hammer:true, text:'必ず〈アラゴルン〉を選ぶ。\nすべての脅威カードを裏向きに置く（目的を達成したら公開する）。\n交換は、すべて同時に行う。', secondaryHeading:'恐怖', afterText:'✦ 一度章を達成しても、〈長き暗闇〉は再び選ぶことができる。' },
+    { title:'カザド＝ドゥームの橋', heading:'イベント：橋', hammer:true, text:'このイベントは、〈イベント：モリア〉をすべて達成していないかぎり、選べない。必ず〈ガンダルフ〉を選ぶ（〈ガンダルフ、神秘の火に仕える者〉を使用する）。影のカード8枚と〈バルログ〉のカードを裏向きでシャッフルし、バルログデッキを作る。そのあと、次のように配る。\n・3人ゲーム：各プレイヤー手札9枚、失われしカード2枚\n・4人ゲーム：各プレイヤー手札7枚、失われしカード1枚', secondaryHeading:'ドゥリンの橋', afterText:'各トリックで、リードプレイヤーがプレイする前に、バルログデッキからプレイヤー人数に応じた枚数を公開する（3人なら2枚、4人なら3枚）。全員がプレイしたあと、プレイされたカードの数字の合計より、バルログの公開したカードの数字の合計が多い場合（同数は除く）、全員敗北となる。バルログデッキが枯渇したら、シャッフルし直して新しい山を作る。' }
   ]
 });
 
@@ -2305,8 +2305,15 @@ function setMoriaScrollPosition(index, behavior = 'smooth'){
   eventCardRow.scrollTo({ left:MORIA_FIRST_CENTER + safeIndex * MORIA_CARD_STEP, behavior });
 }
 
+function showMoriaProvisionalSelection(index){
+  eventCardRow.querySelectorAll('.event-card[data-moria-index]').forEach(card => {
+    card.classList.toggle('moria-selected', Number(card.dataset.moriaIndex) === index);
+  });
+}
+
 async function syncMoriaScroll(index){
-  if (!state.roomCode || Number(state.game?.stageNumber) !== 14) return;
+  if (!state.roomCode || Number(state.game?.stageNumber) !== 14
+      || state.game?.phase !== 'character-selection') return;
   if (Number(state.game?.moriaEventScrollIndex ?? 0) === index) return;
   await update(ref(db, `rooms/${state.roomCode}/game`), { moriaEventScrollIndex:index });
 }
@@ -2319,7 +2326,8 @@ eventCardRow.addEventListener('pointerdown', () => {
 eventCardRow.addEventListener('pointerup', () => { moriaScrollDragging = false; });
 eventCardRow.addEventListener('pointercancel', () => { moriaScrollDragging = false; });
 eventCardRow.addEventListener('scroll', () => {
-  if (!centerLowerCardArea.classList.contains('chapter-fourteen')) return;
+  if (!centerLowerCardArea.classList.contains('chapter-fourteen')
+      || !centerLowerCardArea.classList.contains('character-selection-layout')) return;
   const min = MORIA_FIRST_CENTER;
   const max = MORIA_FIRST_CENTER + 3 * MORIA_CARD_STEP;
   if (eventCardRow.scrollLeft < min || eventCardRow.scrollLeft > max) {
@@ -2328,6 +2336,7 @@ eventCardRow.addEventListener('scroll', () => {
   clearTimeout(moriaScrollTimer);
   moriaScrollTimer = setTimeout(() => {
     const index = Math.max(0, Math.min(3, Math.round((eventCardRow.scrollLeft - MORIA_FIRST_CENTER) / MORIA_CARD_STEP)));
+    showMoriaProvisionalSelection(index);
     setMoriaScrollPosition(index);
     syncMoriaScroll(index);
   }, 120);
@@ -2338,12 +2347,10 @@ eventCardRow.addEventListener('click', async event => {
       && centerLowerCardArea.classList.contains('character-selection-layout')) {
     if (Math.abs(eventCardRow.scrollLeft - moriaScrollStart) > 5) return;
     const card = event.target.closest('.event-card[data-moria-index]');
-    const isFrodo = state.game?.characterSelections?.[state.userId]?.name === 'フロド';
-    if (!card || !isFrodo || !state.roomCode) return;
+    if (!card || !state.roomCode) return;
     const index = Number(card.dataset.moriaIndex);
-    await update(ref(db, `rooms/${state.roomCode}/game`), {
-      moriaEventIndex:index, moriaEventScrollIndex:index
-    });
+    showMoriaProvisionalSelection(index);
+    await syncMoriaScroll(index);
     setMoriaScrollPosition(index);
     return;
   }
@@ -2431,11 +2438,13 @@ function renderStageInformation(){
   }
   eventCardRow.querySelectorAll(':scope > .event-card').forEach((card, index) => {
     card.style.display = index < eventCards.length ? '' : 'none';
-    card.classList.toggle('moria-selected', isChapterFourteen && Number(state.game?.moriaEventIndex) === index);
+    const displayedMoriaIndex = state.game?.phase === 'character-selection'
+      ? Number(state.game?.moriaEventScrollIndex ?? 0) : Number(state.game?.moriaEventIndex ?? 0);
+    card.classList.toggle('moria-selected', isChapterFourteen && displayedMoriaIndex === index);
     if (isChapterFourteen) card.dataset.moriaIndex = String(index);
     else delete card.dataset.moriaIndex;
   });
-  if (isChapterFourteen) {
+  if (isChapterFourteen && isCharacterSelection) {
     const before = document.createElement('div');
     const after = document.createElement('div');
     before.className = after.className = 'moria-event-spacer';
@@ -2606,6 +2615,7 @@ function renderStageInformation(){
   }
   winningconditionInfo.append(info);
   fitSingleLineText(title, 9, 4);
+  fitBlockText(winningconditionInfo, 9, 3, .1);
 
   winningconditionGoal.replaceChildren();
   const goal = document.createElement('div');
@@ -4305,6 +4315,10 @@ async function chooseCharacter(characterName, source){
     room.hands[state.userId].cards ||= [];
     room.hands[state.userId].cards.unshift(characterCardData(character, state.userId));
     room.game.characterSelections[state.userId] = { ...character, selectedAt:Date.now() };
+    if (Number(room.game.stageNumber) === 14
+        && Object.keys(room.game.characterSelections).length === (room.game.playerOrder || []).length) {
+      room.game.moriaEventIndex = Number(room.game.moriaEventScrollIndex ?? 0);
+    }
     const stageElevenEquipment = Number(room.game.stageNumber) === 11 ? STAGE_ELEVEN_EQUIPMENT[characterName] : null;
     if (stageElevenEquipment) {
       room.game.equipmentCards ||= {}; room.game.equipmentCards[state.userId] ||= [];
