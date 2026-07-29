@@ -1457,7 +1457,7 @@ function createCharacterCardElement(cardData){
   card.classList.add(frameClass || (isGoldCharacter ? 'character-gold' : 'character-silver'));
   const characterCode = cardData.code
     || Object.entries(CHARACTER_NAMES).find(([, name]) => name === cardData.name)?.[0];
-  const imageFile = CHARACTER_IMAGE_FILES[characterCode] || `${characterCode || cardData.name}.jpg`;
+  const imageFile = cardData.image || CHARACTER_IMAGE_FILES[characterCode] || `${characterCode || cardData.name}.jpg`;
   card.style.backgroundImage = `url("${encodeURIComponent(imageFile)}")`;
   card.setAttribute('aria-label', `キャラクター ${cardData.name}`);
   card.setAttribute('role', 'button');
@@ -1978,6 +1978,11 @@ async function decideMithril(useCoat){
 function createVictoryConditionIcon(cardData, playerId){
   const icon = document.createElement('span');
   icon.className = 'victory-condition-icon';
+  if (cardData.variant === 'moria-bridge-gandalf') {
+    icon.classList.add('hidden');
+    icon.setAttribute('aria-hidden', 'true');
+    return icon;
+  }
   const victory = cardData.victory || '';
   const name = cardData.name || '';
   const threatNumber = threatNumberForPlayer(state.game, playerId);
@@ -4496,8 +4501,13 @@ function characterCardData(character, playerId){
     details.victory = 'すべての数字（1～8）を1枚以上、勝利して獲得する。';
   }
   if (Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventScrollIndex ?? state.game?.moriaEventIndex) === 3 && character.name === 'ガンダルフ') {
+    details.variant = 'moria-bridge-gandalf';
+    details.image = 'gandalf.jpg';
     details.displayName = 'ガンダルフ：神秘の\n火に仕える者';
     details.specialName = 'アノールの焔';
+    details.cardNumber = '3.17';
+    details.rank = '無し';
+    details.frameColor = '銀';
     details.victory = '目的なし。スートを無視してプレイしてもよい。';
     details.effect = '〈イベント：橋〉のみ：失われしカードを手札に加える。';
   }
@@ -4505,11 +4515,13 @@ function characterCardData(character, playerId){
   const effect = [details.effect, exchangeEffect].filter(Boolean).join('\n');
   return {
     kind:'character', code:character.code, name:character.name, required:character.required === true,
+    ...(details.variant ? { variant:details.variant } : {}),
+    ...(details.image ? { image:details.image } : {}),
     ...(details.displayName ? { displayName:details.displayName } : {}),
     specialName:details.specialName || '特殊名', cardNumber:details.cardNumber, rank:details.rank, frameColor:details.frameColor,
     victory:details.victory || '',
     effect:effect || '特殊説明',
-    id:`${playerId}-character-${character.name}`
+    id:`${playerId}-character-${details.variant || character.name}`
   };
 }
 
@@ -4606,9 +4618,12 @@ async function chooseCharacter(characterName, source){
         });
         if (room.game.moriaEventIndex === 3) {
           Object.assign(ownerCharacter, {
+            variant:'moria-bridge-gandalf', image:'gandalf.jpg',
             displayName:'ガンダルフ：神秘の\n火に仕える者', specialName:'アノールの焔',
+            cardNumber:'3.17', rank:'無し', frameColor:'銀',
             victory:'目的なし。スートを無視してプレイしてもよい。',
-            effect:'〈イベント：橋〉のみ：失われしカードを手札に加える。'
+            effect:'〈イベント：橋〉のみ：失われしカードを手札に加える。',
+            id:`${ownerId}-character-moria-bridge-gandalf`
           });
           const allTravelCards = [
             ...Object.values(room.hands || {}).flatMap(hand => (hand.cards || []).filter(card => card.kind !== 'character')),
