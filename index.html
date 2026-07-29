@@ -506,6 +506,7 @@
   .chapter-complete-banner.hidden{display:none;}
   .chapter-complete-message{padding:9px 21px;background:#000;color:#fff;font-family:serif;font-size:clamp(18px,5vw,30px);font-weight:900;line-height:1;letter-spacing:.12em;white-space:nowrap;transform:translateX(calc(-50vw - 110%));will-change:transform;}
   .chapter-complete-banner.running .chapter-complete-message{animation:chapterCompleteFlow .8s ease-out both;}
+  .chapter-complete-banner.arrived .chapter-complete-message{transform:translateX(0);}
   .chapter-continue-btn{pointer-events:auto;padding:4px 12px;border:1px solid #111;border-radius:999px;background:#fff;color:#111;font-size:11px;font-weight:800;cursor:pointer;opacity:0;}
   .chapter-complete-banner.arrived .chapter-continue-btn{opacity:1;}
   @keyframes chapterCompleteFlow{
@@ -1809,7 +1810,7 @@ function createVictoryConditionIcon(cardData, playerId){
   const name = cardData.name || '';
   const threatNumber = threatNumberForPlayer(state.game, playerId);
   const equipmentChoice = state.game?.equipmentChoices?.[playerId];
-  const waitsForThreat = ['農夫マゴット', 'サム', '馳夫'].includes(name)
+  const waitsForThreat = ['農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ'].includes(name)
     || (name === 'アラゴルン' && !equipmentChoice);
   if (waitsForThreat && threatNumber == null) {
     icon.classList.add('awaiting-threat');
@@ -1937,7 +1938,8 @@ function createVictoryConditionIcon(cardData, playerId){
     else icon.append(coloredTrick());
   } else if (victory.includes('脅威カードと同じ数字')) {
     const matchingSquare = () => {
-      const item = square(String(threatNumber ?? 'x'));
+      const color = name === 'レゴラス' ? 'green' : name === 'ギムリ' ? 'gray' : 'black';
+      const item = square(String(threatNumber ?? 'x'), color);
       if (name === '農夫マゴット') item.classList.add('number-centered');
       return item;
     };
