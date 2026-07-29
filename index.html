@@ -937,6 +937,33 @@ const CHARACTER_NAMES = {
   radagast: 'ラダガスト',
   shadowfax: '飛蔭（とびかげ）'
 };
+const CHARACTER_IMAGE_FILES = {
+  frodo: 'frodo.jpg',
+  sam: 'sam.jpg',
+  merry: 'merry.jpg',
+  pippin: 'pippin.jpg',
+  gandalf: 'gandalf.jpg',
+  bilbo: 'bilbo.jpg',
+  farmer_maggot: 'farmer_maggot.jpg',
+  gildor: 'gildor_inglorion.jpg',
+  fatty_bolger: 'fatty_bolger.jpg',
+  tom_bombadil: 'tom_bombadil.jpg',
+  goldberry: 'goldberry.jpg',
+  underhill: 'mr_underhill.jpg',
+  barliman: 'barliman_butterbur.jpg',
+  strider: 'strider.jpg',
+  glorfindel: 'glorfindel.jpg',
+  bill: 'bill_the_pony.jpg',
+  elrond: 'elrond.jpg',
+  gloin: 'gloin.jpg',
+  arwen: 'arwen.jpg',
+  bilbo_baggins: 'bilbo_baggins.jpg',
+  aragorn: 'aragorn.jpg',
+  boromir: 'boromir.jpg',
+  gwaihir: 'gwaihir.jpg',
+  radagast: 'radagast.jpg',
+  shadowfax: 'shadowfax.jpg'
+};
 const WIN_LENGTH_LABELS = { short: '短い', long: '長い' };
 const WIN_GOAL_LABELS = {
   allwin: '「選んだキャラクターの目的をすべて達成」',
@@ -1267,7 +1294,10 @@ function createCharacterCardElement(cardData){
   const frameClass = { '金':'character-gold', '銀':'character-silver', '緑':'character-green', '薄緑':'character-light-green', '赤':'character-red' }[cardData.frameColor];
   const isGoldCharacter = ['フロド', 'ビルボ'].includes(cardData.name);
   card.classList.add(frameClass || (isGoldCharacter ? 'character-gold' : 'character-silver'));
-  card.style.backgroundImage = `url("${encodeURIComponent(cardData.name)}.jpg")`;
+  const characterCode = cardData.code
+    || Object.entries(CHARACTER_NAMES).find(([, name]) => name === cardData.name)?.[0];
+  const imageFile = CHARACTER_IMAGE_FILES[characterCode] || `${characterCode || cardData.name}.jpg`;
+  card.style.backgroundImage = `url("${encodeURIComponent(imageFile)}")`;
   card.setAttribute('aria-label', `キャラクター ${cardData.name}`);
   card.setAttribute('role', 'button');
   card.tabIndex = 0;
@@ -3721,7 +3751,7 @@ function characterCardData(character, playerId){
   const exchangeEffect = exchangeEffectText(character);
   const effect = [details.effect, exchangeEffect].filter(Boolean).join('\n');
   return {
-    kind:'character', name:character.name, required:character.required === true,
+    kind:'character', code:character.code, name:character.name, required:character.required === true,
     specialName:details.specialName || '特殊名', cardNumber:details.cardNumber, rank:details.rank, frameColor:details.frameColor,
     victory:details.victory || '',
     effect:effect || '特殊説明',
