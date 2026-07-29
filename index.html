@@ -4429,14 +4429,15 @@ function characterCardData(character, playerId){
   if (Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventScrollIndex ?? state.game?.moriaEventIndex) === 3 && character.name === 'ガンダルフ') {
     details.displayName = 'ガンダルフ：神秘の\n火に仕える者';
     details.specialName = 'アノールの焔';
-    details.victory = '';
-    details.effect = '目的なし。スートを無視してプレイしてもよい。\n〈イベント：橋〉のみ：失われしカードを手札に加える。';
+    details.victory = '目的なし。スートを無視してプレイしてもよい。';
+    details.effect = '〈イベント：橋〉のみ：失われしカードを手札に加える。';
   }
   const exchangeEffect = exchangeEffectText(character);
   const effect = [details.effect, exchangeEffect].filter(Boolean).join('\n');
   return {
     kind:'character', code:character.code, name:character.name, required:character.required === true,
-    displayName:details.displayName, specialName:details.specialName || '特殊名', cardNumber:details.cardNumber, rank:details.rank, frameColor:details.frameColor,
+    ...(details.displayName ? { displayName:details.displayName } : {}),
+    specialName:details.specialName || '特殊名', cardNumber:details.cardNumber, rank:details.rank, frameColor:details.frameColor,
     victory:details.victory || '',
     effect:effect || '特殊説明',
     id:`${playerId}-character-${character.name}`
@@ -4535,8 +4536,9 @@ async function chooseCharacter(characterName, source){
         });
         if (room.game.moriaEventIndex === 3) {
           Object.assign(ownerCharacter, {
-            displayName:'ガンダルフ：神秘の\n火に仕える者', specialName:'アノールの焔', victory:'',
-            effect:'目的なし。スートを無視してプレイしてもよい。\n〈イベント：橋〉のみ：失われしカードを手札に加える。'
+            displayName:'ガンダルフ：神秘の\n火に仕える者', specialName:'アノールの焔',
+            victory:'目的なし。スートを無視してプレイしてもよい。',
+            effect:'〈イベント：橋〉のみ：失われしカードを手札に加える。'
           });
           const allTravelCards = [
             ...Object.values(room.hands || {}).flatMap(hand => (hand.cards || []).filter(card => card.kind !== 'character')),
