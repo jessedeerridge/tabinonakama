@@ -329,6 +329,7 @@
   .balrog-revealed-card>.my-card{transform:scale(.46);transform-origin:top left;backface-visibility:hidden;}
   .balrog-revealed-card.revealing>.my-card{animation:balrogCardReveal .7s ease-out both;}
   .balrog-revealed-card.revealing::after{content:'';position:absolute;inset:0;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;animation:balrogBackReveal .7s ease-out both;backface-visibility:hidden;}
+  .my-card.balrog-five{background-image:url('barurogu.jpg');}
   @keyframes balrogCardReveal{from{transform:scale(.46) rotateY(180deg)}to{transform:scale(.46) rotateY(0)}}
   @keyframes balrogBackReveal{from{transform:rotateY(0)}to{transform:rotateY(180deg)}}
   .old-forest-reveal{left:0;transform:rotate(-2deg);transform-origin:center;}
@@ -522,6 +523,8 @@
     clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);
   }
   .character-card .character-label:not(.character-special){height:15.3px;}
+  .character-card .character-label.multiline-name{height:25px;white-space:pre-line;line-height:1.05;font-size:6.5px;}
+  .character-card .character-label.multiline-name+.character-special{top:27px;}
   .character-card .character-special{left:auto;right:-4px;top:17px;width:max-content;max-width:43px;padding:2.4px 4px 2.4px 18px;font-size:6px;line-height:1.2;display:block;}
   .character-card .character-special.wide{width:48px;max-width:48px;}
   .character-card .character-effect{
@@ -1330,6 +1333,7 @@ function createCardElement(cardData){
   card.className = `my-card card-${cardData.color}`;
   if (cardData.color === 'green' && Number(cardData.number) === 9) card.classList.add('card-nine');
   if (cardData.kind === 'threat') card.classList.add('threat-card');
+  if (cardData.kind === 'balrog-shadow' && cardData.name === 'バルログ' && Number(cardData.number) === 5) card.classList.add('balrog-five');
   if (cardData.kind === 'threat' && cardData.concealed) card.classList.add('concealed');
   if (cardData.kind === 'threat' && Number(state.game?.stageNumber) === 13) card.classList.add('chapter-thirteen-threat');
   const isYellowOne = cardData.kind !== 'threat' && cardData.color === 'yellow' && cardData.number === 1;
@@ -1451,8 +1455,9 @@ function createCharacterCardElement(cardData){
 
   const name = document.createElement('span');
   name.className = 'character-label';
-  name.textContent = cardData.name;
-  fitCharacterName(name);
+  name.textContent = cardData.displayName || cardData.name;
+  if (name.textContent.includes('\n')) name.classList.add('multiline-name');
+  else fitCharacterName(name);
   const special = document.createElement('span');
   special.className = 'character-label character-special';
   appendWrappedCharacterName(special, cardData.specialName || '特殊名');
@@ -1584,6 +1589,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   const character = suppliedCharacter || (room?.hands?.[playerId]?.cards || [])
     .find(card => card?.kind === 'character') || game?.characterSelections?.[playerId];
   if (!game || !character) return { status:'pending' };
+  if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3 && character.name === 'ガンダルフ') return { status:'achieved' };
   if (Number(game.stageNumber) === 13 && game.mithrilAppliedToPlayerId === playerId) return { status:'achieved' };
   const capturedTricks = game.capturedTricks?.[playerId] || [];
   const trickCount = capturedTricks.length;
@@ -2661,7 +2667,8 @@ function renderStageInformation(){
     ? state.game.excludedCards : state.game?.excludedCard ? [state.game.excludedCard] : [];
   const excludedCard = state.game?.excludedCard;
   excludedCardSlot.classList.toggle('hidden', !excludedCards.length);
-  const canGandalfPick = Boolean(excludedCard)
+  const isBridgeGandalfPick = Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 3;
+  const canGandalfPick = Boolean(excludedCard || (isBridgeGandalfPick && excludedCards.length))
     && state.game?.phase === 'gandalf-selection'
     && state.game?.gandalfPlayerId === state.userId;
   const canTomPick = Boolean(excludedCards.length)
@@ -2674,6 +2681,7 @@ function renderStageInformation(){
   excludedCards.forEach((cardData, index) => {
     const item = document.createElement('div');
     item.className = 'excluded-card-item';
+    item.dataset.excludedIndex = String(index);
     item.style.setProperty('--excluded-left', `${index * 16}px`);
     item.style.setProperty('--excluded-tilt', `${state.game?.excludedCardTilts?.[index] ?? state.game?.excludedCardTilt ?? 0}deg`);
     const excludedCardElement = createCardElement(cardData);
@@ -2774,6 +2782,7 @@ function exchangeRequirement(game, sourceId){
   if (hasSpecialThreat(game, sourceId, '幽鬼')) return { mode:'exchange', count:0 };
   if (name === '“でぶちゃん”のボルジャー') return { mode:'give', count:Math.max(0, (game.playerOrder || []).length - 1) };
   if (name === 'エルロンド') return { mode:'exchange', count:0 };
+  if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3 && name === 'ガンダルフ') return { mode:'exchange', count:0 };
   // グロルフィンデルは専用の同時交換フェーズで全員分を処理する。
   if (name === 'グロルフィンデル') return { mode:'exchange-all', count:0 };
   // 小馬のビルもグロルフィンデルと同じく、対象全員との交換を同時に確定する。
@@ -2803,14 +2812,20 @@ function isCharacterEffectTurn(playerId){
 function scheduleThreatDraw(){
   clearTimeout(threatDrawTimer);
   const drawAt = state.game?.pendingThreatDrawAt;
+  const requestId = state.game?.threatDrawRequestId || `${state.game?.threatDrawPlayerId}-${drawAt}`;
   if (!drawAt || !state.roomCode) return;
   threatDrawTimer = setTimeout(async () => {
     await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
-      if (!game?.pendingThreatDrawAt || game.pendingThreatDrawAt !== drawAt || Date.now() < drawAt) return;
+      if (!game?.pendingThreatDrawAt || game.pendingThreatDrawAt !== drawAt
+        || (game.threatDrawRequestId && game.threatDrawRequestId !== requestId) || game.completedThreatDrawIds?.[requestId]
+        || Date.now() < drawAt) return;
       const playerId = game.threatDrawPlayerId;
       drawThreatForCharacterEffect(game, playerId);
+      game.completedThreatDrawIds ||= {};
+      game.completedThreatDrawIds[requestId] = Date.now();
       delete game.pendingThreatDrawAt;
       delete game.threatDrawPlayerId;
+      delete game.threatDrawRequestId;
       beginNextExchange(game);
       return game;
     });
@@ -2864,6 +2879,7 @@ function beginNextExchange(game){
       game.phase = 'threat-draw-wait';
       game.threatDrawPlayerId = sourceId;
       game.pendingThreatDrawAt = Date.now() + 2000;
+      game.threatDrawRequestId = `${sourceId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       game.turnPlayerId = null;
       return;
     }
@@ -2873,7 +2889,8 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'ガンダルフ' && game.excludedCard && !game.gandalfEffectCompleted) {
+    const bridgeHasLostCard = Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3 && game.excludedCards?.length;
+    if (characterName === 'ガンダルフ' && (game.excludedCard || bridgeHasLostCard) && !game.gandalfEffectCompleted) {
       game.phase = 'gandalf-selection';
       game.gandalfPlayerId = sourceId;
       game.turnPlayerId = null;
@@ -3030,17 +3047,22 @@ function continueAfterCharacterEffects(game){
   beginNextExchange(game);
 }
 
-async function takeExcludedCardAsGandalf(){
+async function takeExcludedCardAsGandalf(excludedIndex = 0){
   if (!state.roomCode || state.game?.phase !== 'gandalf-selection' || state.game?.gandalfPlayerId !== state.userId) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
     const game = room?.game;
-    if (!game?.excludedCard || game.phase !== 'gandalf-selection' || game.gandalfPlayerId !== state.userId) return;
+    const isBridge = Number(game?.stageNumber) === 14 && Number(game.moriaEventIndex) === 3;
+    const selectedCard = isBridge ? game?.excludedCards?.[excludedIndex] : game?.excludedCard;
+    if (!selectedCard || game.phase !== 'gandalf-selection' || game.gandalfPlayerId !== state.userId) return;
     room.hands ||= {};
     room.hands[state.userId] ||= { cards:[] };
     room.hands[state.userId].cards ||= [];
-    room.hands[state.userId].cards.push(game.excludedCard);
-    game.lostCardTransfer = { cardId:game.excludedCard.id, playerId:state.userId, movedAt:Date.now() };
-    delete game.excludedCard;
+    room.hands[state.userId].cards.push(selectedCard);
+    game.lostCardTransfer = { cardId:selectedCard.id, playerId:state.userId, movedAt:Date.now() };
+    if (isBridge) {
+      game.excludedCards.splice(excludedIndex, 1);
+      game.excludedCardTilts?.splice(excludedIndex, 1);
+    } else delete game.excludedCard;
     game.gandalfEffectCompleted = true;
     // ロストカード取得に続けてガンダルフの交換を行い、その後に次の効果ターンへ進む。
     beginNextExchange(game);
@@ -3066,10 +3088,10 @@ async function takeExcludedCardsAsTom(){
   });
 }
 
-excludedCardSlot.addEventListener('click', () => {
+excludedCardSlot.addEventListener('click', event => {
   if (state.game?.phase === 'tom-selection') takeExcludedCardsAsTom();
   else if (state.game?.phase === 'glorfindel-selection') takeExcludedCardAsGlorfindel();
-  else takeExcludedCardAsGandalf();
+  else takeExcludedCardAsGandalf(Number(event.target.closest('.excluded-card-item')?.dataset.excludedIndex || 0));
 });
 excludedCardSlot.addEventListener('click', event => event.stopPropagation());
 
@@ -4178,6 +4200,8 @@ function beginExchangeCardDrag(event, cardData, source){
 }
 
 function canFollowSuit(card){
+  const ignoresSuit = Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 3
+    && state.game?.characterSelections?.[state.userId]?.name === 'ガンダルフ';
   const trick = state.game?.trick || {};
   const plays = Object.values(trick);
   if (!plays.length) {
@@ -4185,6 +4209,7 @@ function canFollowSuit(card){
     if (hasSpecialThreat(state.game, state.userId, 'モルグルの刃') && card.color === 'yellow') return false;
     return card.color !== 'yellow' || state.game?.ringCircleOn === true;
   }
+  if (ignoresSuit) return true;
   const leadColor = plays.sort((a,b) => a.order-b.order)[0].card.color;
   const cards = (state.hands[state.userId]?.cards || []).filter(card => card.kind !== 'character');
   return card.color === leadColor || !cards.some(c => c.color === leadColor);
@@ -4249,7 +4274,9 @@ async function playCard(cardIndex, expectedCard){
     if (!existing.length && hasSpecialThreat(room.game, state.userId, 'モルグルの刃') && card.color === 'yellow') return;
     if (existing.length) {
       const lead = existing[0].card.color;
-      if (card.color !== lead && hand.some(c => c.color === lead)) return;
+      const ignoresSuit = Number(room.game.stageNumber) === 14 && Number(room.game.moriaEventIndex) === 3
+        && room.game.characterSelections?.[state.userId]?.name === 'ガンダルフ';
+      if (!ignoresSuit && card.color !== lead && hand.some(c => c.color === lead)) return;
     }
     hand.splice(cardIndex, 1);
     room.hands[state.userId].cards = hand;
@@ -4399,11 +4426,17 @@ function characterCardData(character, playerId){
   if (Number(state.game?.stageNumber) === 12 && character.name === 'ガンダルフ') {
     details.victory = 'すべての数字（1～8）を1枚以上、勝利して獲得する。';
   }
+  if (Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventScrollIndex ?? state.game?.moriaEventIndex) === 3 && character.name === 'ガンダルフ') {
+    details.displayName = 'ガンダルフ：神秘の\n火に仕える者';
+    details.specialName = 'アノールの焔';
+    details.victory = '';
+    details.effect = '目的なし。スートを無視してプレイしてもよい。\n〈イベント：橋〉のみ：失われしカードを手札に加える。';
+  }
   const exchangeEffect = exchangeEffectText(character);
   const effect = [details.effect, exchangeEffect].filter(Boolean).join('\n');
   return {
     kind:'character', code:character.code, name:character.name, required:character.required === true,
-    specialName:details.specialName || '特殊名', cardNumber:details.cardNumber, rank:details.rank, frameColor:details.frameColor,
+    displayName:details.displayName, specialName:details.specialName || '特殊名', cardNumber:details.cardNumber, rank:details.rank, frameColor:details.frameColor,
     victory:details.victory || '',
     effect:effect || '特殊説明',
     id:`${playerId}-character-${character.name}`
@@ -4501,7 +4534,10 @@ async function chooseCharacter(characterName, source){
           id:`${ownerId}-moria-event-${room.game.moriaEventIndex}-${Date.now()}`
         });
         if (room.game.moriaEventIndex === 3) {
-          ownerCharacter.specialName = '神秘の火に仕える者';
+          Object.assign(ownerCharacter, {
+            displayName:'ガンダルフ：神秘の\n火に仕える者', specialName:'アノールの焔', victory:'',
+            effect:'目的なし。スートを無視してプレイしてもよい。\n〈イベント：橋〉のみ：失われしカードを手札に加える。'
+          });
           const allTravelCards = [
             ...Object.values(room.hands || {}).flatMap(hand => (hand.cards || []).filter(card => card.kind !== 'character')),
             ...(room.game.excludedCards || []), ...(room.game.excludedCard ? [room.game.excludedCard] : [])
@@ -4509,6 +4545,9 @@ async function chooseCharacter(characterName, source){
           const balrogCards = allTravelCards.filter(card => card.color === 'red')
             .map(card => ({ ...card, kind:'balrog-shadow' }));
           const fellowshipDeck = shuffleInPlace(allTravelCards.filter(card => card.color !== 'red'));
+          // 失われしカードが何枚あっても、一つの指輪は必ず誰かの手札へ配る。
+          const yellowOneIndex = fellowshipDeck.findIndex(card => card.color === 'yellow' && Number(card.number) === 1);
+          if (yellowOneIndex > 0) [fellowshipDeck[0], fellowshipDeck[yellowOneIndex]] = [fellowshipDeck[yellowOneIndex], fellowshipDeck[0]];
           const cardsPerPlayer = room.game.playerOrder.length === 3 ? 9 : 7;
           room.game.playerOrder.forEach(playerId => {
             const characterCard = (room.hands[playerId]?.cards || []).find(card => card.kind === 'character');
@@ -5476,6 +5515,12 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
       ? 7 : Math.floor(deck.length / playerOrder.length);
     cardsToDeal = deck.slice(0, cardsPerPlayer * playerOrder.length);
     excludedCards = deck.slice(cardsToDeal.length).map((card, index) => ({ ...card, id:`excluded-${index}-${dealtAt}` }));
+    const excludedYellowOneIndex = excludedCards.findIndex(card => card.color === 'yellow' && Number(card.number) === 1);
+    if (excludedYellowOneIndex >= 0) {
+      const dealtReplacementIndex = cardsToDeal.findIndex(card => !(card.color === 'yellow' && Number(card.number) === 1));
+      [cardsToDeal[dealtReplacementIndex], excludedCards[excludedYellowOneIndex]]
+        = [excludedCards[excludedYellowOneIndex], { ...cardsToDeal[dealtReplacementIndex], id:`excluded-${excludedYellowOneIndex}-${dealtAt}` }];
+    }
   } else if (isBarrow) {
     const barrowCardCount = playerOrder.length === 3 ? 10 : playerOrder.length === 4 ? 5 : 0;
     barrowDeck = deck.filter(card => card.color !== 'yellow').slice(0, barrowCardCount);
