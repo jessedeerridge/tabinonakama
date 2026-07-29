@@ -91,6 +91,7 @@
   }
   .player-tag.current-turn .mini-hand{animation:turnHandPulse 1.05s ease-in-out infinite;transform-origin:center top;}
   .player-tag .mini-hand.elrond-pending{animation:turnHandPulse 1.05s ease-in-out infinite;transform-origin:center top;}
+  .player-tag .mini-hand.exchange-selection-pending{animation:turnHandPulse 1.05s ease-in-out infinite;transform-origin:center top;}
   @keyframes turnHandPulse{50%{transform:translate(-50%,3px) scale(1.1)}}
 
   /* 自分の手札表示（大きめ横並び） */
@@ -128,7 +129,6 @@
   .played-card{position:absolute;left:0;top:0;transform:scale(.66);transform-origin:top left;}
   .played-card.blindfolded-card{background:#fff url('tabicardura.jpg') center/cover no-repeat;border-color:#10233f;}
   .played-card.blindfolded-card>*{display:none;}
-  .played-card.blindfolded-card::after{content:attr(data-declared-suit);position:absolute;left:50%;bottom:7px;transform:translateX(-50%);min-width:48px;padding:3px 5px;border-radius:999px;background:rgba(255,255,255,.92);color:#111;font-size:10px;font-weight:900;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.25);}
   .played-card-slot.no-arrive{animation:none;}
   .played-card-slot.self-play{animation-name:cardArriveSelf;}
   @keyframes cardArrive{from{opacity:0;transform:translate(var(--from-x,0),var(--from-y,0)) scale(.25) rotate(var(--tilt))}to{opacity:1;transform:translate(0,0) scale(1) rotate(var(--tilt))}}
@@ -1089,8 +1089,8 @@ const CHARACTER_IMAGE_FILES = {
   gwaihir: 'gwaihir.jpg',
   radagast: 'radagast.jpg',
   shadowfax: 'shadowfax.jpg',
-  orophin_rumil: 'gildor_inglorion.jpg',
-  haldir: 'glorfindel.jpg'
+  orophin_rumil: 'orophin_rumil.jpg',
+  haldir: 'haldir.jpg'
 };
 const WIN_LENGTH_LABELS = { short: '短い', long: '長い' };
 const WIN_GOAL_LABELS = {
@@ -3529,6 +3529,8 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
     activeThreatDrawTransfers.delete(transferKey);
     return;
   }
+  // 到着先の実カードを先に隠し、通信更新と飛行アニメーションの表示順を揃える。
+  target.classList.add('threat-draw-target-hidden');
   const flight = document.createElement('div');
   flight.classList.add('exchange-card-flight', 'threat-draw-flight');
   const darknessConcealed = Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 2
@@ -3548,6 +3550,8 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
   flight.dataset.threatDrawTransfer = transferKey;
   document.body.appendChild(flight);
   try {
+    // 初期位置を確実に一度描画してから動かし、低速端末で目的地が先に見えるのを防ぐ。
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     if (displayedThreatCard.concealed) {
       await flight.animate([
         { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(180deg)` },
@@ -3560,9 +3564,13 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
       { left:`${leftReveal}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(0deg)` }
     ], { duration:600, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
     await new Promise(resolve => setTimeout(resolve, 1000));
+    // 待機中のレイアウト変更を反映し、移動開始時点の実際の目的地へ飛ばす。
+    const latestTargetRect = playerCircle
+      .querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`)
+      ?.getBoundingClientRect();
     await flight.animate([
       { left:`${leftReveal}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(0deg)` },
-      { left:`${targetLeft}px`, top:`${targetTop}px`, transform:`scale(${destinationScale}) rotateY(0deg)` }
+      { left:`${latestTargetRect?.left ?? targetLeft}px`, top:`${latestTargetRect?.top ?? targetTop}px`, transform:`scale(${latestTargetRect?.width ? latestTargetRect.width / 82 : destinationScale}) rotateY(0deg)` }
     ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
   } finally {
     animatingThreatCardIds.delete(transfer.card.id);
@@ -4199,7 +4207,10 @@ async function decideYellowOne(wins){
     room.game.lastWinnerId = winnerId;
     room.game.tricksWon ||= {};
     room.game.tricksWon[winnerId] = (room.game.tricksWon[winnerId] || 0) + 1;
-    const gatherAt = Date.now() + 250;
+    // 第15章は目隠しのカードが表になった時点から最低2秒間、場に残して確認できるようにする。
+    const gatherAt = Number(room.game.stageNumber) === 15
+      ? Math.max(Date.now() + 250, pending.requestedAt + 2000)
+      : Date.now() + 250;
     room.game.pendingCapture = {
       winnerId, cards:pending.cards,
       winningCardId:wins ? pending.yellowOneCardId : pending.normalWinningCardId,
@@ -4786,8 +4797,8 @@ function characterCardData(character, playerId){
     '飛蔭（とびかげ）':{specialName:'馬の王者',victory:'丘がプレイされているトリックを2トリック獲得。',effect:'手札を1枚選び、裏向きでこのカードの下に入れる。任意のタイミング、もしくは手札がなくなったとき、そのカードを手札に戻す。',cardNumber:'2.47', rank:'黒', frameColor:'金'},
     'レゴラス':{specialName:'闇の森のエルフ',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉か〈アラゴルン〉と交換する。',cardNumber:'3.09',rank:'無し',frameColor:'緑'},
     'ギムリ':{specialName:'ドゥリンの民',victory:'引いた脅威カードと同じ数字の山カードを獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.10',rank:'無し',frameColor:'銀'},
-    'オロフィンとルーミル':{specialName:'ガラズリム',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ハルディア〉と交換する。最初のトリックをリードする。',cardNumber:'3.21',rank:'黒',frameColor:'緑',image:'gildor_inglorion.jpg'},
-    'ハルディア':{specialName:'境界守護者',victory:'トリックに勝利して、引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。最初のトリックをリードする。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'glorfindel.jpg'}
+    'オロフィンとルーミル':{specialName:'ガラズリム',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ハルディア〉と交換する。最初のトリックをリードする。',cardNumber:'3.21',rank:'黒',frameColor:'緑',image:'orophin_rumil.jpg'},
+    'ハルディア':{specialName:'境界守護者',victory:'トリックに勝利して、引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。最初のトリックをリードする。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'haldir.jpg'}
   };
   const details = { ...(characterDetails[character.name] || {}) };
   if (Number(state.game?.stageNumber) === 13 && character.name === 'フロド') {
@@ -5491,6 +5502,12 @@ function renderPlayerCircle(players){
       miniHand.className = 'mini-hand';
       if (state.game?.phase === 'elrond-transfer-selection'
         && !state.game?.pendingElrondTransfers?.transferred?.[p.id]) miniHand.classList.add('elrond-pending');
+      const selectingExchangePlayerId = state.game?.pendingExchange?.selectingPlayerId
+        || state.game?.pendingExchange?.sourceId;
+      if (state.game?.phase === 'exchange-card-selection' && selectingExchangePlayerId === p.id
+        && !state.game.pendingExchange?.selections?.[p.id]) {
+        miniHand.classList.add('exchange-selection-pending');
+      }
       const darknessPending = state.game?.pendingDarknessExchange;
       const hasDarknessExchangePending = state.game?.phase === 'darkness-exchange-selection'
         && (darknessPending?.sources?.includes(p.id)
@@ -5672,10 +5689,8 @@ function renderPlayerCircle(players){
         && state.game?.characterSelections?.[p.id]?.name === 'ギムリ'
         && !state.game?.pendingCapture && !state.game?.pendingYellowOneDecision;
       if (gimliIsBlindfolded) {
-        const suitNames = { red:'影', green:'森', orange:'丘', gray:'山', yellow:'指輪' };
         playedEl.classList.add('blindfolded-card');
-        playedEl.dataset.declaredSuit = `宣言：${suitNames[played.card.color] || played.card.color}`;
-        playedEl.setAttribute('aria-label', `目隠しで裏向きにプレイ。宣言したスート：${suitNames[played.card.color] || played.card.color}`);
+        playedEl.setAttribute('aria-label', '目隠しで裏向きにプレイしたカード');
       }
       slot.style.setProperty('--tilt', `${played.tilt || 0}deg`);
       if (isMe) {
