@@ -3599,17 +3599,19 @@ function animateBarrowDraw(sourceRect, transfer){
 }
 
 async function animateThreatDraw(sourceRect, transfer, transferKey){
-  if (!sourceRect?.width || !transfer?.card) {
-    if (transfer?.card?.id) animatingThreatCardIds.delete(transfer.card.id);
+  if (!transfer?.card) {
     if (transferKey) landedThreatDrawTransfers.add(transferKey);
     activeThreatDrawTransfers.delete(transferKey);
     return;
   }
   const target = playerCircle.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
   const targetRect = target?.getBoundingClientRect();
-  if (!targetRect?.width) {
+  if (!sourceRect?.width || !targetRect?.width) {
+    // 初回入室・再接続などで移動元を測れない場合は演出だけを省略する。
+    // 到着札は既にDBへ確定済みなので、着地扱いにして同じDOMに付いた非表示クラスも必ず外す。
     animatingThreatCardIds.delete(transfer.card.id);
     landedThreatDrawTransfers.add(transferKey);
+    target?.classList.remove('threat-draw-target-hidden');
     activeThreatDrawTransfers.delete(transferKey);
     return;
   }
