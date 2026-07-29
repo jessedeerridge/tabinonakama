@@ -2330,8 +2330,8 @@ function exchangeRequirement(game, sourceId){
   if (name === '“でぶちゃん”のボルジャー') return { mode:'give', count:Math.max(0, (game.playerOrder || []).length - 1) };
   if (name === 'エルロンド') return { mode:'exchange', count:0 };
   // グロルフィンデルは専用の同時交換フェーズで全員分を処理する。
-  if (name === 'グロルフィンデル') return { mode:'exchange-all', count:0 };
-  if (name === '小馬のビル' || name === 'グワイヒア') return { mode:'exchange', count:2 };
+  if (name === 'グロルフィンデル' || name === '小馬のビル') return { mode:'exchange-all', count:0 };
+  if (name === 'グワイヒア') return { mode:'exchange', count:2 };
   const singleExchangeNames = new Set(['ガンダルフ','トム・ボンバディル','馳夫','ピピン','サム','メリー',
     'バーリマン・バタバー','グローイン','アルウェン','アラゴルン','ボロミア']);
   return { mode:'exchange', count:singleExchangeNames.has(name) && exchangeCandidates(game, sourceId).length ? 1 : 0 };
@@ -2441,10 +2441,20 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'グロルフィンデル' && !game.glorfindelExchangeCompleted) {
+    const simultaneousExchangeCompleted = characterName === 'グロルフィンデル'
+      ? game.glorfindelExchangeCompleted
+      : characterName === '小馬のビル' ? game.billExchangeCompleted : true;
+    if (['グロルフィンデル', '小馬のビル'].includes(characterName) && !simultaneousExchangeCompleted) {
+      const candidates = exchangeCandidates(game, sourceId);
+      if (!candidates.length) {
+        if (characterName === 'グロルフィンデル') game.glorfindelExchangeCompleted = true;
+        else game.billExchangeCompleted = true;
+        game.exchangeQueue.shift();
+        continue;
+      }
       game.phase = 'glorfindel-exchange-selection';
       game.pendingGlorfindelExchange = {
-        sourceId, candidates:exchangeCandidates(game, sourceId),
+        sourceId, characterName, candidates,
         sourceCards:{}, targetCards:{}, requestedAt:Date.now()
       };
       game.turnPlayerId = null;
@@ -3121,7 +3131,8 @@ async function chooseGlorfindelExchangeCard(cardId, droppedTargetId){
       room.hands[id].cards.push(pending.sourceCards[id]);
       room.hands[pending.sourceId].cards.push(pending.targetCards[id]);
     });
-    game.glorfindelExchangeCompleted = true;
+    if (pending.characterName === '小馬のビル') game.billExchangeCompleted = true;
+    else game.glorfindelExchangeCompleted = true;
     game.glorfindelExchangeTransfer = {
       sourceId:pending.sourceId, targetIds:[...pending.candidates], completedAt:Date.now()
     };
@@ -3869,12 +3880,18 @@ async function chooseCharacter(characterName, source){
     }
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
+      const selectedEntries = Object.entries(room.game.characterSelections);
+      const hasFrodo = selectedEntries.some(([, selected]) => selected.name === 'フロド');
+      const glorfindelPlayerId = hasFrodo
+        ? selectedEntries.find(([, selected]) => selected.name === 'グロルフィンデル')?.[0]
+        : null;
       const forcedLeaderNames = Number(room.game.stageNumber) === 12
         ? ['ガンダルフ']
         : ['山の下さん', 'グロルフィンデル', 'エルロンド', 'ラダガスト'];
-      const forcedLeader = forcedLeaderNames.map(name => Object.entries(room.game.characterSelections)
+      const forcedLeader = forcedLeaderNames.map(name => selectedEntries
         .find(([, selected]) => selected.name === name)?.[0]).find(Boolean);
-      room.game.startingPlayerId = forcedLeader || room.game.turnPlayerId || room.game.playerOrder[0];
+      // フロドと同時に登場した場合は、指輪の所持者よりグロルフィンデルの先導効果を優先する。
+      room.game.startingPlayerId = glorfindelPlayerId || forcedLeader || room.game.turnPlayerId || room.game.playerOrder[0];
       if (Number(room.game.stageNumber) === 6 && room.game.barrowDeck?.length) {
         room.game.barrowPlayerId = Object.entries(room.game.characterSelections)
           .find(([, selected]) => selected.name === 'トム・ボンバディル')?.[0] || null;
@@ -4444,7 +4461,7 @@ function renderPlayerCircle(players){
       const receivedCard = document.createElement('div');
       receivedCard.className = 'exchange-received-card';
       receivedCard.dataset.cardId = heldGlorfindelCard.id;
-      receivedCard.setAttribute('aria-label', 'グロルフィンデルから受け取った同時交換カード');
+      receivedCard.setAttribute('aria-label', `${state.game.pendingGlorfindelExchange.characterName || 'グロルフィンデル'}から受け取った同時交換カード`);
       if (p.id === state.userId) {
         receivedCard.classList.add('face-up');
         receivedCard.appendChild(createCardElement(heldGlorfindelCard));
