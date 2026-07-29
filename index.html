@@ -509,7 +509,8 @@
   .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;box-sizing:border-box;border:2px solid #10233f;border-radius:50%;background:transparent url('definitechara.jpg') center/cover no-repeat;z-index:5;pointer-events:none;}
   .character-choice.required-raised{transform:translateY(-5px);}
   .character-choice.ring-required-pulse{animation:ringRequiredPulse 1.05s ease-in-out infinite;}
-  .character-choice.long-chapter-achieved>.character-card{border-color:#102b50;box-shadow:0 0 0 3px #102b50,0 4px 12px rgba(0,0,0,.25);}
+  /* 達成表示はカード自体の外枠を塗り替えず、そのさらに外側へ細いネイビー線を置く。 */
+  .character-choice.long-chapter-achieved::after{content:'';position:absolute;inset:-3px;border:1px solid #102b50;border-radius:13px;box-sizing:border-box;pointer-events:none;z-index:4;}
   @keyframes ringRequiredPulse{50%{transform:translateY(-7px) scale(1.06)}}
   /* 全員の目的達成後は、章完了演出に視線を集めるためカードのパルスを止める。 */
   body.victory-complete .my-hand.has-playable-cards .my-card.playable,
@@ -4965,11 +4966,8 @@ function renderPlayerCircle(players){
     playerCircle.appendChild(capture);
   });
 
-  const active = players.find(p=>p.id===state.game?.turnPlayerId);
-  if (state.game?.finished) {
-    const scores = players.map(p => `${p.name} ${state.game.tricksWon?.[p.id] || 0}`).join(' / ');
-    gameStatus.textContent = `ゲーム終了　獲得トリック: ${scores}`;
-  } else gameStatus.textContent = '';
+  // 終了時の結果は章完了表示へ集約し、プレイヤー名と獲得トリック数は盤面に残さない。
+  gameStatus.textContent = '';
 }
 
 kickDialog.addEventListener('click', (e) => {
