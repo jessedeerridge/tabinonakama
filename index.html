@@ -2440,6 +2440,16 @@ function updateWinningConditionOverflow(){
   fitBlockText(winningconditionGoal, 9, 3, .1);
 }
 
+function fitEventModalStoryText(){
+  const storyCard = eventCardModalRow.querySelector('#eventModalStoryCard');
+  if (!storyCard || eventCardModalBackdrop.classList.contains('hidden')) return;
+  const heading = storyCard.querySelector('.arasujisquare-bar');
+  const story = storyCard.querySelector('.arasujisquare-center');
+  // 非表示中は寸法が0になるため、モーダルを表示してレイアウトが確定してから測る。
+  if (heading) fitSingleLineText(heading, 11, 4);
+  if (story) fitBlockText(story, 9, 2.5, .1);
+}
+
 function setEventCardsExpanded(expanded){
   const canExpand = centerLowerCardArea.classList.contains('event-stage-layout')
     && !centerLowerCardArea.classList.contains('character-selection-layout');
@@ -2447,6 +2457,7 @@ function setEventCardsExpanded(expanded){
   centerLowerCardArea.classList.toggle('event-cards-expanded', shouldExpand);
   eventCardModalBackdrop.classList.toggle('hidden', !shouldExpand);
   eventCardModalBackdrop.setAttribute('aria-hidden', String(!shouldExpand));
+  if (shouldExpand) requestAnimationFrame(fitEventModalStoryText);
 }
 
 let moriaScrollTimer = null;
@@ -2755,8 +2766,7 @@ function renderStageInformation(){
     storyText.textContent = selectedEventData?.synopsis || stage.story;
     storyCard.append(storyHeading, storyText);
     eventCardModalRow.appendChild(storyCard);
-    fitSingleLineText(storyHeading, 11, 5);
-    fitBlockText(storyText, 9, 4);
+    // 実際の自動調整は、非表示モーダルが開いて寸法を取得できる時点で行う。
     // 2枚目だけが、選択したイベントの効果面。
     if (selectedEvent) {
       const eventClone = selectedEvent.cloneNode(true);
@@ -2774,6 +2784,8 @@ function renderStageInformation(){
       eventCardModalRow.appendChild(clone);
     });
   }
+  // モーダル表示中にゲーム状態が更新されてカードを再構築した場合も、再度実寸で調整する。
+  requestAnimationFrame(fitEventModalStoryText);
 
   // 配置を先に着地点へ確定し、各カードを直前の座標から補間することで逆方向への移動を防ぐ。
   if (!wasHidden && wasCharacterSelection !== isCharacterSelection
