@@ -4499,7 +4499,8 @@ function renderMyHand(){
   const mirrorRound = Number(state.game?.mirrorDraft?.round || 0);
   const isMirrorDraft = state.game?.phase === `mirror-draft-${mirrorRound}`;
   const preserveMirrorDealOrder = Number(state.game?.stageNumber) === 16 && /^mirror-/.test(state.game?.phase || '');
-  const mirrorTargets = state.game?.playerOrder || [];
+  // 鏡の譲渡先は自分以外。最後に残った札はドラッグせず、そのまま自分の札になる。
+  const mirrorTargets = (state.game?.playerOrder || []).filter(playerId => playerId !== myId);
   const mirrorAssignments = state.game?.mirrorDraft?.offers?.[mirrorRound]?.[myId] || {};
   const canChooseElrondCard = state.game?.phase === 'elrond-transfer-selection'
     && elrondTransfer && !elrondTransfer.transferred?.[myId];
@@ -4691,7 +4692,7 @@ function beginMirrorDraftDrag(event, cardData, source){
   if (state.game?.phase !== `mirror-draft-${round}` || Number(cardData.mirrorBatch) !== round) return;
   event.preventDefault();
   const assigned = state.game?.mirrorDraft?.offers?.[round]?.[state.userId] || {};
-  const targets = (state.game?.playerOrder || []).filter(playerId => !assigned[playerId]).map(playerId => {
+  const targets = (state.game?.playerOrder || []).filter(playerId => playerId !== state.userId && !assigned[playerId]).map(playerId => {
     const tag = playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(playerId)}"]`);
     return { playerId, tag, hint:tag?.querySelector('.exchange-hand-hint') };
   }).filter(target => target.hint);
@@ -4715,7 +4716,7 @@ async function giveMirrorDraftCard(cardId, targetId, round){
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
     const game = room?.game;
     if (!game || game.phase !== `mirror-draft-${round}` || Number(game.mirrorDraft?.round) !== round
-        || !(game.playerOrder || []).includes(targetId)) return;
+        || targetId === state.userId || !(game.playerOrder || []).includes(targetId)) return;
     game.mirrorDraft.offers ||= {}; game.mirrorDraft.offers[round] ||= {}; game.mirrorDraft.offers[round][state.userId] ||= {};
     const assignments = game.mirrorDraft.offers[round][state.userId];
     if (assignments[targetId]) return;
@@ -4724,7 +4725,8 @@ async function giveMirrorDraftCard(cardId, targetId, round){
     if (cardIndex < 0) return;
     assignments[targetId] = cards.splice(cardIndex, 1)[0];
     const allDone = (game.playerOrder || []).every(sourceId =>
-      (game.playerOrder || []).every(id => game.mirrorDraft.offers?.[round]?.[sourceId]?.[id]));
+      (game.playerOrder || []).filter(id => id !== sourceId)
+        .every(id => game.mirrorDraft.offers?.[round]?.[sourceId]?.[id]));
     if (allDone) { game.phase = 'mirror-draft-wait'; game.mirrorDraft.readyAt = Date.now() + 2000; }
     return room;
   });
@@ -5814,7 +5816,8 @@ function renderPlayerCircle(players){
         && !pendingDarkness.returns?.[sourceId]) : [];
     const exchangeHintIds = choosingElrondCard ? [myPreviousPlayerId]
       : /^mirror-draft-[12]$/.test(state.game?.phase || '')
-        ? (state.game?.playerOrder || []).filter(id => !state.game?.mirrorDraft?.offers?.[state.game.mirrorDraft.round]?.[state.userId]?.[id])
+        ? (state.game?.playerOrder || []).filter(id => id !== state.userId
+          && !state.game?.mirrorDraft?.offers?.[state.game.mirrorDraft.round]?.[state.userId]?.[id])
       : state.game?.phase === 'darkness-exchange-selection' ? [...new Set([...darknessOutgoingTargets, ...darknessReturnTargets])]
       : choosingGlorfindelCard ? (pendingGlorfindel.sourceId === state.userId
         ? pendingGlorfindel.candidates.filter(id => !pendingGlorfindel.sourceCards?.[id])
@@ -5895,8 +5898,8 @@ function renderPlayerCircle(players){
       receivedCard.dataset.cardId = offer.card.id;
       receivedCard.style.setProperty('--received-tilt', `${offer.tilt || 0}deg`);
       receivedCard.setAttribute('aria-hidden', 'true');
-      // 渡された本人にだけカードの表を公開し、ほかのプレイヤーには従来どおり裏面を見せる。
-      if (offer.targetId === state.userId) {
+      // 通常は本人だけ表を見せる。第16章のキャラクター効果中は本人を含め全員に裏面を見せる。
+      if (offer.targetId === state.userId && Number(state.game?.stageNumber) !== 16) {
         receivedCard.classList.add('face-up');
         receivedCard.removeAttribute('aria-hidden');
         receivedCard.appendChild(createCardElement(offer.card));
