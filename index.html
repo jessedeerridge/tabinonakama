@@ -280,6 +280,15 @@
   .barrow-deck::before{transform:translateX(2px);}
   .barrow-deck::after{transform:translateX(4px);z-index:-2;}
   .barrow-deck.empty{visibility:hidden;}
+  /* 脅威デッキは森・塚デッキと同じ場所に置き、カード面と同じ絵を裏面にも使う。 */
+  /* eventCardRow 内にある古森デッキの実表示座標へ合わせ、勝利条件カードより前面に固定する。 */
+  .threat-deck-area{display:none;position:absolute;right:66px;top:-27px;width:80px;height:56px;pointer-events:none;perspective:240px;z-index:9;}
+  .center-lower-card-area:not(.character-selection-layout)>.threat-deck-area.active{display:block;}
+  .threat-deck{position:absolute;right:0;inset-block:0;border:1px solid #4a2f20;border-radius:6px;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-sizing:border-box;isolation:isolate;width:38px;}
+  .threat-deck::before,.threat-deck::after{content:'';position:absolute;inset:0;border:1px solid #4a2f20;border-radius:6px;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-sizing:border-box;z-index:-1;}
+  .threat-deck::before{transform:translateX(2px);}
+  .threat-deck::after{transform:translateX(4px);z-index:-2;}
+  .threat-deck.empty{visibility:hidden;}
   .old-forest-reveal{left:0;transform:rotate(-2deg);transform-origin:center;}
   .old-forest-revealed-card{position:absolute;left:var(--reveal-left,0);top:0;width:38px;height:56px;transform:rotate(var(--reveal-tilt,-2deg));transform-origin:center;}
   .old-forest-revealed-card>.my-card{transform:scale(.46);transform-origin:top left;}
@@ -374,6 +383,10 @@
   .exchange-card-flight{position:fixed;z-index:1002;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
   .exchange-card-flight.exchange-offer-flight{transform-origin:center;}
   .exchange-card-flight.card-back{border:1px solid #10233f;border-radius:10px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
+  .threat-draw-flight{transform-style:preserve-3d;}
+  .threat-draw-flight::before{content:'';position:absolute;inset:0;border:4px solid #4a2f20;border-radius:10px;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-sizing:border-box;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505;transform:rotateY(180deg);backface-visibility:hidden;}
+  .threat-draw-flight>.my-card{position:absolute;inset:0;backface-visibility:hidden;}
+  .threat-capture.threat-draw-target-hidden{opacity:0;}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
   .arasujisquare-bar{left:13%;right:13%;top:calc(8% - 6px);height:16%;}
   .arasujisquare-center{left:50%;top:54%;width:95px;height:90px;transform:translate(-50%,-50%);}
@@ -495,15 +508,16 @@
   .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;box-sizing:border-box;border:2px solid #10233f;border-radius:50%;background:transparent url('definitechara.jpg') center/cover no-repeat;z-index:5;pointer-events:none;}
   .character-choice.required-raised{transform:translateY(-5px);}
   .character-choice.ring-required-pulse{animation:ringRequiredPulse 1.05s ease-in-out infinite;}
-  .character-choice.long-chapter-achieved>.character-card{border-color:#102b50;box-shadow:0 0 0 3px #102b50,0 4px 12px rgba(0,0,0,.25);}
+  .character-choice.long-chapter-achieved>.character-card{outline:1.5px solid #102b50;outline-offset:2px;}
   @keyframes ringRequiredPulse{50%{transform:translateY(-7px) scale(1.06)}}
   /* 全員の目的達成後は、章完了演出に視線を集めるためカードのパルスを止める。 */
   body.victory-complete .my-hand.has-playable-cards .my-card.playable,
   body.victory-complete .excluded-card-slot.gandalf-pick,
   body.victory-complete .my-card.exchange-pick,
   body.victory-complete .character-choice.ring-required-pulse{animation:none!important;}
-  .chapter-complete-banner{position:fixed;left:50%;top:50%;z-index:1200;display:flex;flex-direction:column;align-items:center;gap:9px;pointer-events:none;transform:translate(-50%,-50%);}
+  .chapter-complete-banner{position:fixed;left:50%;top:50%;z-index:1200;display:flex;flex-direction:column;align-items:center;gap:9px;pointer-events:none;transform:translate(-50%,-50%);visibility:hidden;}
   .chapter-complete-banner.hidden{display:none;}
+  .chapter-complete-banner.running,.chapter-complete-banner.arrived{visibility:visible;}
   .chapter-complete-message{padding:9px 21px;background:#000;color:#fff;font-family:serif;font-size:clamp(18px,5vw,30px);font-weight:900;line-height:1;letter-spacing:.12em;white-space:nowrap;transform:translateX(calc(-50vw - 110%));will-change:transform;}
   .chapter-complete-banner.running .chapter-complete-message{animation:chapterCompleteFlow .8s ease-out both;}
   .chapter-complete-banner.arrived .chapter-complete-message{transform:translateX(0);}
@@ -674,6 +688,10 @@
         <div id="barrowDeckArea" class="barrow-deck-area" aria-label="塚デッキ">
           <div id="barrowDeck" class="barrow-deck" aria-label="塚デッキの山札"></div>
         </div>
+      </div>
+      <!-- イベントカードがない章でも表示できるよう、非表示になる eventCardRow の外に置く。 -->
+      <div id="threatDeckArea" class="threat-deck-area" aria-label="脅威デッキ">
+        <div id="threatDeck" class="threat-deck" aria-label="脅威デッキの山札"></div>
       </div>
       <div class="center-card-row">
         <div id="arasujisquare" class="center-lower-card">
@@ -913,6 +931,8 @@ const oldForestDeck = document.getElementById('oldForestDeck');
 const oldForestCapturedArea = document.getElementById('oldForestCapturedArea');
 const barrowDeckArea = document.getElementById('barrowDeckArea');
 const barrowDeck = document.getElementById('barrowDeck');
+const threatDeckArea = document.getElementById('threatDeckArea');
+const threatDeck = document.getElementById('threatDeck');
 const winningconditionInfo = document.getElementById('winningconditionInfo');
 const winningconditionGoal = document.getElementById('winningconditionGoal');
 const ringcircle = document.getElementById('ringcircle');
@@ -1677,6 +1697,14 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   return { status:isFinished ? 'failed' : 'pending' };
 }
 
+function frodoHasMithril(room){
+  const game = room?.game;
+  const frodoPlayerId = Object.entries(game?.characterSelections || {})
+    .find(([, character]) => character.name === 'フロド')?.[0];
+  return Boolean(frodoPlayerId && (game?.equipmentCards?.[frodoPlayerId] || [])
+    .some(card => card.name === MITHRIL_COAT.name));
+}
+
 function chapterOutcome(room){
   const playerIds = room?.game?.playerOrder || [];
   if (!playerIds.length) return null;
@@ -1689,7 +1717,7 @@ function chapterOutcome(room){
     if (statuses.filter(status => status === 'failed').length >= 2) return 'failed';
     const oneFailureCanBeResolved = statuses.filter(status => status === 'achieved').length === playerIds.length - 1
       && statuses.filter(status => status === 'failed').length === 1;
-    if (oneFailureCanBeResolved && room.stageThirteenMithrilAvailable === false) return 'failed';
+    if (oneFailureCanBeResolved && !frodoHasMithril(room)) return 'failed';
     if (room.game.finished === true && statuses.filter(status => status === 'achieved').length !== playerIds.length - 1) return 'failed';
     return null;
   }
@@ -1757,8 +1785,9 @@ function renderChapterComplete(){
   void chapterCompleteBanner.offsetWidth;
   chapterCompleteBanner.classList.add('running');
   chapterCompleteBanner.addEventListener('animationend', () => {
-    chapterCompleteBanner.classList.remove('running');
+    // 到着位置を先に固定してから animation を外し、終了フレームでの一瞬の巻き戻りを防ぐ。
     chapterCompleteBanner.classList.add('arrived');
+    chapterCompleteBanner.classList.remove('running');
     chapterCompleteMessage.style.removeProperty('animation-delay');
   }, { once:true });
 }
@@ -1767,7 +1796,7 @@ function canDecideMithril(room = state.room){
   const game = room?.game;
   if (Number(game?.stageNumber) !== 13 || game.chapterOutcome || game.mithrilDecision) return false;
   if (game.pendingCapture || game.pendingOutcomeCheckAt) return false;
-  if (room?.stageThirteenMithrilAvailable === false) return false;
+  if (!frodoHasMithril(room)) return false;
   const statuses = (game.playerOrder || []).map(playerId => victoryConditionStatus(room, playerId).status);
   return statuses.filter(status => status === 'achieved').length === statuses.length - 1
     && statuses.filter(status => status === 'failed').length === 1;
@@ -2077,6 +2106,8 @@ let oldForestDrawTimer = null;
 let barrowDrawTimer = null;
 let threatDrawTimer = null;
 let lastAnimatedBarrowDrawAt = null;
+let lastAnimatedThreatDrawAt = null;
+const animatingThreatCardIds = new Set();
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
@@ -2222,6 +2253,13 @@ function renderStageInformation(){
   barrowDeckArea.classList.toggle('active', isBarrow && state.game?.phase !== 'character-selection');
   barrowDeck.classList.toggle('empty', !state.game?.barrowDeck?.length);
   barrowDeck.setAttribute('aria-label', `塚デッキ 残り${state.game?.barrowDeck?.length || 0}枚`);
+  const threatDefinition = stage?.threats?.[0];
+  const hasThreatDeck = Boolean(threatDefinition && state.game?.phase !== 'character-selection');
+  threatDeckArea.classList.toggle('active', hasThreatDeck);
+  threatDeck.classList.toggle('empty', !state.game?.threatDeck?.length);
+  const threatDeckName = threatDefinition?.max === 7 ? '脅威1-7デッキ' : '黒の乗手デッキ';
+  threatDeckArea.setAttribute('aria-label', threatDeckName);
+  threatDeck.setAttribute('aria-label', `${threatDeckName} 残り${state.game?.threatDeck?.length || 0}枚`);
   oldForestReveal.replaceChildren();
   const revealedCards = isOldForest ? [
     ...(state.game?.oldForestRevealedCards || []),
@@ -2669,18 +2707,18 @@ function drawThreatForCharacterEffect(game, playerId){
   if ((game.threatCards[playerId] || []).some(card => card.kind === 'threat')) return;
   const stage = STAGES.find(item => item.number === Number(game.stageNumber));
   const threat = stage?.threats?.[0] || { name:'脅威カード', min:1, max:4 };
-  const usedNumbers = new Set(Object.values(game.threatCards)
-    .flatMap(cards => cards || []).map(card => Number(card.number)));
-  const availableNumbers = Array.from(
+  game.threatDeck ||= Array.from(
     { length:threat.max - threat.min + 1 }, (_, index) => threat.min + index
-  ).filter(number => !usedNumbers.has(number));
-  if (!availableNumbers.length) return;
-  const rank = availableNumbers[Math.floor(Math.random() * availableNumbers.length)];
+  );
+  if (!game.threatDeck.length) return;
+  const rank = game.threatDeck.shift();
   game.threatCards[playerId] ||= [];
-  game.threatCards[playerId].push({
+  const drawnCard = {
     kind:'threat', color:'threat', name:threat.name, number:rank,
     id:`${playerId}-threat-${Date.now()}-${rank}`
-  });
+  };
+  game.threatCards[playerId].push(drawnCard);
+  game.threatDrawTransfer = { playerId, card:drawnCard, movedAt:Date.now() };
 }
 
 function beginCharacterEffectTurns(game){
@@ -2797,6 +2835,7 @@ async function chooseAragornThreat(number){
     if (number < threat.min || number > threat.max) return;
     game.threatCards ||= {};
     game.threatCards[state.userId] = [{ kind:'threat', color:'threat', name:threat.name, number, id:`${state.userId}-threat-${Date.now()}-${number}` }];
+    if (game.threatDeck) game.threatDeck = game.threatDeck.filter(rank => Number(rank) !== Number(number));
     delete game.threatDrawPlayerId;
     beginNextExchange(game);
     return game;
@@ -2869,6 +2908,45 @@ function animateBarrowDraw(sourceRect, transfer){
     });
   });
   lastAnimatedBarrowDrawAt = transfer.movedAt;
+}
+
+async function animateThreatDraw(sourceRect, transfer){
+  if (!sourceRect?.width || !transfer?.card) {
+    if (transfer?.card?.id) animatingThreatCardIds.delete(transfer.card.id);
+    return;
+  }
+  const target = playerCircle.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
+  const targetRect = target?.getBoundingClientRect();
+  if (!targetRect?.width) {
+    animatingThreatCardIds.delete(transfer.card.id);
+    return;
+  }
+  const flight = document.createElement('div');
+  flight.classList.add('exchange-card-flight', 'threat-draw-flight');
+  flight.appendChild(createCardElement(transfer.card));
+  const startScale = sourceRect.width / 82;
+  const destinationScale = targetRect.width / 82;
+  const leftReveal = sourceRect.left - sourceRect.width - 5;
+  const targetLeft = targetRect.left;
+  const targetTop = targetRect.top;
+  Object.assign(flight.style, { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(180deg)` });
+  document.body.appendChild(flight);
+  lastAnimatedThreatDrawAt = transfer.movedAt;
+  try {
+    await flight.animate([
+      { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(180deg)` },
+      { left:`${leftReveal}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(0deg)` }
+    ], { duration:600, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    await flight.animate([
+      { left:`${leftReveal}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(0deg)` },
+      { left:`${targetLeft}px`, top:`${targetTop}px`, transform:`scale(${destinationScale}) rotateY(0deg)` }
+    ], { duration:800, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
+  } finally {
+    flight.remove();
+    animatingThreatCardIds.delete(transfer.card.id);
+    playerCircle.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`)?.classList.remove('threat-draw-target-hidden');
+  }
 }
 
 function captureMyHandRects(){
@@ -3055,11 +3133,16 @@ function subscribeRoom(){
     const previousTransferAt = state.game?.lostCardTransfer?.movedAt;
     const excludedSourceRect = state.game?.excludedCard ? excludedCardSlot.getBoundingClientRect() : null;
     const barrowSourceRect = state.game?.barrowDeck?.length ? barrowDeck.getBoundingClientRect() : null;
+    const threatSourceRect = state.game?.threatDeck?.length ? threatDeck.getBoundingClientRect() : null;
     const previousMyHandRects = captureMyHandRects();
     const previousExchangePositions = captureExchangePositions();
     state.room = snap.val() || {};
     state.game = state.room.game || null;
     state.hands = state.room.hands || {};
+    const threatTransfer = state.game?.threatDrawTransfer;
+    const shouldAnimateThreatDraw = Boolean(threatTransfer?.movedAt
+      && threatTransfer.movedAt !== lastAnimatedThreatDrawAt && threatSourceRect?.width);
+    if (shouldAnimateThreatDraw && threatTransfer.card?.id) animatingThreatCardIds.add(threatTransfer.card.id);
     const waiting = (!state.isHost && !state.room.maxPlayers);
     hostSelectingPop.classList.toggle('hidden', !waiting);
     renderHands();
@@ -3078,6 +3161,7 @@ function subscribeRoom(){
     if (barrowTransfer?.movedAt && barrowTransfer.movedAt !== lastAnimatedBarrowDrawAt) {
       requestAnimationFrame(() => animateBarrowDraw(barrowSourceRect, barrowTransfer));
     }
+    if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer);
     const exchangeOfferTransfer = state.game?.exchangeOfferTransfer;
     if (exchangeOfferTransfer?.movedAt && exchangeOfferTransfer.movedAt !== lastAnimatedExchangeOfferAt) {
       requestAnimationFrame(() => animateExchangeOffer(exchangeOfferTransfer, previousExchangePositions));
@@ -4836,6 +4920,8 @@ function renderPlayerCircle(players){
     threatCards.forEach((threatCard, threatIndex) => {
       const threatBundle = document.createElement('div');
       threatBundle.className = 'capture-trick threat-capture';
+      threatBundle.dataset.threatCardId = threatCard.id;
+      if (animatingThreatCardIds.has(threatCard.id)) threatBundle.classList.add('threat-draw-target-hidden');
       threatBundle.style.left = `${(characterOffsetCount + equipmentCards.length + threatIndex) * 40}px`;
       threatBundle.style.zIndex = String(characterOffsetCount + threatIndex + 1);
       const holder = document.createElement('div');
@@ -4916,8 +5002,7 @@ function renderPlayerCircle(players){
 
   const active = players.find(p=>p.id===state.game?.turnPlayerId);
   if (state.game?.finished) {
-    const scores = players.map(p => `${p.name} ${state.game.tricksWon?.[p.id] || 0}`).join(' / ');
-    gameStatus.textContent = `ゲーム終了　獲得トリック: ${scores}`;
+    gameStatus.textContent = '';
   } else gameStatus.textContent = '';
 }
 
@@ -5011,6 +5096,14 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
   const excludedCard = isOldForest ? null : excludedCards[0];
   const excludedCardTilts = excludedCards.map(() => Math.floor(Math.random() * 5) - 2);
   const stage = STAGES.find(item => item.number === Number(stageNumber));
+  const threatDefinition = stage?.threats?.[0];
+  const threatDeck = threatDefinition ? Array.from(
+    { length:threatDefinition.max - threatDefinition.min + 1 }, (_, index) => threatDefinition.min + index
+  ) : [];
+  for (let i = threatDeck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [threatDeck[i], threatDeck[j]] = [threatDeck[j], threatDeck[i]];
+  }
   const stageCharacters = (stage?.characters || [])
     .flatMap(line => line.split(/[、,]/))
     .map(name => name.trim())
@@ -5045,6 +5138,7 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
       ...(isOldForest && excludedCards.length ? { excludedCards, excludedCardTilts } : {}),
       ...(oldForestDeck ? { oldForestDeck } : {}),
       ...(barrowDeck.length ? { barrowDeck } : {})
+      ,...(threatDeck.length ? { threatDeck } : {})
     }
   });
 }
