@@ -401,6 +401,7 @@
   .my-card.card-gray{--card-color:#a9aca8;}
   .my-card.card-red{background-image:url('shadow.jpg');}
   .my-card.card-green{background-image:url('mori.jpg');}
+  .my-card.card-green.card-nine{background-image:url('yanagi9.jpg');}
   .my-card.card-orange{background-image:url('oka.jpg');}
   .my-card.card-yellow{background-image:url('yubiwa.jpg');}
   .my-card.card-gray{background-image:url('yama.jpg');}
@@ -1155,6 +1156,7 @@ function createCardElement(cardData){
   if (cardData.kind === 'equipment') return createEquipmentCardElement(cardData);
   const card = document.createElement('div');
   card.className = `my-card card-${cardData.color}`;
+  if (cardData.color === 'green' && Number(cardData.number) === 9) card.classList.add('card-nine');
   if (cardData.kind === 'threat') card.classList.add('threat-card');
   const isYellowOne = cardData.kind !== 'threat' && cardData.color === 'yellow' && cardData.number === 1;
   if (isYellowOne) card.classList.add('yellow-one');
