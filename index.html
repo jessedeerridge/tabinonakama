@@ -170,6 +170,7 @@
   .victory-condition-icon{width:auto;min-width:15px;height:15px;border:0;background:transparent;color:#111;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:1px;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;white-space:nowrap;}
   .victory-condition-squares,.victory-condition-option{display:flex;align-items:center;justify-content:center;gap:1px;}
   .victory-condition-square{width:15px;height:15px;border:0;border-radius:2px;background:#111;color:#fff;box-sizing:border-box;display:grid;place-items:center;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;}
+  .victory-condition-square.number-centered{display:flex;align-items:center;justify-content:center;padding:0;text-align:center;line-height:15px;}
   .victory-condition-icon.ring .victory-condition-square{background:#f2c94c;color:#111;}
   .victory-condition-icon.hill .victory-condition-square{background:#d98236;color:#111;}
   .victory-condition-icon.choice{gap:0;}
@@ -1731,29 +1732,28 @@ function createVictoryConditionIcon(cardData, playerId){
     else icon.append(coloredTrick());
     if (choice) icon.append(arrow(choice));
   } else if (name === 'ギルドール・イングロリオン') {
-    icon.append(sideLabel('LAST', 'PLAY'), square('', 'green'));
+    icon.append(sideLabel('last', 'play'), square('', 'green'));
   } else if (name === 'ゴールドベリ') {
     icon.append(label('3連'), coloredTrick());
   } else if (name === '山の下さん') {
     icon.append(label('毎'), coloredTrick('yellow'));
   } else if (name === 'トム・ボンバディル') {
-    icon.append(label('LAST'), square('?', 'white'), square('?', 'white'), square('?', 'white'));
+    icon.append(sideLabel('last', 'same'), square('?', 'white'));
   } else if (name === 'バーリマン・バタバー') {
-    icon.append(coloredTrick(), label('IN LAST 3'));
+    icon.append(sideLabel('in last', '3'), coloredTrick());
   } else if (name === 'グロルフィンデル') {
     icon.append(label('ALL'), square('', 'red'));
   } else if (name === 'エルロンド') {
-    icon.classList.add('multiline');
-    icon.append(line(label('ALL PLAYER')), line(square('', 'yellow')));
+    icon.append(sideLabel('all', 'player'), square('', 'yellow'));
   } else if (name === 'グローイン') {
-    icon.append(label('MOST'), square('', 'gray'));
+    icon.append(label('most'), square('', 'gray'));
   } else if (name === 'アルウェン') {
-    icon.append(label('MOST'), square('', 'green'));
+    icon.append(label('most'), square('', 'green'));
   } else if (name === 'ボロミア') {
     icon.classList.add('multiline');
     const fail = label('✕');
     fail.classList.add('victory-condition-fail');
-    icon.append(line(label('LAST'), coloredTrick()), line(fail, square('1', 'yellow')));
+    icon.append(line(label('last'), coloredTrick()), line(fail, square('1', 'yellow')));
   } else if (name === 'グワイヒア') {
     icon.append(coloredTrick('gray'), coloredTrick('gray'));
   } else if (name === 'ラダガスト') {
@@ -1773,7 +1773,11 @@ function createVictoryConditionIcon(cardData, playerId){
     } else if (threatNumber != null) icon.append(...countTricks(Number(threatNumber)));
     else icon.append(coloredTrick());
   } else if (victory.includes('脅威カードと同じ数字')) {
-    const matchingSquare = () => square(String(threatNumber ?? 'x'));
+    const matchingSquare = () => {
+      const item = square(String(threatNumber ?? 'x'));
+      if (name === '農夫マゴット') item.classList.add('number-centered');
+      return item;
+    };
     icon.append(matchingSquare());
     if (victory.includes('2枚以上')) icon.append(matchingSquare(), label('以上'));
   } else if (victory.includes('ちょうど1もしくは2')) {
