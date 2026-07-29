@@ -5055,7 +5055,8 @@ function characterCardData(character, playerId){
     ...(details.image ? { image:details.image } : {}),
     ...(details.displayName ? { displayName:details.displayName } : {}),
     specialName:details.specialName || '特殊名', cardNumber:details.cardNumber, rank:details.rank,
-    frameColor:details.frameColor, borderColor:details.borderColor,
+    frameColor:details.frameColor,
+    ...(details.borderColor ? { borderColor:details.borderColor } : {}),
     victory:details.victory || '',
     effect:effect || '特殊説明',
     id:`${playerId}-character-${details.variant || character.name}`
