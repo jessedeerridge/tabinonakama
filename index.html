@@ -157,6 +157,16 @@
   .character-card.special-threat-card .character-effect-icon{color:#111;}
   .character-card.special-threat-card.concealed{background:#fff url('tabicardura.jpg') center/cover no-repeat;border-color:#10233f;box-shadow:0 4px 12px rgba(0,0,0,.18);}
   .character-card.special-threat-card.concealed>*{display:none;}
+  .character-card.equipment-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505;}
+  .character-card.equipment-card .character-label{left:auto;right:-4px;width:max-content;max-width:calc(100% + 4px);padding:0 6px 0 12px;text-align:right;justify-content:flex-end;clip-path:polygon(14% 0,100% 0,100% 100%,14% 100%,0 50%);}
+  .character-card.equipment-card .character-label::before{background:#050505;clip-path:polygon(14% 0,100% 0,100% 100%,14% 100%,0 50%);}
+  .character-card.equipment-card .character-special{left:auto;right:-4px;top:17px;width:max-content;max-width:calc(100% + 4px);padding:2px 6px 2px 12px;text-align:right;}
+  .character-card.equipment-card .character-effect{min-height:44px;padding:11px 5px 3px;color:#27231f;}
+  .character-card.equipment-card .character-effect::before{background:#fff8e8;}
+  .character-card.equipment-card .character-effect-icon{color:#111;}
+  .character-card.equipment-card .character-meta{position:absolute;right:4px;bottom:2px;color:#fff;font:700 5px/1 system-ui;text-shadow:0 1px 2px #000;}
+  .most-suit-marker{position:absolute;left:50%;top:56px;transform:translateX(-50%);display:flex;align-items:center;gap:2px;color:#fff;font:700 8px/10px system-ui;white-space:nowrap;z-index:30;}
+  .most-suit-marker .victory-condition-square{width:10px;height:10px;font-size:0;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   .victory-condition-icon{width:auto;min-width:15px;height:15px;border:0;background:transparent;color:#111;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:1px;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;white-space:nowrap;}
   .victory-condition-squares,.victory-condition-option{display:flex;align-items:center;justify-content:center;gap:1px;}
@@ -777,7 +787,7 @@
 </section>
 
 <section id="threatChoiceDialog" class="exchange-dialog hidden" aria-live="assertive">
-  <div class="exchange-message">脅威カードを選んでください。</div>
+  <div id="threatChoiceMessage" class="exchange-message">脅威カードを選んでください。</div>
   <div id="threatChoiceGrid" class="threat-choice-grid"></div>
   <div class="exchange-note">＊2秒長押しで決定。</div>
 </section>
@@ -892,6 +902,7 @@ const striderChoiceDialog = document.getElementById('striderChoiceDialog');
 const striderChoiceQuestion = document.getElementById('striderChoiceQuestion');
 const chapterCompleteBanner = document.getElementById('chapterCompleteBanner');
 const threatChoiceDialog = document.getElementById('threatChoiceDialog');
+const threatChoiceMessage = document.getElementById('threatChoiceMessage');
 const threatChoiceGrid = document.getElementById('threatChoiceGrid');
 const shadowfaxDecision = document.getElementById('shadowfaxDecision');
 
@@ -1066,6 +1077,11 @@ const STAGE_NINE_THREATS = {
   'サム':{ type:'黒の乗手', name:'恐怖', effect:'丘でリードすることはできない。' }
 };
 
+const STAGE_ELEVEN_EQUIPMENT = {
+  'アラゴルン':{ name:'折れたる剣', specialName:'ナルシルの欠片', effect:'自分の脅威カードと入れ替える。\n自分の目的となる数字範囲を選ぶ。\n1～2、3～4、5～6。', cardNumber:'2.42', rank:'黒', image:'oretaruken.jpg' },
+  'ボロミア':{ name:'ゴンドールの角笛', specialName:'家宝', effect:'ゲームの準備中、手札にある最も多いスートを宣言する。', cardNumber:'2.43', rank:'黒', image:'tunobue.jpg' }
+};
+
 function hasSpecialThreat(game, playerId, name){
   return (game?.threatCards?.[playerId] || []).some(card => card.kind === 'special-threat' && card.name === name);
 }
@@ -1135,6 +1151,7 @@ function fitCharacterName(target){
 function createCardElement(cardData){
   if (cardData.kind === 'character') return createCharacterCardElement(cardData);
   if (cardData.kind === 'special-threat') return createSpecialThreatCardElement(cardData);
+  if (cardData.kind === 'equipment') return createEquipmentCardElement(cardData);
   const card = document.createElement('div');
   card.className = `my-card card-${cardData.color}`;
   if (cardData.kind === 'threat') card.classList.add('threat-card');
@@ -1180,6 +1197,24 @@ function createCardElement(cardData){
 
   // 左右とも数字とマークは同じ通常向きで表示する。
   card.append(createBadge('left'), createBadge('right'), name);
+  return card;
+}
+
+function createEquipmentCardElement(cardData){
+  const card = document.createElement('div');
+  card.className = 'my-card character-card equipment-card';
+  card.style.backgroundImage = `url('${cardData.image}')`;
+  card.setAttribute('aria-label', `装備 ${cardData.name} ${cardData.cardNumber}`);
+  const name = document.createElement('span'); name.className = 'character-label'; name.textContent = cardData.name;
+  const special = document.createElement('span'); special.className = 'character-label character-special'; special.textContent = cardData.specialName;
+  fitCharacterName(name); fitCharacterName(special);
+  const effect = document.createElement('div'); effect.className = 'character-effect';
+  effect.appendChild(createCharacterEffectRow('special', cardData.effect));
+  const meta = document.createElement('div'); meta.className = 'character-meta'; meta.textContent = `${cardData.rank}　${cardData.cardNumber}`;
+  card.append(name, special, effect, meta);
+  card.setAttribute('role', 'button'); card.tabIndex = 0;
+  const open = event => { event.preventDefault(); event.stopPropagation(); openSingleCardZoom(card); };
+  card.addEventListener('click', open); card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') open(event); });
   return card;
 }
 
@@ -1377,6 +1412,13 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     return { status:'pending' };
   }
 
+  if (character.name === 'アラゴルン' && game.equipmentChoices?.[playerId]) {
+    const { min, max } = game.equipmentChoices[playerId];
+    if (trickCount > max) return { status:'failed' };
+    if (trickCount >= min) return { status:'achieved' };
+    return { status:(!isFinished && trickCount + remainingRounds >= min) ? 'pending' : 'failed' };
+  }
+
   if (hasSpecialThreat(game, playerId, '黒の息')) {
     const acquiredEight = capturedTricks.some(trick => (trick.cards || []).some(card => Number(card.number) === 8));
     if (acquiredEight) return { status:'failed' };
@@ -1485,7 +1527,9 @@ function createVictoryConditionIcon(cardData, playerId){
   const victory = cardData.victory || '';
   const name = cardData.name || '';
   const threatNumber = threatNumberForPlayer(state.game, playerId);
-  const waitsForThreat = ['農夫マゴット', 'サム', '馳夫', 'アラゴルン'].includes(name);
+  const equipmentChoice = state.game?.equipmentChoices?.[playerId];
+  const waitsForThreat = ['農夫マゴット', 'サム', '馳夫'].includes(name)
+    || (name === 'アラゴルン' && !equipmentChoice);
   if (waitsForThreat && threatNumber == null) {
     icon.classList.add('awaiting-threat');
     icon.setAttribute('aria-label', '勝利条件：脅威カードのドロー待ち');
@@ -1596,7 +1640,9 @@ function createVictoryConditionIcon(cardData, playerId){
   } else if (name === 'サム') {
     icon.append(square(String(threatNumber ?? 'x'), 'orange'));
   } else if (name === 'アラゴルン') {
-    if (threatNumber != null) icon.append(...countSquares(Number(threatNumber)));
+    if (equipmentChoice) {
+      appendOr(line(...countSquares(equipmentChoice.min)), line(...countSquares(equipmentChoice.max)));
+    } else if (threatNumber != null) icon.append(...countSquares(Number(threatNumber)));
     else icon.append(square());
   } else if (victory.includes('脅威カードと同じ数字')) {
     const matchingSquare = () => square(String(threatNumber ?? 'x'));
@@ -2394,6 +2440,15 @@ function renderThreatChoice(){
   threatChoiceDialog.classList.toggle('hidden', !visible);
   threatChoiceGrid.replaceChildren();
   if (!visible) return;
+  const isEquipmentChoice = Number(state.game?.stageNumber) === 11;
+  threatChoiceMessage.textContent = isEquipmentChoice ? '目的となる数字範囲を選んでください。' : '脅威カードを選んでください。';
+  if (isEquipmentChoice) {
+    [[1,2],[3,4],[5,6]].forEach(([min,max]) => {
+      const button = document.createElement('button'); button.className = 'threat-choice'; button.textContent = `${min}～${max}`;
+      attachTwoSecondHold(button, () => chooseAragornEquipmentRange(min, max)); threatChoiceGrid.append(button);
+    });
+    return;
+  }
   const stage = STAGES.find(item => item.number === Number(state.game.stageNumber));
   const threat = stage?.threats?.[0] || { min:1, max:4 };
   for (let number = threat.min; number <= threat.max; number += 1) {
@@ -2402,6 +2457,15 @@ function renderThreatChoice(){
     attachTwoSecondHold(button, () => chooseAragornThreat(number));
     threatChoiceGrid.append(button);
   }
+}
+
+async function chooseAragornEquipmentRange(min, max){
+  await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    if (game?.phase !== 'aragorn-threat-selection' || game.threatDrawPlayerId !== state.userId || Number(game.stageNumber) !== 11) return;
+    if (![[1,2],[3,4],[5,6]].some(range => range[0] === min && range[1] === max)) return;
+    game.equipmentChoices ||= {}; game.equipmentChoices[state.userId] = { min, max };
+    delete game.threatDrawPlayerId; beginNextExchange(game); return game;
+  });
 }
 
 async function chooseAragornThreat(number){
@@ -3581,6 +3645,22 @@ async function chooseCharacter(characterName, source){
     room.hands[state.userId].cards ||= [];
     room.hands[state.userId].cards.unshift(characterCardData(character, state.userId));
     room.game.characterSelections[state.userId] = { ...character, selectedAt:Date.now() };
+    const stageElevenEquipment = Number(room.game.stageNumber) === 11 ? STAGE_ELEVEN_EQUIPMENT[characterName] : null;
+    if (stageElevenEquipment) {
+      room.game.equipmentCards ||= {}; room.game.equipmentCards[state.userId] ||= [];
+      room.game.equipmentCards[state.userId].push({ kind:'equipment', ...stageElevenEquipment, id:`${state.userId}-equipment-${Date.now()}` });
+      if (characterName === 'アラゴルン' && room.game.threatCards?.[state.userId]) {
+        room.game.threatCards[state.userId] = room.game.threatCards[state.userId].filter(card => card.kind !== 'threat');
+      }
+      if (characterName === 'ボロミア') {
+        const counts = {};
+        room.hands[state.userId].cards.filter(card => CARD_TYPES.some(type => type.color === card.color))
+          .forEach(card => { counts[card.color] = (counts[card.color] || 0) + 1; });
+        const most = Math.max(0, ...Object.values(counts));
+        room.game.mostSuitDeclarations ||= {};
+        room.game.mostSuitDeclarations[state.userId] = CARD_TYPES.map(type => type.color).filter(color => counts[color] === most).slice(0, 1);
+      }
+    }
     const stageNineThreat = Number(room.game.stageNumber) === 9 ? STAGE_NINE_THREATS[characterName] : null;
     if (stageNineThreat) {
       room.game.threatCards ||= {};
@@ -4121,6 +4201,12 @@ function renderPlayerCircle(players){
       });
 
       tag.appendChild(miniHand);
+      const mostSuits = state.game?.mostSuitDeclarations?.[p.id] || [];
+      if (mostSuits.length) {
+        const marker = document.createElement('div'); marker.className = 'most-suit-marker';
+        mostSuits.forEach(color => { const square = document.createElement('span'); square.className = `victory-condition-square ${color}`; marker.append(square); });
+        marker.append('most'); tag.appendChild(marker);
+      }
     }
 
     const pendingExchange = state.game?.pendingExchange;
@@ -4297,13 +4383,20 @@ function renderPlayerCircle(players){
         capture.appendChild(characterBundle);
       }
     }
-    const threatCards = state.game?.threatCards?.[p.id] || [];
     const characterOffsetCount = !isMe && character ? 1 : 0;
+    const equipmentCards = state.game?.equipmentCards?.[p.id] || [];
+    equipmentCards.forEach((equipmentCard, equipmentIndex) => {
+      const bundle = document.createElement('div'); bundle.className = 'capture-trick equipment-capture';
+      bundle.style.left = `${(characterOffsetCount + equipmentIndex) * 40}px`; bundle.style.zIndex = String(characterOffsetCount + equipmentIndex + 1);
+      const holder = document.createElement('div'); holder.className = 'capture-card'; holder.style.setProperty('--stack-rotate', '0deg');
+      holder.appendChild(createCardElement(equipmentCard)); bundle.appendChild(holder); capture.appendChild(bundle);
+    });
+    const threatCards = state.game?.threatCards?.[p.id] || [];
     // 脅威カードは獲得カード列の先頭（他プレイヤーは公開キャラクターの直後）へ、重ねずに並べる。
     threatCards.forEach((threatCard, threatIndex) => {
       const threatBundle = document.createElement('div');
       threatBundle.className = 'capture-trick threat-capture';
-      threatBundle.style.left = `${(characterOffsetCount + threatIndex) * 40}px`;
+      threatBundle.style.left = `${(characterOffsetCount + equipmentCards.length + threatIndex) * 40}px`;
       threatBundle.style.zIndex = String(characterOffsetCount + threatIndex + 1);
       const holder = document.createElement('div');
       holder.className = 'capture-card';
@@ -4318,7 +4411,7 @@ function renderPlayerCircle(players){
       }
       capture.appendChild(threatBundle);
     });
-    const leadingCaptureOffset = (characterOffsetCount + threatCards.length) * 40;
+    const leadingCaptureOffset = (characterOffsetCount + equipmentCards.length + threatCards.length) * 40;
     // 黄カードを横へ広げた分は、詰め表示でも次のトリックとの間隔に加える。
     // 各トリックの黄カード枚数は最大でも少数なので、全体を広げすぎず重なりも判別できる。
     const compactYellowOffsets = [];
