@@ -281,7 +281,8 @@
   .barrow-deck::after{transform:translateX(4px);z-index:-2;}
   .barrow-deck.empty{visibility:hidden;}
   /* 脅威デッキは森・塚デッキと同じ場所に置き、カード面と同じ絵を裏面にも使う。 */
-  .threat-deck-area{display:none;position:absolute;right:72px;top:22px;width:80px;height:56px;pointer-events:none;perspective:240px;}
+  /* eventCardRow 内にある古森デッキの実表示座標へ合わせ、勝利条件カードより前面に固定する。 */
+  .threat-deck-area{display:none;position:absolute;right:66px;top:-27px;width:80px;height:56px;pointer-events:none;perspective:240px;z-index:9;}
   .center-lower-card-area:not(.character-selection-layout)>.threat-deck-area.active{display:block;}
   .threat-deck{position:absolute;right:0;inset-block:0;border:1px solid #4a2f20;border-radius:6px;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-sizing:border-box;isolation:isolate;width:38px;}
   .threat-deck::before,.threat-deck::after{content:'';position:absolute;inset:0;border:1px solid #4a2f20;border-radius:6px;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-sizing:border-box;z-index:-1;}
