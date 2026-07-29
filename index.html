@@ -2259,9 +2259,11 @@ function createVictoryConditionIcon(cardData, playerId){
   } else if (name === 'アルウェン') {
     icon.append(label('most'), square('', 'green'));
   } else if (name === 'ガラドリエル') {
-    icon.append(square('min/max'));
+    icon.append(coloredTrick(), label('min/max'));
   } else if (name === 'ケレボルン') {
-    icon.append(square('n'), square('n'), square('n'));
+    const sameNumberSquares = [square('n'), square('n'), square('n')];
+    sameNumberSquares.forEach(item => item.classList.add('number-centered'));
+    icon.append(...sameNumberSquares);
   } else if (name === 'ボロミア') {
     icon.classList.add('multiline');
     const fail = label('✕');
@@ -4533,8 +4535,10 @@ function renderMyHand(){
   })).filter(({ normalized }) => normalized.id !== selectedExchangeCardId)
     .filter(({ normalized }) => normalized.kind !== 'character' || !characterIsWaiting).sort((left, right) => {
     // 鏡のドラフト中だけは、前ラウンドの余りの右側に新しい4枚を配った順序を保つ。
-    if (preserveMirrorDealOrder) return (left.normalized.mirrorBatch || 0) - (right.normalized.mirrorBatch || 0)
-      || left.cardIndex - right.cardIndex;
+    if (preserveMirrorDealOrder) {
+      const mirrorPosition = card => card.kind === 'character' ? 0 : card.mirrorReceived ? 1 : 1 + Number(card.mirrorBatch || 1);
+      return mirrorPosition(left.normalized) - mirrorPosition(right.normalized) || left.cardIndex - right.cardIndex;
+    }
     if (left.normalized.id === radagastReservedId) return -1;
     if (right.normalized.id === radagastReservedId) return 1;
     if (left.normalized.kind === 'character') return right.normalized.kind === 'character' ? 0 : -1;
@@ -4633,6 +4637,13 @@ function scheduleMirrorDraft(){
         return room;
       }
       if (Number(current.round) === 1) {
+        // 1回目に受け取った札は、2回目の4枚を配る前に手札の左側へ確定する。
+        // mirrorReceived を付け、2回目の譲渡対象（mirrorBatch:2）には含めない。
+        order.forEach(targetId => order.forEach(sourceId => {
+          const received = current.offers?.[1]?.[sourceId]?.[targetId];
+          if (received) room.hands[targetId].cards.push({ ...received, mirrorReceived:true });
+        }));
+        current.offers[1] = {};
         current.round = 2;
         order.forEach(playerId => {
           const dealt = current.deck.splice(0, 4).map((card, index) => ({ ...card, mirrorBatch:2, id:`${playerId}-mirror-2-${index}-${game.startedAt}` }));
