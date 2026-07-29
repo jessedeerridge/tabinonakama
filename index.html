@@ -5053,11 +5053,7 @@ async function chooseCharacter(characterName, source){
         : ['山の下さん', 'グロルフィンデル', 'エルロンド', 'ラダガスト'];
       const forcedLeader = forcedLeaderNames.map(name => Object.entries(room.game.characterSelections)
         .find(([, selected]) => selected.name === name)?.[0]).find(Boolean);
-      const frodoId = Object.entries(room.game.characterSelections).find(([, selected]) => selected.name === 'フロド')?.[0];
-      const frodoLeftPlayerId = Number(room.game.stageNumber) === 16 && frodoId
-        ? room.game.playerOrder[(room.game.playerOrder.indexOf(frodoId) + 1) % room.game.playerOrder.length]
-        : null;
-      room.game.startingPlayerId = frodoLeftPlayerId || forcedLeader || room.game.turnPlayerId || room.game.playerOrder[0];
+      room.game.startingPlayerId = forcedLeader || room.game.turnPlayerId || room.game.playerOrder[0];
       if (Number(room.game.stageNumber) === 6 && room.game.barrowDeck?.length) {
         room.game.barrowPlayerId = Object.entries(room.game.characterSelections)
           .find(([, selected]) => selected.name === 'トム・ボンバディル')?.[0] || null;
