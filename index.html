@@ -150,6 +150,8 @@
   .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
   /* 第十三章の脅威デッキは、黒の乗手とは別の専用イラストを使う。 */
   .threat-card.chapter-thirteen-threat{background-image:url('kyoi17.jpg');}
+  .threat-card.concealed{border-color:#10233f;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.18);}
+  .threat-card.concealed>*{display:none;}
   /* character-card の共通規則より詳細度を上げ、通常の脅威カードと同じ茶枠・黒塗りを保つ。 */
   .character-card.special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505;}
   .character-card.special-threat-card .character-label{left:-4px;right:auto;width:max-content;min-width:0;max-width:calc(100% + 4px);height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
@@ -184,6 +186,10 @@
   .victory-condition-icon.gandalf-numbers .victory-condition-square{display:flex;align-items:center;justify-content:center;padding:0;text-align:center;line-height:1;}
   .victory-condition-square.number-acquired{opacity:.25;}
   .victory-condition-icon.awaiting-threat{display:none;}
+  .victory-condition-icon.moria-gimli-sequence{position:relative;gap:0;padding-right:18px;}
+  .victory-condition-icon.moria-gimli-sequence::after{content:'+1';position:absolute;right:0;font-size:9px;font-weight:900;}
+  .moria-sequence-arrow{position:absolute;left:2px;right:17px;top:6px;height:4px;background:#142b4a;z-index:4;}
+  .moria-sequence-arrow::after{content:'';position:absolute;right:-5px;top:-3px;border-left:6px solid #142b4a;border-top:5px solid transparent;border-bottom:5px solid transparent;}
   .victory-condition-icon.word .victory-condition-square{width:24px;}
   .victory-condition-icon.multiline{height:auto;flex-direction:column;gap:1px;line-height:12px;}
   .victory-condition-line{display:flex;align-items:center;justify-content:center;gap:2px;height:15px;}
@@ -216,6 +222,7 @@
   .victory-condition-trick::after{left:3px;top:0;z-index:1;}
   .victory-condition-fail{position:relative;margin-right:-5px;top:-1px;z-index:4;color:#c94c47;font-size:12px;line-height:15px;}
   .character-card-unit{position:relative;flex:0 0 82px;width:82px;height:122px;}
+  .moria-owner-badge{position:absolute;right:3px;top:3px;width:16px;height:16px;border:2px solid #fff;border-radius:50%;box-sizing:border-box;background:#2563a6;color:#fff;display:grid;place-items:center;font:900 10px/12px system-ui;z-index:8;box-shadow:0 1px 4px rgba(0,0,0,.35);}
   .character-card-unit>.character-card{width:82px;height:122px;}
   .character-card-unit>.victory-condition-icon{position:absolute;left:50%;top:var(--victory-icon-top,127px);z-index:4;transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
   .character-capture>.victory-condition-icon{position:absolute;left:50%;top:61px;z-index:2;transform:translateX(-50%);}
@@ -281,7 +288,7 @@
   /* ミニ表示にはルール面ではなく、2枚目のあらすじイベント面を使う。 */
   .event-stage-layout:not(.character-selection-layout) .event-card-row .event-card:first-child{display:none;}
   .event-stage-layout.chapter-fourteen:not(.character-selection-layout) .event-card-row .event-card{display:none;}
-  .event-stage-layout.chapter-fourteen:not(.character-selection-layout) .event-card-row .event-card:first-child{display:block;}
+  .event-stage-layout.chapter-fourteen:not(.character-selection-layout) .event-card-row .event-card.moria-active-event{display:block;}
   /* 第五章の古森デッキは、小イベントカードの左に獲得札と同じ大きさで置く。 */
   .old-forest-area{display:none;}
   .event-stage-layout:not(.character-selection-layout) .old-forest-area{
@@ -1295,10 +1302,12 @@ function createCardElement(cardData){
   card.className = `my-card card-${cardData.color}`;
   if (cardData.color === 'green' && Number(cardData.number) === 9) card.classList.add('card-nine');
   if (cardData.kind === 'threat') card.classList.add('threat-card');
+  if (cardData.kind === 'threat' && cardData.concealed) card.classList.add('concealed');
   if (cardData.kind === 'threat' && Number(state.game?.stageNumber) === 13) card.classList.add('chapter-thirteen-threat');
   const isYellowOne = cardData.kind !== 'threat' && cardData.color === 'yellow' && cardData.number === 1;
   if (isYellowOne) card.classList.add('yellow-one');
-  card.setAttribute('aria-label', `${cardData.kind === 'threat' ? '脅威 ' : ''}${cardData.name} ${cardData.number}`);
+  card.setAttribute('aria-label', cardData.kind === 'threat' && cardData.concealed
+    ? '非公開の脅威カード' : `${cardData.kind === 'threat' ? '脅威 ' : ''}${cardData.name} ${cardData.number}`);
   if (cardData.id) card.dataset.cardId = cardData.id;
 
   const createBadge = side => {
@@ -1344,8 +1353,8 @@ function createCardElement(cardData){
 function createEquipmentCardElement(cardData){
   const card = document.createElement('div');
   card.className = 'my-card character-card equipment-card';
-  card.style.backgroundImage = `url('${cardData.image}')`;
-  card.setAttribute('aria-label', `装備 ${cardData.name} ${cardData.cardNumber}`);
+  card.style.backgroundImage = `url('${cardData.image || 'eventback.jpg'}')`;
+  card.setAttribute('aria-label', `所持カード ${cardData.name}${cardData.cardNumber ? ` ${cardData.cardNumber}` : ''}`);
   const name = document.createElement('span'); name.className = 'character-label'; name.textContent = cardData.name;
   const special = document.createElement('span'); special.className = 'character-label character-special'; special.textContent = cardData.specialName;
   fitCharacterName(name); fitCharacterName(special);
@@ -1427,6 +1436,14 @@ function createCharacterCardElement(cardData){
     createCharacterEffectRow('special', cardData.effect || '特殊説明')
   );
   card.append(name, special, effect);
+  const moriaOwner = Number(state.game?.stageNumber) === 14 && state.game?.moriaEventOwnerId
+    && state.game.characterSelections?.[state.game.moriaEventOwnerId]?.name === cardData.name;
+  if (moriaOwner) {
+    const badge = document.createElement('span');
+    badge.className = 'moria-owner-badge'; badge.textContent = '!';
+    badge.setAttribute('aria-label', 'モリアイベント所持者');
+    card.appendChild(badge);
+  }
   card.addEventListener('click', event => {
     event.stopPropagation();
     openCardZoom(card);
@@ -1554,6 +1571,24 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   const cardsOfSuit = (cards, color) => cards.filter(card => card.color === color).length;
   const possibleTricks = trickCount + remainingRounds;
 
+  if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 0 && character.name === 'ガンダルフ') {
+    const requiredSuits = ['orange', 'gray', 'green'];
+    const capturedSuits = new Set(capturedCards.map(card => card.color));
+    if (requiredSuits.every(suit => capturedSuits.has(suit))) return { status:'achieved' };
+    const possibleSuits = new Set([...capturedCards, ...remainingCards].map(card => card.color));
+    return { status:!isFinished && requiredSuits.every(suit => possibleSuits.has(suit)) ? 'pending' : 'failed' };
+  }
+
+  if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 1 && character.name === 'ギムリ') {
+    const capturedMountains = new Set(capturedCards.filter(card => card.color === 'gray').map(card => Number(card.number)));
+    const hasRun = numbers => Array.from({ length:5 }, (_, offset) => offset + 1)
+      .some(start => [0, 1, 2, 3].every(step => numbers.has(start + step)));
+    if (hasRun(capturedMountains)) return { status:'achieved' };
+    const possibleMountains = new Set([...capturedCards, ...remainingCards]
+      .filter(card => card.color === 'gray').map(card => Number(card.number)));
+    return { status:!isFinished && hasRun(possibleMountains) ? 'pending' : 'failed' };
+  }
+
   if (character.name === '農夫マゴット') {
     const threatRanks = new Set((game.threatCards?.[playerId] || []).map(card => Number(card.number)));
     const count = capturedCards.filter(card => threatRanks.has(Number(card.number))).length;
@@ -1562,7 +1597,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     return { status:!isFinished && count + available >= 2 ? 'pending' : 'failed' };
   }
 
-  if (Number(game.stageNumber) === 13 && ['レゴラス', 'ギムリ'].includes(character.name)) {
+  if ([13, 14].includes(Number(game.stageNumber)) && ['レゴラス', 'ギムリ'].includes(character.name)) {
     const threat = Number(threatNumberForPlayer(game, playerId));
     const suit = character.name === 'レゴラス' ? 'green' : 'gray';
     if (!Number.isFinite(threat)) return { status:'pending' };
@@ -1978,7 +2013,19 @@ function createVictoryConditionIcon(cardData, playerId){
     return items;
   };
 
-  if (Number(state.game?.stageNumber) === 12 && name === 'ガンダルフ') {
+  const moriaEventIndex = Number(state.game?.moriaEventIndex);
+  const moriaDarknessConcealed = Number(state.game?.stageNumber) === 14 && moriaEventIndex === 2
+    && ['サム', 'アラゴルン', 'レゴラス', 'ギムリ'].includes(name) && !achieved;
+  if (Number(state.game?.stageNumber) === 14 && moriaEventIndex === 0 && name === 'ガンダルフ') {
+    icon.append(square('', 'orange'), square('', 'gray'), square('', 'green'));
+  } else if (Number(state.game?.stageNumber) === 14 && moriaEventIndex === 1 && name === 'ギムリ') {
+    icon.classList.add('moria-gimli-sequence');
+    icon.append(square('', 'gray'), square('', 'gray'), square('', 'gray'), square('', 'gray'));
+    const sequenceArrow = document.createElement('span'); sequenceArrow.className = 'moria-sequence-arrow';
+    icon.appendChild(sequenceArrow);
+  } else if (moriaDarknessConcealed) {
+    icon.append(square('?', 'white'));
+  } else if (Number(state.game?.stageNumber) === 12 && name === 'ガンダルフ') {
     icon.classList.add('gandalf-numbers');
     const acquired = new Set((state.game?.capturedTricks?.[playerId] || []).flatMap(trick => trick.cards || []).map(card => Number(card.number)));
     for (let number = 1; number <= 8; number += 1) {
@@ -2452,6 +2499,7 @@ function renderStageInformation(){
     const displayedMoriaIndex = state.game?.phase === 'character-selection'
       ? Number(state.game?.moriaEventScrollIndex ?? 0) : Number(state.game?.moriaEventIndex ?? 0);
     card.classList.toggle('moria-selected', isChapterFourteen && displayedMoriaIndex === index);
+    card.classList.toggle('moria-active-event', isChapterFourteen && Number(state.game?.moriaEventIndex ?? 0) === index);
     if (isChapterFourteen) card.dataset.moriaIndex = String(index);
     else delete card.dataset.moriaIndex;
   });
@@ -2762,7 +2810,10 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
-    const needsThreatDraw = ['農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ'].includes(characterName)
+    const darknessAragornDraw = Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 2
+      && characterName === 'アラゴルン';
+    const needsThreatDraw = (['農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ'].includes(characterName)
+      || darknessAragornDraw)
       && !(game.threatCards?.[sourceId] || []).some(card => card.kind === 'threat');
     if (needsThreatDraw) {
       game.phase = 'threat-draw-wait';
@@ -2890,6 +2941,7 @@ function drawThreatForCharacterEffect(game, playerId){
   game.threatCards[playerId] ||= [];
   const drawnCard = {
     kind:'threat', color:'threat', name:threat.name, number:rank,
+    ...(Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 2 ? { concealed:true } : {}),
     id:`${playerId}-threat-${Date.now()}-${rank}`
   };
   game.threatCards[playerId].push(drawnCard);
@@ -3110,6 +3162,13 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
   flight.dataset.threatDrawTransfer = transferKey;
   document.body.appendChild(flight);
   try {
+    if (transfer.card.concealed) {
+      await flight.animate([
+        { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(180deg)` },
+        { left:`${targetLeft}px`, top:`${targetTop}px`, transform:`scale(${destinationScale}) rotateY(180deg)` }
+      ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
+      return;
+    }
     await flight.animate([
       { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(180deg)` },
       { left:`${leftReveal}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(0deg)` }
@@ -4329,6 +4388,25 @@ async function chooseCharacter(characterName, source){
     if (Number(room.game.stageNumber) === 14
         && Object.keys(room.game.characterSelections).length === (room.game.playerOrder || []).length) {
       room.game.moriaEventIndex = Number(room.game.moriaEventScrollIndex ?? 0);
+      const eventOwners = ['ガンダルフ', 'ギムリ', 'アラゴルン', 'ガンダルフ'];
+      const ownerName = eventOwners[room.game.moriaEventIndex];
+      const ownerId = Object.entries(room.game.characterSelections).find(([, selected]) => selected.name === ownerName)?.[0];
+      if (ownerId) {
+        room.game.moriaEventOwnerId = ownerId;
+        const event = STAGES.find(stage => stage.number === 14)?.eventCards?.[room.game.moriaEventIndex];
+        const ownerCharacter = (room.hands?.[ownerId]?.cards || []).find(card => card.kind === 'character');
+        if (ownerCharacter && room.game.moriaEventIndex === 0) {
+          ownerCharacter.victory = '丘、山、森カードを各1枚以上、勝利して獲得する。';
+        } else if (ownerCharacter && room.game.moriaEventIndex === 1) {
+          ownerCharacter.victory = '連続した数字の山カードを4枚、勝利して獲得する。';
+        }
+        room.game.equipmentCards ||= {}; room.game.equipmentCards[ownerId] ||= [];
+        room.game.equipmentCards[ownerId].push({
+          kind:'equipment', name:event.title, specialName:event.secondaryHeading || event.heading,
+          effect:[event.text, event.afterText].filter(Boolean).join('\n'), image:'eventback.jpg',
+          id:`${ownerId}-moria-event-${room.game.moriaEventIndex}-${Date.now()}`
+        });
+      }
     }
     const stageElevenEquipment = Number(room.game.stageNumber) === 11 ? STAGE_ELEVEN_EQUIPMENT[characterName] : null;
     if (stageElevenEquipment) {
@@ -5120,9 +5198,10 @@ function renderPlayerCircle(players){
       const holder = document.createElement('div');
       holder.className = 'capture-card';
       holder.style.setProperty('--stack-rotate', '0deg');
-      const concealed = threatCard.name === '見えざる者' && !isMe
-        && victoryConditionStatus(state.room, p.id).status !== 'achieved';
-      holder.appendChild(createCardElement(concealed ? { ...threatCard, concealed:true } : threatCard));
+      const objectiveAchieved = victoryConditionStatus(state.room, p.id).status === 'achieved';
+      const concealed = (threatCard.name === '見えざる者' && !isMe && !objectiveAchieved)
+        || (Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 2 && !objectiveAchieved);
+      holder.appendChild(createCardElement({ ...threatCard, concealed }));
       threatBundle.appendChild(holder);
       if (isMe && threatCard.kind === 'special-threat') {
         const threatConditionIcon = createThreatConditionIcon(p.id, threatCard.name);
