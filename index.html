@@ -157,7 +157,7 @@
   .character-card.special-threat-card .character-effect-icon{color:#111;}
   .character-card.special-threat-card.concealed{background:#fff url('tabicardura.jpg') center/cover no-repeat;border-color:#10233f;box-shadow:0 4px 12px rgba(0,0,0,.18);}
   .character-card.special-threat-card.concealed>*{display:none;}
-  .character-card.equipment-card{--character-frame:#aeb8c5;--character-panel:#fff8e8;border-color:#aeb8c5;background:#302f2c center/cover no-repeat;color:#3f3021;cursor:pointer;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;}
+  .character-card.equipment-card{--character-frame:#aeb8c5;--character-panel:#fff8e8;border-color:#aeb8c5;background:#302f2c center/cover no-repeat;color:#3f3021;cursor:pointer;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #050505;}
   .character-card.equipment-card .character-label{left:auto;right:-4px;width:max-content;max-width:calc(100% + 4px);padding:0 6px 0 12px;text-align:right;justify-content:flex-end;clip-path:polygon(14% 0,100% 0,100% 100%,14% 100%,0 50%);}
   .character-card.equipment-card .character-label::before{background:var(--character-panel);clip-path:polygon(14% 0,100% 0,100% 100%,14% 100%,0 50%);}
   .character-card.equipment-card .character-special{left:auto;right:-4px;top:17px;width:max-content;max-width:calc(100% + 4px);padding:2px 6px 2px 12px;text-align:right;}
@@ -1583,9 +1583,6 @@ function createVictoryConditionIcon(cardData, playerId){
     separator.textContent = 'or';
     icon.append(left, separator, right);
   };
-  const rangedCount = (count, expanded = false) => expanded
-    ? line(...countSquares(count))
-    : line(square(), label(`x ${count}`));
   const countSquares = (count, color = 'black') => {
     const items = [];
     if (count >= 4) return [square('', color), label(`x${count}`)];
@@ -1645,7 +1642,11 @@ function createVictoryConditionIcon(cardData, playerId){
   } else if (name === 'アラゴルン') {
     if (equipmentChoice) {
       const expandBoth = equipmentChoice.min === 1 && equipmentChoice.max === 2;
-      appendOr(rangedCount(equipmentChoice.min, expandBoth), rangedCount(equipmentChoice.max, expandBoth));
+      if (expandBoth) {
+        appendOr(line(...countSquares(equipmentChoice.min)), line(...countSquares(equipmentChoice.max)));
+      } else {
+        appendOr(line(square(), label(`x${equipmentChoice.min}`)), line(label(String(equipmentChoice.max))));
+      }
     } else if (threatNumber != null) icon.append(...countSquares(Number(threatNumber)));
     else icon.append(square());
   } else if (victory.includes('脅威カードと同じ数字')) {
