@@ -148,6 +148,8 @@
   .threat-card .card-name{left:0;right:auto;bottom:5px;width:66px;height:19px;padding-right:9px;box-sizing:border-box;background:#4a2f20;color:#fff;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);font-size:9px;line-height:19px;letter-spacing:0;white-space:nowrap;}
   .threat-card .card-name::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
+  /* 第十三章の脅威デッキは、黒の乗手とは別の専用イラストを使う。 */
+  .threat-card.chapter-thirteen-threat{background-image:url('kyoi17.jpg');}
   /* character-card の共通規則より詳細度を上げ、通常の脅威カードと同じ茶枠・黒塗りを保つ。 */
   .character-card.special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505;}
   .character-card.special-threat-card .character-label{left:-4px;right:auto;width:max-content;min-width:0;max-width:calc(100% + 4px);height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
@@ -504,6 +506,7 @@
   .chapter-complete-banner.hidden{display:none;}
   .chapter-complete-message{padding:9px 21px;background:#000;color:#fff;font-family:serif;font-size:clamp(18px,5vw,30px);font-weight:900;line-height:1;letter-spacing:.12em;white-space:nowrap;transform:translateX(calc(-50vw - 110%));will-change:transform;}
   .chapter-complete-banner.running .chapter-complete-message{animation:chapterCompleteFlow .8s ease-out both;}
+  .chapter-complete-banner.arrived .chapter-complete-message{transform:translateX(0);}
   .chapter-continue-btn{pointer-events:auto;padding:4px 12px;border:1px solid #111;border-radius:999px;background:#fff;color:#111;font-size:11px;font-weight:800;cursor:pointer;opacity:0;}
   .chapter-complete-banner.arrived .chapter-continue-btn{opacity:1;}
   @keyframes chapterCompleteFlow{
@@ -1225,6 +1228,7 @@ function createCardElement(cardData){
   card.className = `my-card card-${cardData.color}`;
   if (cardData.color === 'green' && Number(cardData.number) === 9) card.classList.add('card-nine');
   if (cardData.kind === 'threat') card.classList.add('threat-card');
+  if (cardData.kind === 'threat' && Number(state.game?.stageNumber) === 13) card.classList.add('chapter-thirteen-threat');
   const isYellowOne = cardData.kind !== 'threat' && cardData.color === 'yellow' && cardData.number === 1;
   if (isYellowOne) card.classList.add('yellow-one');
   card.setAttribute('aria-label', `${cardData.kind === 'threat' ? '脅威 ' : ''}${cardData.name} ${cardData.number}`);
@@ -1491,6 +1495,15 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     return { status:!isFinished && count + available >= 2 ? 'pending' : 'failed' };
   }
 
+  if (Number(game.stageNumber) === 13 && ['レゴラス', 'ギムリ'].includes(character.name)) {
+    const threat = Number(threatNumberForPlayer(game, playerId));
+    const suit = character.name === 'レゴラス' ? 'green' : 'gray';
+    if (!Number.isFinite(threat)) return { status:'pending' };
+    if (capturedCards.some(card => card.color === suit && Number(card.number) === threat)) return { status:'achieved' };
+    const stillAvailable = remainingCards.some(card => card.color === suit && Number(card.number) === threat);
+    return { status:!isFinished && stillAvailable ? 'pending' : 'failed' };
+  }
+
   if (character.name === 'ギルドール・イングロリオン') {
     if (!isFinished) return { status:'pending' };
     const allTricks = Object.values(game.capturedTricks || {}).flat();
@@ -1753,6 +1766,7 @@ function renderChapterComplete(){
 function canDecideMithril(room = state.room){
   const game = room?.game;
   if (Number(game?.stageNumber) !== 13 || game.chapterOutcome || game.mithrilDecision) return false;
+  if (game.pendingCapture || game.pendingOutcomeCheckAt) return false;
   if (room?.stageThirteenMithrilAvailable === false) return false;
   const statuses = (game.playerOrder || []).map(playerId => victoryConditionStatus(room, playerId).status);
   return statuses.filter(status => status === 'achieved').length === statuses.length - 1
@@ -1797,7 +1811,7 @@ function createVictoryConditionIcon(cardData, playerId){
   const name = cardData.name || '';
   const threatNumber = threatNumberForPlayer(state.game, playerId);
   const equipmentChoice = state.game?.equipmentChoices?.[playerId];
-  const waitsForThreat = ['農夫マゴット', 'サム', '馳夫'].includes(name)
+  const waitsForThreat = ['農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ'].includes(name)
     || (name === 'アラゴルン' && !equipmentChoice);
   if (waitsForThreat && threatNumber == null) {
     icon.classList.add('awaiting-threat');
@@ -1925,7 +1939,8 @@ function createVictoryConditionIcon(cardData, playerId){
     else icon.append(coloredTrick());
   } else if (victory.includes('脅威カードと同じ数字')) {
     const matchingSquare = () => {
-      const item = square(String(threatNumber ?? 'x'));
+      const color = name === 'レゴラス' ? 'green' : name === 'ギムリ' ? 'gray' : 'black';
+      const item = square(String(threatNumber ?? 'x'), color);
       if (name === '農夫マゴット') item.classList.add('number-centered');
       return item;
     };
@@ -2055,6 +2070,9 @@ let pendingSeatPlayerIdToSteal = null;
 let isRenderingSeatTabs = false;
 let latestPlayers = [];
 let trickClearTimer = null;
+let outcomeCheckTimer = null;
+const CAPTURE_ARRIVAL_DURATION_MS = 700;
+const OUTCOME_CHECK_DELAY_MS = 2000;
 let oldForestDrawTimer = null;
 let barrowDrawTimer = null;
 let threatDrawTimer = null;
@@ -2435,6 +2453,8 @@ function exchangeCandidates(game, sourceId){
     : characterName === '小馬のビル' ? ['サム', 'フロド']
     : characterName === 'グローイン' ? ['ビルボ', 'ビルボ・バギンズ', 'ギムリ']
     : characterName === 'アルウェン' ? ['エルロンド', 'アラゴルン']
+    : characterName === 'レゴラス' ? ['ギムリ', 'アラゴルン']
+    : characterName === 'ギムリ' ? ['レゴラス', 'アラゴルン']
     : characterName === 'ボロミア' ? (game.playerOrder || []).map(id => game.characterSelections?.[id]?.name).filter(name => name !== 'フロド')
     : characterName === 'グワイヒア' ? ['ガンダルフ']
     : null;
@@ -2454,7 +2474,7 @@ function exchangeRequirement(game, sourceId){
   if (name === '小馬のビル') return { mode:'exchange-all', count:0 };
   if (name === 'グワイヒア') return { mode:'exchange', count:2 };
   const singleExchangeNames = new Set(['ガンダルフ','トム・ボンバディル','馳夫','ピピン','サム','メリー',
-    'バーリマン・バタバー','グローイン','アルウェン','アラゴルン','ボロミア']);
+    'バーリマン・バタバー','グローイン','アルウェン','アラゴルン','ボロミア','レゴラス','ギムリ']);
   return { mode:'exchange', count:singleExchangeNames.has(name) && exchangeCandidates(game, sourceId).length ? 1 : 0 };
 }
 
@@ -2529,7 +2549,7 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
-    const needsThreatDraw = ['農夫マゴット', 'サム', '馳夫'].includes(characterName)
+    const needsThreatDraw = ['農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ'].includes(characterName)
       && !(game.threatCards?.[sourceId] || []).some(card => card.kind === 'threat');
     if (needsThreatDraw) {
       game.phase = 'threat-draw-wait';
@@ -2644,7 +2664,7 @@ function oldForestWinsTrick(game, plays){
 
 function drawThreatForCharacterEffect(game, playerId){
   const characterName = game.characterSelections?.[playerId]?.name;
-  if (!['農夫マゴット', 'サム', '馳夫', 'アラゴルン'].includes(characterName)) return;
+  if (!['農夫マゴット', 'サム', '馳夫', 'アラゴルン', 'レゴラス', 'ギムリ'].includes(characterName)) return;
   game.threatCards ||= {};
   if ((game.threatCards[playerId] || []).some(card => card.kind === 'threat')) return;
   const stage = STAGES.find(item => item.number === Number(game.stageNumber));
@@ -3053,6 +3073,7 @@ function subscribeRoom(){
     scheduleOldForestDraw();
     scheduleBarrowDraw();
     scheduleThreatDraw();
+    scheduleOutcomeCheck();
     const barrowTransfer = state.game?.barrowDrawTransfer;
     if (barrowTransfer?.movedAt && barrowTransfer.movedAt !== lastAnimatedBarrowDrawAt) {
       requestAnimationFrame(() => animateBarrowDraw(barrowSourceRect, barrowTransfer));
@@ -3475,29 +3496,39 @@ function scheduleTrickClear(){
       }
       delete game.trick;
       delete game.pendingCapture;
+      // 獲得欄へ到着するアニメーションが終わってから、結果判定までさらに2秒待つ。
+      game.pendingOutcomeCheckAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS + OUTCOME_CHECK_DELAY_MS;
       // 獲得カードの移動完了から1秒待って、次の森カードを公開する。
       if (!game.finished && Number(game.stageNumber) === 5 && game.oldForestDeck?.length) {
         game.pendingOldForestDrawAt = Date.now() + 1000;
       }
+      return game;
+    });
+  }, Math.max(0, captureAt - Date.now()) + 20);
+}
+
+function scheduleOutcomeCheck(){
+  clearTimeout(outcomeCheckTimer);
+  const checkAt = state.game?.pendingOutcomeCheckAt;
+  if (!checkAt || !state.roomCode) return;
+  outcomeCheckTimer = setTimeout(async () => {
+    await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+      const game = room?.game;
+      if (!game?.pendingOutcomeCheckAt || game.pendingOutcomeCheckAt !== checkAt || Date.now() < checkAt) return;
       if (!game.finished && Number(game.stageNumber) === 13) {
         const playerIds = game.playerOrder || [];
-        const statuses = playerIds.map(playerId => victoryConditionStatus({ game, hands:state.room?.hands || {} }, playerId).status);
+        const statuses = playerIds.map(playerId => victoryConditionStatus(room, playerId).status);
         const oneFailureCanBeResolved = statuses.filter(status => status === 'achieved').length === playerIds.length - 1
           && statuses.filter(status => status === 'failed').length === 1;
         // 残る一人の失敗が確定した時点でトリックを切り上げ、胴着の判断へ移る。
         if (oneFailureCanBeResolved) game.finished = true;
       }
-      const outcome = chapterOutcome({
-        game,
-        hands:state.room?.hands || {},
-        stageThirteenMithrilAvailable:state.room?.stageThirteenMithrilAvailable
-      });
-      if (!game.chapterOutcome && outcome) {
-        game.chapterOutcome = { status:outcome, decidedAt:Date.now() };
-      }
-      return game;
+      const outcome = chapterOutcome(room);
+      if (!game.chapterOutcome && outcome) game.chapterOutcome = { status:outcome, decidedAt:Date.now() };
+      delete game.pendingOutcomeCheckAt;
+      return room;
     });
-  }, Math.max(0, captureAt - Date.now()) + 20);
+  }, Math.max(0, checkAt - Date.now()) + 20);
 }
 
 function scheduleOldForestDraw(){
@@ -3626,7 +3657,7 @@ function renderMyHand(){
       && (!shadowfaxReserved || shadowfaxReserved.inHand || normalized.id !== shadowfaxReserved.id);
     const canPlay = normalized.kind !== 'character' && canPlayReserved && state.game?.phase === 'playing'
       && !state.game.pendingCapture && !state.game.pendingYellowOneDecision
-      && !state.game.pendingOldForestDrawAt
+      && !state.game.pendingOldForestDrawAt && !state.game.pendingOutcomeCheckAt
       && state.game.turnPlayerId === myId && canFollowSuit(normalized);
     if (canPlay) {
       hasPlayableCards = true;
@@ -3789,7 +3820,7 @@ async function playCard(cardIndex, expectedCard){
   if (!state.roomCode) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
     if (!room?.game || room.game.phase !== 'playing' || room.game.pendingCapture
-      || room.game.pendingYellowOneDecision || room.game.pendingOldForestDrawAt
+      || room.game.pendingYellowOneDecision || room.game.pendingOldForestDrawAt || room.game.pendingOutcomeCheckAt
       || room.game.turnPlayerId !== state.userId) return;
     const hand = room.hands?.[state.userId]?.cards;
     const card = hand?.[cardIndex];
@@ -3931,8 +3962,8 @@ function characterCardData(character, playerId){
     'グワイヒア':{specialName:'風早彦',victory:'山がプレイされているトリックを2トリック獲得。',effect:'〈ガンダルフ〉と交換する。その後、再び〈ガンダルフ〉と交換する。',cardNumber:'2.46', rank:'黒', frameColor:'銀'},
     'ラダガスト':{specialName:'茶色の魔法使い',victory:'森がプレイされているトリックを2トリック獲得。',effect:'手札から1枚選び、表向きにして脇に置く。そのカードは最後のトリックでプレイする。その後、最初のトリックのカードをプレイする。',cardNumber:'2.48', rank:'黒', frameColor:'緑'},
     '飛蔭（とびかげ）':{specialName:'馬の王者',victory:'丘がプレイされているトリックを2トリック獲得。',effect:'手札を1枚選び、裏向きでこのカードの下に入れる。任意のタイミング、もしくは手札がなくなったとき、そのカードを手札に戻す。',cardNumber:'2.47', rank:'黒', frameColor:'金'},
-    'レゴラス':{specialName:'エルフの王子',victory:'最も多く森カードを獲得する。',effect:'なし',cardNumber:'3.02',rank:'無し',frameColor:'緑'},
-    'ギムリ':{specialName:'ドワーフの戦士',victory:'最も多く山カードを獲得する。',effect:'なし',cardNumber:'3.03',rank:'無し',frameColor:'銀'}
+    'レゴラス':{specialName:'闇の森のエルフ',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉か〈アラゴルン〉と交換する。',cardNumber:'3.09',rank:'無し',frameColor:'緑'},
+    'ギムリ':{specialName:'ドゥリンの民',victory:'引いた脅威カードと同じ数字の山カードを獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.10',rank:'無し',frameColor:'銀'}
   };
   const details = { ...(characterDetails[character.name] || {}) };
   if (Number(state.game?.stageNumber) === 13 && character.name === 'フロド') {
