@@ -355,7 +355,7 @@
   @keyframes exchangeCardPulse{50%{transform:scale(1.07)}}
   .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:68px;height:68px;box-sizing:border-box;border:0;border-radius:14px;transform:translate(-50%,-50%);background:rgba(56,189,248,.42);pointer-events:none;opacity:0;z-index:40;}
   .player-tag.exchange-drag-target .exchange-hand-hint{opacity:1;}
-  .exchange-received-card{position:absolute;left:50%;top:calc(100% + 30px);width:54px;height:81px;border:1px solid #10233f;border-radius:7px;background:#fff url('tabicardura.jpg') center/cover no-repeat;transform:translate(-50%,-50%) rotate(var(--received-tilt,0deg));transform-origin:center;pointer-events:none;z-index:42;box-shadow:0 3px 8px rgba(0,0,0,.2);}
+  .exchange-received-card{position:absolute;left:calc(50% + var(--received-offset-x,0px));top:calc(100% + 30px + var(--received-offset-y,0px));width:54px;height:81px;border:1px solid #10233f;border-radius:7px;background:#fff url('tabicardura.jpg') center/cover no-repeat;transform:translate(-50%,-50%) rotate(var(--received-tilt,0deg));transform-origin:center;pointer-events:none;z-index:calc(42 + var(--received-index,0));box-shadow:0 3px 8px rgba(0,0,0,.2);}
   .player-tag.me .exchange-received-card{top:-5px;transform:translate(-50%,-100%) rotate(calc(180deg + var(--received-tilt,0deg)));}
   .exchange-received-card.face-up{border:0;background:transparent;box-shadow:none;}
   .player-tag.me .exchange-received-card.face-up{transform:translate(-50%,-100%) rotate(var(--received-tilt,0deg));}
@@ -1950,6 +1950,7 @@ const characterSelectionSources = new Map();
 const characterAnimationUntil = new Map();
 let lastAnimatedExchangeAt = null;
 let lastAnimatedExchangeOfferAt = null;
+let lastAnimatedGlorfindelExchangeAt = null;
 let lastAnimatedElrondTransferAt = null;
 const exchangeDropPositions = new Map();
 
@@ -2331,7 +2332,9 @@ function exchangeRequirement(game, sourceId){
   if (name === 'エルロンド') return { mode:'exchange', count:0 };
   // グロルフィンデルは専用の同時交換フェーズで全員分を処理する。
   if (name === 'グロルフィンデル') return { mode:'exchange-all', count:0 };
-  if (name === '小馬のビル' || name === 'グワイヒア') return { mode:'exchange', count:2 };
+  // 小馬のビルもグロルフィンデルと同じく、対象全員との交換を同時に確定する。
+  if (name === '小馬のビル') return { mode:'exchange-all', count:0 };
+  if (name === 'グワイヒア') return { mode:'exchange', count:2 };
   const singleExchangeNames = new Set(['ガンダルフ','トム・ボンバディル','馳夫','ピピン','サム','メリー',
     'バーリマン・バタバー','グローイン','アルウェン','アラゴルン','ボロミア']);
   return { mode:'exchange', count:singleExchangeNames.has(name) && exchangeCandidates(game, sourceId).length ? 1 : 0 };
@@ -2441,10 +2444,19 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'グロルフィンデル' && !game.glorfindelExchangeCompleted) {
+    const simultaneousExchangeCompleted = game.simultaneousExchangeCompleted?.[sourceId]
+      || (characterName === 'グロルフィンデル' && game.glorfindelExchangeCompleted);
+    if (['グロルフィンデル', '小馬のビル'].includes(characterName) && !simultaneousExchangeCompleted) {
+      const simultaneousCandidates = exchangeCandidates(game, sourceId);
+      if (!simultaneousCandidates.length) {
+        game.simultaneousExchangeCompleted ||= {};
+        game.simultaneousExchangeCompleted[sourceId] = true;
+        game.exchangeQueue.shift();
+        continue;
+      }
       game.phase = 'glorfindel-exchange-selection';
       game.pendingGlorfindelExchange = {
-        sourceId, candidates:exchangeCandidates(game, sourceId),
+        sourceId, characterName, candidates:simultaneousCandidates,
         sourceCards:{}, targetCards:{}, requestedAt:Date.now()
       };
       game.turnPlayerId = null;
@@ -2855,6 +2867,34 @@ function animateElrondTransfer(transfer, oldPositions){
   });
 }
 
+function animateSimultaneousExchangeTransfer(transfer, oldPositions){
+  if (!transfer?.completedAt || transfer.completedAt === lastAnimatedGlorfindelExchangeAt) return;
+  lastAnimatedGlorfindelExchangeAt = transfer.completedAt;
+  (transfer.cards || []).forEach(({ card, fromId, toId }) => {
+    if (!card) return;
+    const from = oldPositions.get(`card:${card.id}`) || oldPositions.get(fromId);
+    const exactTarget = toId === state.userId ? myHandEl.querySelector(`[data-card-id="${CSS.escape(card.id)}"]`) : null;
+    const targetElement = exactTarget
+      || playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(toId)}"] .mini-hand`)
+      || playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(toId)}"]`);
+    const to = targetElement?.getBoundingClientRect();
+    if (!from || !to) return;
+    const flight = document.createElement('div');
+    flight.classList.add('exchange-card-flight', 'card-back');
+    const startScale = Math.min(from.width / 82, from.height / 122, 1);
+    const endScale = toId === state.userId ? currentHandCardScale() : Math.min(to.width / 82, to.height / 122, 1);
+    Object.assign(flight.style, { left:`${from.left}px`, top:`${from.top}px`, transform:`scale(${startScale})` });
+    document.body.appendChild(flight);
+    if (exactTarget) exactTarget.style.opacity = '0';
+    flight.animate([
+      { left:`${from.left}px`, top:`${from.top}px`, transform:`scale(${startScale})` },
+      { left:`${to.left}px`, top:`${to.top}px`, transform:`scale(${endScale})` }
+    ], { duration:1400, easing:'cubic-bezier(.22,.8,.25,1)', fill:'forwards' }).finished.finally(() => {
+      flight.remove(); exactTarget?.style.removeProperty('opacity');
+    });
+  });
+}
+
 function animateMyHandReflow(previousRects){
   myHandEl.querySelectorAll('[data-card-id]').forEach(card => {
     const previous = previousRects.get(card.dataset.cardId);
@@ -2921,6 +2961,10 @@ function subscribeRoom(){
         animateMyHandReflow(previousMyHandRects);
         animateElrondTransfer(elrondTransfer, previousExchangePositions);
       });
+    }
+    const simultaneousTransfer = state.game?.glorfindelExchangeTransfer;
+    if (simultaneousTransfer?.completedAt && simultaneousTransfer.completedAt !== lastAnimatedGlorfindelExchangeAt) {
+      requestAnimationFrame(() => animateSimultaneousExchangeTransfer(simultaneousTransfer, previousExchangePositions));
     }
     const transfer = state.game?.lostCardTransfer;
     if (transfer?.movedAt && transfer.movedAt !== previousTransferAt && excludedSourceRect) {
@@ -3029,7 +3073,9 @@ function renderExchangeDialog(){
     const recipientText = otherId
       ? playerName(otherId)
       : (exchange.candidates || []).map(playerName).join('か');
-    exchangeMessage.textContent = `${recipientText}にあげるカードを選んでください。`;
+    exchangeMessage.textContent = exchange.mode === 'give' || exchange.mode === 'give-right'
+      ? `${recipientText}にあげるカードを選んでください。`
+      : `${recipientText}と交換するカードを選んでください。`;
     exchangeDialog.querySelector('.exchange-note').classList.add('hidden');
   }
 }
@@ -3121,9 +3167,15 @@ async function chooseGlorfindelExchangeCard(cardId, droppedTargetId){
       room.hands[id].cards.push(pending.sourceCards[id]);
       room.hands[pending.sourceId].cards.push(pending.targetCards[id]);
     });
-    game.glorfindelExchangeCompleted = true;
+    game.simultaneousExchangeCompleted ||= {};
+    game.simultaneousExchangeCompleted[pending.sourceId] = true;
+    if (pending.characterName === 'グロルフィンデル') game.glorfindelExchangeCompleted = true;
+    const transferCards = pending.candidates.flatMap(id => [
+      { card:pending.sourceCards[id], fromId:pending.sourceId, toId:id },
+      { card:pending.targetCards[id], fromId:id, toId:pending.sourceId }
+    ]);
     game.glorfindelExchangeTransfer = {
-      sourceId:pending.sourceId, targetIds:[...pending.candidates], completedAt:Date.now()
+      sourceId:pending.sourceId, targetIds:[...pending.candidates], cards:transferCards, completedAt:Date.now()
     };
     delete game.pendingGlorfindelExchange;
     if (game.exchangeQueue?.[0] === pending.sourceId) game.exchangeQueue.shift();
@@ -3869,7 +3921,10 @@ async function chooseCharacter(characterName, source){
     }
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
-      const forcedLeaderNames = Number(room.game.stageNumber) === 12
+      const selectedCharacterNames = new Set(Object.values(room.game.characterSelections).map(selected => selected.name));
+      const forcedLeaderNames = selectedCharacterNames.has('フロド') && selectedCharacterNames.has('グロルフィンデル')
+        ? ['グロルフィンデル']
+        : Number(room.game.stageNumber) === 12
         ? ['ガンダルフ']
         : ['山の下さん', 'グロルフィンデル', 'エルロンド', 'ラダガスト'];
       const forcedLeader = forcedLeaderNames.map(name => Object.entries(room.game.characterSelections)
@@ -4439,18 +4494,25 @@ function renderPlayerCircle(players){
       receivedCard.setAttribute('aria-label', 'エルロンドの効果で受け取った保留カード');
       tag.appendChild(receivedCard);
     }
-    const heldGlorfindelCard = state.game?.pendingGlorfindelExchange?.sourceCards?.[p.id];
-    if (heldGlorfindelCard) {
+    const simultaneousExchange = state.game?.pendingGlorfindelExchange;
+    const heldSimultaneousCards = simultaneousExchange?.sourceId === p.id
+      ? Object.values(simultaneousExchange.targetCards || {})
+      : [simultaneousExchange?.sourceCards?.[p.id]].filter(Boolean);
+    heldSimultaneousCards.slice(0, 3).forEach((heldGlorfindelCard, heldIndex) => {
       const receivedCard = document.createElement('div');
       receivedCard.className = 'exchange-received-card';
       receivedCard.dataset.cardId = heldGlorfindelCard.id;
-      receivedCard.setAttribute('aria-label', 'グロルフィンデルから受け取った同時交換カード');
+      receivedCard.style.setProperty('--received-index', heldIndex);
+      receivedCard.style.setProperty('--received-offset-x', `${heldIndex * 9}px`);
+      receivedCard.style.setProperty('--received-offset-y', `${heldIndex * 3}px`);
+      receivedCard.style.setProperty('--received-tilt', `${(heldIndex - (heldSimultaneousCards.length - 1) / 2) * 4}deg`);
+      receivedCard.setAttribute('aria-label', `${simultaneousExchange.characterName || 'グロルフィンデル'}の同時交換で受け取る保留カード`);
       if (p.id === state.userId) {
         receivedCard.classList.add('face-up');
         receivedCard.appendChild(createCardElement(heldGlorfindelCard));
       }
       tag.appendChild(receivedCard);
-    }
+    });
     const offer = state.game?.exchangeOfferTransfer;
     if (state.game?.pendingExchange && offer?.card && p.id === offer.targetId) {
       const receivedCard = document.createElement('div');
