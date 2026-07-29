@@ -411,6 +411,9 @@
   .character-capture{overflow:visible;}
   .last-card-marker .mini-card{position:static;display:block;width:12px;height:18px;transform:none!important;border:1px solid #10233f;border-radius:2px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;}
   .my-hand.exchange-pickable{animation:none;}
+  /* 長き暗闇の交換対象者だけを明滅させる。カード単位のアニメーションにして
+     複数人が同時に操作しても手札全体のレイアウトを揺らさない。 */
+  .my-hand.darkness-exchange-pickable .my-card:not(.character-card){animation:exchangeCardPulse 1.05s ease-in-out infinite;}
   .my-card.exchange-pick{cursor:grab;touch-action:none;animation:exchangeCardPulse 1.05s ease-in-out infinite;}
   @keyframes exchangeCardPulse{50%{transform:scale(1.07)}}
   .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:68px;height:68px;box-sizing:border-box;border:0;border-radius:14px;transform:translate(-50%,-50%);background:rgba(56,189,248,.42);pointer-events:none;opacity:0;z-index:40;}
@@ -2985,6 +2988,42 @@ function scheduleBarrowDraw(){
 
 function beginNextExchange(game){
   game.exchangeQueue ||= [...(game.effectOrder || game.playerOrder || [])];
+  // 〈長き暗闇〉だけは通常の「1人の効果を最後まで処理して次へ」という進行にしない。
+  // 先にフロドの次から全脅威ドローを席順で完了し、その後の交換を全員同時に保留する。
+  if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 2) {
+    while (!game.darknessThreatPhaseCompleted && game.exchangeQueue.length) {
+      const playerId = game.exchangeQueue.shift();
+      const characterName = game.characterSelections?.[playerId]?.name;
+      const needsThreatDraw = !skipsCharacterThreatDraw(game, characterName)
+        && ['農夫マゴット', 'サム', '馳夫', 'アラゴルン', 'レゴラス', 'ギムリ'].includes(characterName)
+        && !game.characterEffectThreatDrawn?.[playerId]
+        && !(game.threatCards?.[playerId] || []).some(card => card.kind === 'threat');
+      if (!needsThreatDraw) continue;
+      game.phase = 'threat-draw-wait';
+      game.threatDrawPlayerId = playerId;
+      game.pendingThreatDrawAt = Date.now() + 2000;
+      game.threatDrawRequestId = `${playerId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      game.turnPlayerId = null;
+      return;
+    }
+    if (!game.darknessThreatPhaseCompleted) {
+      game.darknessThreatPhaseCompleted = true;
+      const sources = (game.effectOrder || game.playerOrder || []).filter(sourceId => {
+        const requirement = exchangeRequirement(game, sourceId);
+        return requirement.count > 0 && exchangeCandidates(game, sourceId).length > 0;
+      });
+      if (sources.length) {
+        game.phase = 'darkness-exchange-selection';
+        game.pendingDarknessExchange = { sources, offers:{}, returns:{}, requestedAt:Date.now() };
+        game.turnPlayerId = null;
+        return;
+      }
+    }
+    delete game.exchangeQueue;
+    delete game.pendingDarknessExchange;
+    finishCharacterEffectTransition(game);
+    return;
+  }
   while (game.exchangeQueue.length) {
     const sourceId = game.exchangeQueue[0];
     const characterName = game.characterSelections?.[sourceId]?.name;
@@ -3220,7 +3259,12 @@ function drawThreatForCharacterEffect(game, playerId){
 
 function beginCharacterEffectTurns(game){
   const order = game.playerOrder || [];
-  const startingPlayerId = game.startingPlayerId || order[0];
+  const frodoId = Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 2
+    ? Object.entries(game.characterSelections || {}).find(([, character]) => character.name === 'フロド')?.[0]
+    : null;
+  const frodoIndex = order.indexOf(frodoId);
+  // 長き暗闇ではフロド本人ではなく、その次の席から効果順を始める。
+  const startingPlayerId = frodoIndex >= 0 ? order[(frodoIndex + 1) % order.length] : (game.startingPlayerId || order[0]);
   const startingIndex = Math.max(0, order.indexOf(startingPlayerId));
   // 効果ターンは常にスタートプレイヤーから席順に処理する。
   game.effectOrder = [...order.slice(startingIndex), ...order.slice(0, startingIndex)];
@@ -3950,6 +3994,53 @@ async function chooseGlorfindelExchangeCard(cardId, droppedTargetId){
   });
 }
 
+async function chooseDarknessExchangeCard(cardId, droppedTargetId){
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const game = room?.game;
+    const pending = game?.pendingDarknessExchange;
+    if (game?.phase !== 'darkness-exchange-selection' || !pending) return;
+    pending.offers ||= {}; pending.returns ||= {};
+    const myId = state.userId;
+    const outgoing = pending.sources?.includes(myId) && !pending.offers[myId]
+      && exchangeCandidates(game, myId).includes(droppedTargetId);
+    const returnSourceId = pending.sources?.find(sourceId => pending.offers[sourceId]?.targetId === myId
+      && !pending.returns[sourceId] && sourceId === droppedTargetId);
+    if (!outgoing && !returnSourceId) return;
+    const hand = room.hands?.[myId]?.cards || [];
+    const cardIndex = hand.findIndex(card => card.id === cardId && card.kind !== 'character');
+    if (cardIndex < 0) return;
+    const characterName = game.characterSelections?.[myId]?.name;
+    const card = hand[cardIndex];
+    if (card.color === 'yellow' && card.number === 1 && characterName === 'フロド') return;
+    hand.splice(cardIndex, 1);
+    if (outgoing) pending.offers[myId] = { targetId:droppedTargetId, card };
+    else pending.returns[returnSourceId] = { sourceId:myId, card };
+
+    const ready = pending.sources.every(sourceId => pending.offers[sourceId] && pending.returns[sourceId]);
+    if (!ready) return room;
+    const transfers = [];
+    // 全ての往復が揃うまで手札には一切加えず、最後の1トランザクションで同時確定する。
+    pending.sources.forEach(sourceId => {
+      const offer = pending.offers[sourceId];
+      const returned = pending.returns[sourceId];
+      room.hands[offer.targetId].cards.push(offer.card);
+      room.hands[sourceId].cards.push(returned.card);
+      transfers.push(
+        { card:offer.card, fromId:sourceId, toId:offer.targetId },
+        { card:returned.card, fromId:offer.targetId, toId:sourceId }
+      );
+    });
+    game.glorfindelExchangeTransfer = {
+      sourceId:null, targetIds:[...new Set(transfers.map(item => item.toId))], cards:transfers, completedAt:Date.now()
+    };
+    delete game.pendingDarknessExchange;
+    delete game.exchangeQueue;
+    finishCharacterEffectTransition(game);
+    return room;
+  });
+}
+
 async function chooseExchangeCard(cardId, droppedTargetId){
   if (!state.roomCode) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
@@ -4209,7 +4300,7 @@ function currentHandCardScale(){
 
 function renderMyHand(){
   myHandEl.innerHTML = '';
-  myHandEl.classList.remove('has-playable-cards', 'overlapping-cards', 'exchange-pickable');
+  myHandEl.classList.remove('has-playable-cards', 'overlapping-cards', 'exchange-pickable', 'darkness-exchange-pickable');
   myHandEl.style.removeProperty('--hand-columns');
   const myId = state.userId;
   const handData = state.hands[myId];
@@ -4247,6 +4338,7 @@ function renderMyHand(){
   const exchange = state.game?.pendingExchange;
   const elrondTransfer = state.game?.pendingElrondTransfers;
   const glorfindelExchange = state.game?.pendingGlorfindelExchange;
+  const darknessExchange = state.game?.pendingDarknessExchange;
   const canChooseElrondCard = state.game?.phase === 'elrond-transfer-selection'
     && elrondTransfer && !elrondTransfer.transferred?.[myId];
   const canChooseExchangeCard = state.game?.phase === 'exchange-card-selection'
@@ -4257,6 +4349,12 @@ function renderMyHand(){
     && (glorfindelExchange.sourceId === myId
       ? (glorfindelExchange.candidates || []).some(id => !glorfindelExchange.sourceCards?.[id])
       : (glorfindelExchange.candidates || []).includes(myId) && !glorfindelExchange.targetCards?.[myId]);
+  const darknessOutgoingPending = state.game?.phase === 'darkness-exchange-selection'
+    && darknessExchange?.sources?.includes(myId) && !darknessExchange.offers?.[myId];
+  const darknessReturnPending = state.game?.phase === 'darkness-exchange-selection'
+    && darknessExchange?.sources?.some(sourceId => darknessExchange.offers?.[sourceId]?.targetId === myId
+      && !darknessExchange.returns?.[sourceId]);
+  const canChooseDarknessCard = darknessOutgoingPending || darknessReturnPending;
   const selectedExchangeCardId = exchange?.selections?.[myId] || elrondTransfer?.selections?.[myId];
   const specialSelection = ['radagast-selection','shadowfax-selection'].includes(state.game?.phase)
     && state.game?.specialSelectionPlayerId === myId;
@@ -4308,7 +4406,7 @@ function renderMyHand(){
       card.addEventListener('pointerdown', event => beginCardDrag(event, normalized, cardIndex, card));
     }
     const myCharacterName = state.game?.characterSelections?.[myId]?.name;
-    const canExchange = (canChooseExchangeCard || canChooseElrondCard || canChooseGlorfindelCard) && normalized.kind !== 'character'
+    const canExchange = (canChooseExchangeCard || canChooseElrondCard || canChooseGlorfindelCard || canChooseDarknessCard) && normalized.kind !== 'character'
       && !(normalized.color === 'yellow' && normalized.number === 1 && myCharacterName === 'フロド');
     if (canExchange) {
       card.classList.add('exchange-pick');
@@ -4335,6 +4433,7 @@ function renderMyHand(){
   });
   myHandEl.classList.toggle('has-playable-cards', hasPlayableCards);
   myHandEl.classList.toggle('exchange-pickable', canChooseExchangeCard || canChooseElrondCard || canChooseGlorfindelCard);
+  myHandEl.classList.toggle('darkness-exchange-pickable', canChooseDarknessCard);
 }
 
 function beginExchangeCardDrag(event, cardData, source){
@@ -4344,9 +4443,16 @@ function beginExchangeCardDrag(event, cardData, source){
   const isElrondTransfer = state.game?.phase === 'elrond-transfer-selection';
   const glorfindelExchange = state.game?.pendingGlorfindelExchange;
   const isGlorfindelExchange = state.game?.phase === 'glorfindel-exchange-selection' && Boolean(glorfindelExchange);
+  const darknessExchange = state.game?.pendingDarknessExchange;
+  const isDarknessExchange = state.game?.phase === 'darkness-exchange-selection' && Boolean(darknessExchange);
   const order = state.game?.playerOrder || [];
   const previousPlayerId = order[(order.indexOf(state.userId) - 1 + order.length) % order.length];
+  const darknessOutgoingTargets = isDarknessExchange && darknessExchange.sources?.includes(state.userId)
+    && !darknessExchange.offers?.[state.userId] ? exchangeCandidates(state.game, state.userId) : [];
+  const darknessReturnTargets = isDarknessExchange ? (darknessExchange.sources || []).filter(sourceId =>
+    darknessExchange.offers?.[sourceId]?.targetId === state.userId && !darknessExchange.returns?.[sourceId]) : [];
   const targetIds = isElrondTransfer ? [previousPlayerId]
+    : isDarknessExchange ? [...new Set([...darknessOutgoingTargets, ...darknessReturnTargets])]
     : isGlorfindelExchange ? (glorfindelExchange.sourceId === state.userId
       ? (glorfindelExchange.candidates || []).filter(id => !glorfindelExchange.sourceCards?.[id])
       : [glorfindelExchange.sourceId])
@@ -4393,6 +4499,7 @@ function beginExchangeCardDrag(event, cardData, source){
     cancel();
     if (droppedTarget) {
       if (isElrondTransfer) chooseElrondTransferCard(cardData.id, droppedTarget.playerId);
+      else if (isDarknessExchange) chooseDarknessExchangeCard(cardData.id, droppedTarget.playerId);
       else if (isGlorfindelExchange) chooseGlorfindelExchangeCard(cardData.id, droppedTarget.playerId);
       else chooseExchangeCard(cardData.id, droppedTarget.playerId);
     }
@@ -5356,17 +5463,26 @@ function renderPlayerCircle(players){
     const choosingElrondCard = state.game?.phase === 'elrond-transfer-selection'
       && !state.game?.pendingElrondTransfers?.transferred?.[state.userId];
     const pendingGlorfindel = state.game?.pendingGlorfindelExchange;
+    const pendingDarkness = state.game?.pendingDarknessExchange;
     const choosingGlorfindelCard = state.game?.phase === 'glorfindel-exchange-selection' && pendingGlorfindel
       && (pendingGlorfindel.sourceId === state.userId
         ? (pendingGlorfindel.candidates || []).some(id => !pendingGlorfindel.sourceCards?.[id])
         : pendingGlorfindel.candidates?.includes(state.userId) && !pendingGlorfindel.targetCards?.[state.userId]);
+    const darknessOutgoingTargets = state.game?.phase === 'darkness-exchange-selection'
+      && pendingDarkness?.sources?.includes(state.userId) && !pendingDarkness.offers?.[state.userId]
+      ? exchangeCandidates(state.game, state.userId) : [];
+    const darknessReturnTargets = state.game?.phase === 'darkness-exchange-selection'
+      ? (pendingDarkness?.sources || []).filter(sourceId => pendingDarkness.offers?.[sourceId]?.targetId === state.userId
+        && !pendingDarkness.returns?.[sourceId]) : [];
     const exchangeHintIds = choosingElrondCard ? [myPreviousPlayerId]
+      : state.game?.phase === 'darkness-exchange-selection' ? [...new Set([...darknessOutgoingTargets, ...darknessReturnTargets])]
       : choosingGlorfindelCard ? (pendingGlorfindel.sourceId === state.userId
         ? pendingGlorfindel.candidates.filter(id => !pendingGlorfindel.sourceCards?.[id])
         : [pendingGlorfindel.sourceId])
       : pendingExchange?.sourceId === state.userId ? (pendingExchange.targetId ? [pendingExchange.targetId] : pendingExchange.candidates || [])
         : pendingExchange?.targetId === state.userId ? [pendingExchange.sourceId] : [];
-    const exchangeHintVisible = (state.game?.phase === 'exchange-card-selection' || choosingElrondCard || choosingGlorfindelCard)
+    const exchangeHintVisible = (state.game?.phase === 'exchange-card-selection' || choosingElrondCard || choosingGlorfindelCard
+      || state.game?.phase === 'darkness-exchange-selection')
       && exchangeHintIds.includes(p.id);
     if (exchangeHintVisible) {
       const hint = document.createElement('div');
@@ -5402,6 +5518,22 @@ function renderPlayerCircle(players){
         receivedCard.classList.add('face-up');
         receivedCard.appendChild(createCardElement(heldGlorfindelCard));
       }
+      tag.appendChild(receivedCard);
+    });
+    const darknessReceivedCards = Object.entries(pendingDarkness?.offers || {})
+      .filter(([, offer]) => offer.targetId === p.id)
+      .map(([sourceId, offer]) => ({ sourceId, card:offer.card }));
+    // 同じ人へ2枚以上届いた場合も省略せず、ずらした裏面を枚数分表示する。
+    darknessReceivedCards.forEach(({ sourceId, card:heldCard }, heldIndex) => {
+      const receivedCard = document.createElement('div');
+      receivedCard.className = 'exchange-received-card';
+      receivedCard.dataset.cardId = heldCard.id;
+      receivedCard.style.setProperty('--received-index', heldIndex);
+      receivedCard.style.setProperty('--received-offset-x', `${heldIndex * 9}px`);
+      receivedCard.style.setProperty('--received-offset-y', `${heldIndex * 3}px`);
+      receivedCard.style.setProperty('--received-tilt', `${(heldIndex - (darknessReceivedCards.length - 1) / 2) * 4}deg`);
+      receivedCard.setAttribute('aria-label', `長き暗闇の交換で受け取った裏向きの保留カード（${heldIndex + 1}/${darknessReceivedCards.length}）`);
+      receivedCard.dataset.exchangeSourceId = sourceId;
       tag.appendChild(receivedCard);
     });
     const offer = state.game?.exchangeOfferTransfer;
