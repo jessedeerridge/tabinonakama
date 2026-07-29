@@ -327,6 +327,7 @@
   .balrog-revealed{display:flex;gap:3px;}
   .balrog-revealed-card{position:relative;width:38px;height:56px;perspective:180px;}
   .balrog-revealed-card>.my-card{transform:scale(.46);transform-origin:top left;backface-visibility:hidden;}
+  .balrog-revealed-card.revealing>.my-card,.balrog-revealed-card.revealing::after{animation-delay:var(--balrog-reveal-delay,0ms);}
   .balrog-revealed-card.revealing>.my-card{animation:balrogCardReveal .7s ease-out both;}
   .balrog-revealed-card.revealing::after{content:'';position:absolute;inset:0;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;animation:balrogBackReveal .7s ease-out both;backface-visibility:hidden;}
   .my-card.balrog-five{background-image:url('barurogu.jpg');}
@@ -1617,7 +1618,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     .find(card => card?.kind === 'character') || game?.characterSelections?.[playerId];
   if (!game || !character) return { status:'pending' };
   if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3 && character.name === 'ガンダルフ') return { status:'achieved' };
-  if (Number(game.stageNumber) === 13 && game.mithrilAppliedToPlayerId === playerId) return { status:'achieved' };
+  if ([13, 14].includes(Number(game.stageNumber)) && game.mithrilAppliedToPlayerId === playerId) return { status:'achieved' };
   const capturedTricks = game.capturedTricks?.[playerId] || [];
   const trickCount = capturedTricks.length;
   const playerIds = game.playerOrder || [];
@@ -1853,7 +1854,7 @@ function chapterOutcome(room){
   if (!playerIds.length) return null;
   const statuses = playerIds.map(playerId => victoryConditionStatus(room, playerId).status);
   if (statuses.every(status => status === 'achieved')) return 'complete';
-  if (Number(room.game.stageNumber) === 13) {
+  if ([13, 14].includes(Number(room.game.stageNumber))) {
     // この章では、最初の確定失敗は胴着で救えるため結果を保留する。
     // 二人目が失敗した時点、または胴着を使わずに確定した時だけ敗北となる。
     if (room.game.mithrilDecision === 'no') return 'failed';
@@ -1952,7 +1953,7 @@ function renderChapterComplete(){
 
 function canDecideMithril(room = state.room){
   const game = room?.game;
-  if (Number(game?.stageNumber) !== 13 || game.chapterOutcome || game.mithrilDecision) return false;
+  if (![13, 14].includes(Number(game?.stageNumber)) || game.chapterOutcome || game.mithrilDecision) return false;
   if (game.pendingCapture || game.pendingOutcomeCheckAt) return false;
   if (!frodoHasMithril(room)) return false;
   const statuses = (game.playerOrder || []).map(playerId => victoryConditionStatus(room, playerId).status);
@@ -1987,7 +1988,7 @@ async function decideMithril(useCoat){
     game.mithrilDecision = useCoat ? 'yes' : 'no';
     if (useCoat) {
       game.mithrilAppliedToPlayerId = failedPlayerId;
-      room.stageThirteenMithrilAvailable = false;
+      room[Number(game.stageNumber) === 14 ? 'stageFourteenMithrilAvailable' : 'stageThirteenMithrilAvailable'] = false;
       game.equipmentCards ||= {};
       game.equipmentCards[frodoPlayerId] = (game.equipmentCards[frodoPlayerId] || [])
         .filter(card => card.name !== MITHRIL_COAT.name);
@@ -2543,12 +2544,18 @@ function renderStageInformation(){
   balrogDeck.classList.toggle('empty', !state.game?.balrogDeck?.length);
   balrogDeck.setAttribute('aria-label', `バルログデッキ 残り${state.game?.balrogDeck?.length || 0}枚`);
   balrogRevealed.replaceChildren();
+  const balrogRevealKey = `${state.game?.balrogRevealSequence || 0}:${state.game?.balrogRevealAt || 0}`;
+  const balrogRevealElapsed = Date.now() - Number(state.game?.balrogRevealAt || 0);
   (state.game?.balrogRevealed || []).forEach(cardData => {
     const holder = document.createElement('div'); holder.className = 'balrog-revealed-card';
-    if (state.game.balrogRevealAt && state.game.balrogRevealAt !== lastRenderedBalrogRevealAt) holder.classList.add('revealing');
+    // 同期再描画でDOMが差し替わっても、毎回のめくり演出を経過位置から再開する。
+    if (state.game?.balrogRevealAt && balrogRevealElapsed >= 0 && balrogRevealElapsed < 700) {
+      holder.classList.add('revealing');
+      holder.style.setProperty('--balrog-reveal-delay', `${-balrogRevealElapsed}ms`);
+    }
     holder.appendChild(createCardElement(cardData)); balrogRevealed.appendChild(holder);
   });
-  if (state.game?.balrogRevealAt) lastRenderedBalrogRevealAt = state.game.balrogRevealAt;
+  if (state.game?.balrogRevealAt) lastRenderedBalrogRevealAt = balrogRevealKey;
   oldForestReveal.replaceChildren();
   const revealedCards = isOldForest ? [
     ...(state.game?.oldForestRevealedCards || []),
@@ -3038,6 +3045,7 @@ function drawBalrogCards(game){
     if (!game.balrogDeck.length) break;
     game.balrogRevealed.push(game.balrogDeck.shift());
   }
+  game.balrogRevealSequence = Number(game.balrogRevealSequence || 0) + 1;
   game.balrogRevealAt = Date.now();
   delete game.pendingBalrogDrawAt;
 }
@@ -3986,7 +3994,7 @@ function scheduleTrickClear(){
       if (!game.finished && Number(game.stageNumber) === 5 && game.oldForestDeck?.length) {
         game.pendingOldForestDrawAt = Date.now() + 1000;
       }
-      if (!game.finished && Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3) {
+      if (!game.finished && !game.pendingBalrogFailure && Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3) {
         game.pendingBalrogDrawAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS;
       }
       return game;
@@ -4014,13 +4022,18 @@ function scheduleOutcomeCheck(){
     await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
       const game = room?.game;
       if (!game?.pendingOutcomeCheckAt || game.pendingOutcomeCheckAt !== checkAt || Date.now() < checkAt) return;
-      if (!game.finished && Number(game.stageNumber) === 13) {
+      if (!game.finished && [13, 14].includes(Number(game.stageNumber))) {
         const playerIds = game.playerOrder || [];
         const statuses = playerIds.map(playerId => victoryConditionStatus(room, playerId).status);
         const oneFailureCanBeResolved = statuses.filter(status => status === 'achieved').length === playerIds.length - 1
           && statuses.filter(status => status === 'failed').length === 1;
         // 残る一人の失敗が確定した時点でトリックを切り上げ、胴着の判断へ移る。
         if (oneFailureCanBeResolved) game.finished = true;
+      }
+      if (game.pendingBalrogFailure) {
+        game.finished = true;
+        game.chapterOutcome ||= { status:'failed', reason:'balrog', decidedAt:Date.now() };
+        delete game.pendingBalrogFailure;
       }
       const outcome = chapterOutcome(room);
       if (!game.chapterOutcome && outcome) game.chapterOutcome = { status:outcome, decidedAt:Date.now() };
@@ -4357,8 +4370,8 @@ async function playCard(cardIndex, expectedCard){
       const plays = [...existing, room.game.trick[state.userId]];
       if (Number(room.game.stageNumber) === 14 && Number(room.game.moriaEventIndex) === 3) {
         if (balrogOverpowersTrick(room.game.balrogRevealed, plays)) {
-          room.game.finished = true;
-          room.game.chapterOutcome = { status:'failed', reason:'balrog', decidedAt:Date.now() };
+          // カード獲得演出が完了するまで結果表示を保留する。
+          room.game.pendingBalrogFailure = true;
         }
       }
       const lead = plays[0].card.color;
@@ -4661,8 +4674,9 @@ async function chooseCharacter(characterName, source){
         room.game.mostSuitDeclarations[state.userId] = CARD_TYPES.map(type => type.color).filter(color => counts[color] === most).slice(0, 1);
       }
     }
-    if (Number(room.game.stageNumber) === 13 && characterName === 'フロド'
-      && room.stageThirteenMithrilAvailable !== false) {
+    const mithrilAvailable = Number(room.game.stageNumber) === 14
+      ? room.stageFourteenMithrilAvailable !== false : room.stageThirteenMithrilAvailable !== false;
+    if ([13, 14].includes(Number(room.game.stageNumber)) && characterName === 'フロド' && mithrilAvailable) {
       room.game.equipmentCards ||= {}; room.game.equipmentCards[state.userId] ||= [];
       room.game.equipmentCards[state.userId].push({
         kind:'equipment', ...MITHRIL_COAT, id:`${state.userId}-equipment-${Date.now()}`
@@ -5650,6 +5664,9 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     ...(resetLongProgress ? { longChapterProgress:null } : {}),
     ...(Number(stageNumber) === 13
       ? { stageThirteenMithrilAvailable:resetLongProgress ? true : currentRoom.stageThirteenMithrilAvailable !== false }
+      : {}),
+    ...(Number(stageNumber) === 14
+      ? { stageFourteenMithrilAvailable:resetLongProgress ? true : currentRoom.stageFourteenMithrilAvailable !== false }
       : {}),
     game: {
       playerOrder, turnPlayerId: null, trickNumber: 1, stageNumber, startedAt:Date.now(),
