@@ -1061,7 +1061,9 @@ const CHARACTER_NAMES = {
   legolas: 'レゴラス',
   gimli: 'ギムリ',
   orophin_rumil: 'オロフィンとルーミル',
-  haldir: 'ハルディア'
+  haldir: 'ハルディア',
+  galadriel: 'ガラドリエル',
+  celeborn: 'ケレボルン'
 };
 const CHARACTER_IMAGE_FILES = {
   frodo: 'frodo.jpg',
@@ -1261,6 +1263,24 @@ defineStage(15, {
   eventCards: [
     { title:'目隠し', heading:'イベント：目隠し', text:'トリック中、〈ギムリ〉は自分のカードを裏向きでプレイする。プレイする際、スートは宣言するが、数字を言ってはならない。すべてのプレイヤーがカードをプレイしたあと、〈ギムリ〉のカードを公開する。その後、通常どおりトリックの勝者を決める。' },
     { title:'目隠し', text:'「約束どおり、ここでドワーフのギムリに目隠しを施す。他の者は、しばし自由に歩くがよい。我らの住まう地、二つの川に囲まれエグラディルに近づくまでは」' }
+  ]
+});
+defineStage(16, {
+  title: 'ガラドリエルの鏡',
+  story: '「私は、鏡にさまざまなものを映すよう命じることができる」彼女は答えた。「時には、その者が見たいものを映すこともできる。しかし、鏡は命じられずとも、映すことがある。それらはしばしば奇妙であり、望むものよりもむしろ、より大いなる価値を持つのだ。鏡をのぞいてみるか？」',
+  characters: ['frodo,galadriel,celeborn*,sam'],
+  threats: [{ name:'脅威', min:1, max:7 }],
+  winCondition: 'short', goal: 'allwin',
+  additionalElements: '〈鏡〉カードの〈イベント：ガラドリエルの鏡〉の記述に従う。',
+  eventCards: [
+    {
+      title:'鏡', heading:'イベント：ガラドリエルの鏡', headingSingleLine:true,
+      text:'ゲームの準備の開始時に、キャラクターカードをシャッフルし、各プレイヤーに1枚ずつ配る。次に、メインデッキから各プレイヤーに4枚ずつカードを配る。プレイヤーはその中から1枚を選び、他の各プレイヤーに1枚ずつ渡し、残りを自分の手札にする（同じプレイヤーから2枚以上受け取ることはできない）。これをもう1回行い、残りを配って1枚を失われしカードとする。最後に、〈フロド〉の左隣から通常どおり準備を完了する。'
+    },
+    {
+      title:'鏡',
+      text:'突然、鏡が闇に沈んだ。まるで視界にぽっかりと穴が空いたかのように、フロドは虚無を見つめた。黒き深淵の中に、一つの眼が現れ、それはゆっくりとふくれ上がり、やがて鏡のほとんどを覆いつくした。'
+    }
   ]
 });
 
@@ -1702,6 +1722,26 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     if (capturedCards.some(card => card.color === 'green' && Number(card.number) === threat)) return { status:'achieved' };
     const stillAvailable = remainingCards.some(card => card.color === 'green' && Number(card.number) === threat);
     return { status:!isFinished && stillAvailable ? 'pending' : 'failed' };
+  }
+
+  if (character.name === 'ガラドリエル') {
+    if (!isFinished) return { status:'pending' };
+    const counts = playerIds.map(id => (game.capturedTricks?.[id] || []).length);
+    const myIndex = playerIds.indexOf(playerId);
+    const others = counts.filter((_, index) => index !== myIndex);
+    const isUniqueMost = trickCount > Math.max(...others);
+    const isUniqueLeast = trickCount < Math.min(...others);
+    return { status:isUniqueMost || isUniqueLeast ? 'achieved' : 'failed' };
+  }
+
+  if (character.name === 'ケレボルン') {
+    const rankCounts = capturedCards.reduce((counts, card) => {
+      const number = Number(card.number);
+      if (Number.isFinite(number)) counts[number] = (counts[number] || 0) + 1;
+      return counts;
+    }, {});
+    if (Object.values(rankCounts).some(count => count >= 3)) return { status:'achieved' };
+    return { status:isFinished ? 'failed' : 'pending' };
   }
 
   if (character.name === 'ギルドール・イングロリオン') {
@@ -4798,7 +4838,9 @@ function characterCardData(character, playerId){
     'レゴラス':{specialName:'闇の森のエルフ',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉か〈アラゴルン〉と交換する。',cardNumber:'3.09',rank:'無し',frameColor:'緑'},
     'ギムリ':{specialName:'ドゥリンの民',victory:'引いた脅威カードと同じ数字の山カードを獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.10',rank:'無し',frameColor:'銀'},
     'オロフィンとルーミル':{specialName:'ガラズリム',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ハルディア〉と交換する。最初のトリックをリードする。',cardNumber:'3.21',rank:'黒',frameColor:'緑',image:'orophin_rumil.jpg'},
-    'ハルディア':{specialName:'境界守護者',victory:'トリックに勝利して、引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。最初のトリックをリードする。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'haldir.jpg'}
+    'ハルディア':{specialName:'境界守護者',victory:'トリックに勝利して、引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。最初のトリックをリードする。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'haldir.jpg'},
+    'ガラドリエル':{specialName:'ロスローリエンの奥方',victory:'最も多く、もしくは最も少なくトリックを獲得する（同数は不可）。',effect:'失われしカードもしくは〈ガンダルフ〉と交換する。',cardNumber:'3.25',rank:'黒',frameColor:'緑',image:'arwen.jpg'},
+    'ケレボルン':{specialName:'ロスローリエンの殿',victory:'同じ数字のカードを3枚獲得する。',effect:'任意のキャラクターと交換する。',cardNumber:'3.26',rank:'黒',frameColor:'緑',image:'elrond.jpg'}
   };
   const details = { ...(characterDetails[character.name] || {}) };
   if (Number(state.game?.stageNumber) === 13 && character.name === 'フロド') {
@@ -5011,7 +5053,11 @@ async function chooseCharacter(characterName, source){
         : ['山の下さん', 'グロルフィンデル', 'エルロンド', 'ラダガスト'];
       const forcedLeader = forcedLeaderNames.map(name => Object.entries(room.game.characterSelections)
         .find(([, selected]) => selected.name === name)?.[0]).find(Boolean);
-      room.game.startingPlayerId = forcedLeader || room.game.turnPlayerId || room.game.playerOrder[0];
+      const frodoId = Object.entries(room.game.characterSelections).find(([, selected]) => selected.name === 'フロド')?.[0];
+      const frodoLeftPlayerId = Number(room.game.stageNumber) === 16 && frodoId
+        ? room.game.playerOrder[(room.game.playerOrder.indexOf(frodoId) + 1) % room.game.playerOrder.length]
+        : null;
+      room.game.startingPlayerId = frodoLeftPlayerId || forcedLeader || room.game.turnPlayerId || room.game.playerOrder[0];
       if (Number(room.game.stageNumber) === 6 && room.game.barrowDeck?.length) {
         room.game.barrowPlayerId = Object.entries(room.game.characterSelections)
           .find(([, selected]) => selected.name === 'トム・ボンバディル')?.[0] || null;
