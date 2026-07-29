@@ -526,9 +526,6 @@
     border-color:#aeb8c5;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;
   }
   .character-card.character-green{--character-frame:#559344;border-color:#559344;box-shadow:0 4px 12px rgba(30,80,30,.25),inset 0 0 0 2px #d9efcf;}
-  /* 緑のキャラクター枠に重ねる、カード固有の金・銀の縁取り。 */
-  .character-card.character-border-gold{border-color:#d5a313;box-shadow:0 4px 12px rgba(91,63,0,.28),inset 0 0 0 2px #ffe477;}
-  .character-card.character-border-silver{border-color:#aeb8c5;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;}
   .character-card.character-light-green{--character-frame:#9bc875;border-color:#9bc875;box-shadow:0 4px 12px rgba(50,90,35,.22),inset 0 0 0 2px #eff9df;}
   .character-card.character-red{--character-frame:#c94c47;border-color:#c94c47;box-shadow:0 4px 12px rgba(100,25,25,.25),inset 0 0 0 2px #f7d4cf;}
   .character-card .character-label{
@@ -1536,8 +1533,6 @@ function createCharacterCardElement(cardData){
   const frameClass = { '金':'character-gold', '銀':'character-silver', '緑':'character-green', '薄緑':'character-light-green', '赤':'character-red' }[cardData.frameColor];
   const isGoldCharacter = ['フロド', 'ビルボ'].includes(cardData.name);
   card.classList.add(frameClass || (isGoldCharacter ? 'character-gold' : 'character-silver'));
-  const borderClass = { '金':'character-border-gold', '銀':'character-border-silver' }[cardData.borderColor];
-  if (borderClass) card.classList.add(borderClass);
   const characterCode = cardData.code
     || Object.entries(CHARACTER_NAMES).find(([, name]) => name === cardData.name)?.[0];
   const imageFile = cardData.image || CHARACTER_IMAGE_FILES[characterCode] || `${characterCode || cardData.name}.jpg`;
@@ -5027,8 +5022,8 @@ function characterCardData(character, playerId){
     'ギムリ':{specialName:'ドゥリンの民',victory:'引いた脅威カードと同じ数字の山カードを獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.10',rank:'無し',frameColor:'銀'},
     'オロフィンとルーミル':{specialName:'ガラズリム',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ハルディア〉と交換する。最初のトリックをリードする。',cardNumber:'3.21',rank:'黒',frameColor:'緑',image:'orophin_rumil.jpg'},
     'ハルディア':{specialName:'境界守護者',victory:'トリックに勝利して、引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。最初のトリックをリードする。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'haldir.jpg'},
-    'ガラドリエル':{specialName:'ロスローリエンの奥方',victory:'最も多く、もしくは最も少なくトリックを獲得する（同数は不可）。',effect:'失われしカードもしくは〈ガンダルフ〉と交換する。',cardNumber:'3.25',rank:'黒',frameColor:'緑',borderColor:'金'},
-    'ケレボルン':{specialName:'ロスローリエンの殿',victory:'同じ数字のカードを3枚獲得する。',effect:'任意のキャラクターと交換する。',cardNumber:'3.26',rank:'黒',frameColor:'緑',borderColor:'銀'}
+    'ガラドリエル':{specialName:'ロスローリエンの奥方',victory:'最も多く、もしくは最も少なくトリックを獲得する（同数は不可）。',effect:'失われしカードもしくは〈ガンダルフ〉と交換する。',cardNumber:'3.25',rank:'黒',frameColor:'金'},
+    'ケレボルン':{specialName:'ロスローリエンの殿',victory:'同じ数字のカードを3枚獲得する。',effect:'任意のキャラクターと交換する。',cardNumber:'3.26',rank:'黒',frameColor:'銀'}
   };
   const details = { ...(characterDetails[character.name] || {}) };
   if (Number(state.game?.stageNumber) === 13 && character.name === 'フロド') {
@@ -5058,7 +5053,6 @@ function characterCardData(character, playerId){
     ...(details.displayName ? { displayName:details.displayName } : {}),
     specialName:details.specialName || '特殊名', cardNumber:details.cardNumber, rank:details.rank,
     frameColor:details.frameColor,
-    ...(details.borderColor ? { borderColor:details.borderColor } : {}),
     victory:details.victory || '',
     effect:effect || '特殊説明',
     id:`${playerId}-character-${details.variant || character.name}`
