@@ -2000,6 +2000,11 @@ async function decideMithril(useCoat){
   });
 }
 
+function skipsCharacterThreatDraw(game, characterName){
+  // 〈バーリンの墓所〉はイベントカード自体がギムリの脅威となるため、通常の脅威ドローを行わない。
+  return Number(game?.stageNumber) === 14 && Number(game?.moriaEventIndex) === 1 && characterName === 'ギムリ';
+}
+
 function createVictoryConditionIcon(cardData, playerId){
   const icon = document.createElement('span');
   icon.className = 'victory-condition-icon';
@@ -2012,8 +2017,9 @@ function createVictoryConditionIcon(cardData, playerId){
   const name = cardData.name || '';
   const threatNumber = threatNumberForPlayer(state.game, playerId);
   const equipmentChoice = state.game?.equipmentChoices?.[playerId];
-  const waitsForThreat = ['農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ'].includes(name)
-    || (name === 'アラゴルン' && !equipmentChoice);
+  const waitsForThreat = !skipsCharacterThreatDraw(state.game, name)
+    && (['農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ'].includes(name)
+      || (name === 'アラゴルン' && !equipmentChoice));
   if (waitsForThreat && threatNumber == null) {
     icon.classList.add('awaiting-threat');
     icon.setAttribute('aria-label', '勝利条件：脅威カードのドロー待ち');
@@ -2975,8 +2981,8 @@ function beginNextExchange(game){
     }
     const darknessAragornDraw = Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 2
       && characterName === 'アラゴルン';
-    const needsThreatDraw = (['農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ'].includes(characterName)
-      || darknessAragornDraw)
+    const needsThreatDraw = !skipsCharacterThreatDraw(game, characterName)
+      && (['農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ'].includes(characterName) || darknessAragornDraw)
       && !game.characterEffectThreatDrawn?.[sourceId]
       && !(game.threatCards?.[sourceId] || []).some(card => card.kind === 'threat');
     if (needsThreatDraw) {
@@ -3131,7 +3137,8 @@ function oldForestWinsTrick(game, plays){
 
 function drawThreatForCharacterEffect(game, playerId){
   const characterName = game.characterSelections?.[playerId]?.name;
-  if (!['農夫マゴット', 'サム', '馳夫', 'アラゴルン', 'レゴラス', 'ギムリ'].includes(characterName)) return;
+  if (skipsCharacterThreatDraw(game, characterName)
+      || !['農夫マゴット', 'サム', '馳夫', 'アラゴルン', 'レゴラス', 'ギムリ'].includes(characterName)) return false;
   game.threatCards ||= {};
   if (game.characterEffectThreatDrawn?.[playerId]
       || (game.threatCards[playerId] || []).some(card => card.kind === 'threat')) return false;
