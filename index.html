@@ -239,15 +239,15 @@
   .center-lower-card-area.character-selection-layout{
     left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
   }
-  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:436px;flex-direction:row;justify-content:center;gap:0;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/436));transform-origin:top center;}
+  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:525px;flex-direction:row;justify-content:center;gap:0;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/525));transform-origin:top center;}
   .center-lower-card-area.event-stage-layout:not(.character-selection-layout){z-index:7;}
   .event-stage-layout.character-selection-layout>.center-card-row{display:contents;}
   .event-stage-layout.character-selection-layout #arasujisquare{order:1;margin-left:0;}
-  .event-stage-layout.character-selection-layout #winningconditionsquare{order:2;margin-left:-28px;}
+  .event-stage-layout.character-selection-layout #winningconditionsquare{order:2;margin-left:5px;}
   .event-stage-layout.character-selection-layout .event-card-row>.event-card:nth-child(2){order:3;}
   .event-stage-layout.character-selection-layout .event-card-row>.event-card:nth-child(1){order:4;}
-  /* 4枚の場札を中央へ寄せ、左から順に手前へ重なる一続きの束として見せる。 */
-  .event-stage-layout.character-selection-layout .center-lower-card{margin-left:-16px;}
+  /* 勝利条件はあらすじから5px、イベントカード同士はそれより広く間隔を空ける。 */
+  .event-stage-layout.character-selection-layout .event-card{margin-left:12px;}
   .event-stage-layout.character-selection-layout #arasujisquare{z-index:4;}
   .event-stage-layout.character-selection-layout #winningconditionsquare{z-index:3;}
   .event-stage-layout.character-selection-layout .event-card-row>.event-card:nth-child(2){z-index:2;}
