@@ -3973,6 +3973,7 @@ function updateCharacterChoiceScales(){
 
 let entranceRooms = [];
 const visibleRoomCount = 5;
+const alwaysVisibleRoomCount = 3;
 let activeEntranceCode = null;
 let entranceExpiryTimer = null;
 let unsubscribeEntranceRooms = null;
@@ -3981,8 +3982,11 @@ roomList.style.maxHeight = `${visibleRoomCount * 86}px`;
 function scheduleEntranceRoomExpiry(){
   clearTimeout(entranceExpiryTimer);
   const now = Date.now();
-  entranceRooms = entranceRooms.filter(room => room.createdAt + 6 * 60 * 60 * 1000 > now);
-  const nextExpiry = Math.min(...entranceRooms.map(room => room.createdAt + 6 * 60 * 60 * 1000));
+  entranceRooms = entranceRooms.filter((room, index) =>
+    index < alwaysVisibleRoomCount || room.createdAt + 6 * 60 * 60 * 1000 > now
+  );
+  const nextExpiry = Math.min(...entranceRooms.slice(alwaysVisibleRoomCount)
+    .map(room => room.createdAt + 6 * 60 * 60 * 1000));
   if (Number.isFinite(nextExpiry)) {
     entranceExpiryTimer = setTimeout(() => {
       scheduleEntranceRoomExpiry();
@@ -4081,13 +4085,12 @@ async function createUniqueRoom(name){
   }
 }
 unsubscribeEntranceRooms = onValue(ref(db, 'rooms'), snapshot => {
-  const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
   entranceRooms = Object.entries(snapshot.val() || {}).map(([code, room]) => {
     const people = room.players || room.users || {};
     const entries = Object.entries(people).filter(([, person]) => String(person?.name || '').trim());
     entries.sort(([a],[b]) => (a === room.hostId ? -1 : b === room.hostId ? 1 : 0));
     return { code, createdAt: room.createdAt || 0, names: entries.map(([, person]) => person.name) };
-  }).filter(room => room.createdAt >= sixHoursAgo).sort((a,b) => b.createdAt - a.createdAt);
+  }).sort((a,b) => b.createdAt - a.createdAt);
   scheduleEntranceRoomExpiry();
   finishEntranceLoading();
 }, () => {
