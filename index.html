@@ -263,8 +263,8 @@
     order:3;display:flex;width:224px;flex:0 0 224px;gap:7px;margin-left:-7px;padding:0 7px 8px 0;
     overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;
     scrollbar-width:none;pointer-events:auto;touch-action:pan-x;
-    -webkit-mask-image:linear-gradient(to right,transparent 0,#000 18%,#000 82%,transparent 100%);
-    mask-image:linear-gradient(to right,transparent 0,#000 18%,#000 82%,transparent 100%);
+    -webkit-mask-image:linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%);
+    mask-image:linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%);
   }
   .event-stage-layout.chapter-fourteen.character-selection-layout .event-card-row::-webkit-scrollbar{display:none;}
   .event-stage-layout.chapter-fourteen.character-selection-layout .event-card-row>.event-card{
@@ -1192,15 +1192,21 @@ defineStage(13, {
 defineStage(14, {
   title: 'モリア坑道',
   story: '「奴がどう予期しているかは、我々には分からん。」ボロミアは言った。「奴はすべての道を監視しているかもしれん。通りそうな道も、そうでない道も。そうだとすれば、モリアに入るのはまさに罠へ飛び込むようなものだ。暗黒の塔の門を叩くのと変わらん。モリアという名は、まさしく“黒”を意味するのだ。」',
-  characters: ['frodo*', 'gandalf,aragorn,legolas,gimli,boromir,sam,merry,pippin'],
+  characters: ['frodo*,gandalf,aragorn,legolas,gimli,boromir,sam,merry,pippin'],
   threats: [{ name:'脅威', min:1, max:7 }],
   winCondition: 'long', goal: 'everywin',
-  additionalElements: '〈ミスリルの胴着〉をフロドに渡す。各ラウンドで、他のプレイヤーがキャラクターを選ぶ前に、フロドは〈イベント：モリア〉を1つ選ぶ。\n勝利するには、すべての〈イベント：モリア〉を達成し、次に〈イベント：橋〉を達成する必要がある。',
+  additionalElements: '〈ミスリルの胴着〉をフロドに渡す。フロドは最初に〈イベント：モリア〉を選ぶ。\nすべての〈イベント：モリア〉を達成し、次に〈イベント：橋〉を達成する必要がある。',
   eventCards: [
     { title:'ドゥリンの扉', heading:'イベント：モリア', hammer:true, text:'必ず〈ガンダルフ〉を選ぶ。\nこのカードを〈ガンダルフ〉に渡す。', secondaryHeading:'友の扉', afterText:'✦ 丘、山、森カードを各1枚以上勝利して獲得する。' },
     { title:'バーリンの墓所', heading:'イベント：モリア', hammer:true, text:'必ず〈ギムリ〉を選ぶ。このカードを〈ギムリ〉に脅威カードとして渡す。', secondaryHeading:'悲嘆', afterText:'✦ 〈ギムリ〉は連続した数字の山カードを4枚勝利して獲得しなければならない（例2,3,4,5）。' },
     { title:'長き暗闇', heading:'イベント：モリア', hammer:true, text:'必ず〈アラゴルン〉を選ぶ。\nすべての脅威カードを裏向きに置く（目的を達成したら公開する）。\n交換は、すべて同時に行う。', secondaryHeading:'恐怖', afterText:'✦ 一度章を達成しても、〈長き暗闇〉は再び選ぶことができる。' },
-    { title:'カザド＝ドゥームの橋', heading:'イベント：橋', hammer:true, text:'このイベントは、〈イベント：モリア〉をすべて達成していないかぎり、選べない。必ず〈ガンダルフ〉を選ぶ（〈ガンダルフ、神秘の火に仕える者〉を使用する）。影のカード8枚と〈バルログ〉のカードを裏向きでシャッフルし、バルログデッキを作る。そのあと、次のように配る。\n・3人ゲーム：各プレイヤー手札9枚、失われしカード2枚\n・4人ゲーム：各プレイヤー手札7枚、失われしカード1枚', secondaryHeading:'ドゥリンの橋', afterText:'各トリックで、リードプレイヤーがプレイする前に、バルログデッキからプレイヤー人数に応じた枚数を公開する（3人なら2枚、4人なら3枚）。全員がプレイしたあと、プレイされたカードの数字の合計より、バルログの公開したカードの数字の合計が多い場合（同数は除く）、全員敗北となる。バルログデッキが枯渇したら、シャッフルし直して新しい山を作る。' }
+    {
+      title:'カザド＝ドゥームの橋', heading:'イベント：橋', hammer:true,
+      text:'〈ガンダルフ、神秘の火に仕える者〉を使用する。影8枚と〈バルログ(影5)〉で、バルログデッキを作る。そのあと、',
+      playerText:{ 3:'各プレイヤーに手札9枚、失われしカード2枚配る。', 4:'各プレイヤーに手札7枚、失われしカード1枚配る。' }, playerTextSeparator:'',
+      secondaryHeading:'ドゥリンの橋',
+      afterText:'各トリックの前にx枚を公開する（3人なら2枚、4人なら3枚）。プレイされたカードの数字の合計より、バルログの公開したカードの数字の合計が多い場合（同数は除く）、全員敗北となる。バルログデッキが枯渇したら、シャッフルし直して新しい山を作る。'
+    }
   ]
 });
 
@@ -4403,7 +4409,7 @@ async function chooseCharacter(characterName, source){
         room.game.equipmentCards ||= {}; room.game.equipmentCards[ownerId] ||= [];
         room.game.equipmentCards[ownerId].push({
           kind:'equipment', name:event.title, specialName:event.secondaryHeading || event.heading,
-          effect:[event.text, event.afterText].filter(Boolean).join('\n'), image:'eventback.jpg',
+          effect:[event.text, event.playerText?.[Number(room.maxPlayers)], event.afterText].filter(Boolean).join('\n'), image:'eventback.jpg',
           id:`${ownerId}-moria-event-${room.game.moriaEventIndex}-${Date.now()}`
         });
       }
