@@ -1690,9 +1690,9 @@ function renderChapterComplete(){
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
   const longFinal = stage?.winCondition === 'long' && isLongChapterComplete();
   const resultLabel = stage?.winCondition === 'long' && !longFinal
-    ? 'to be continued'
+    ? `to be continued（${outcome?.status === 'failed' ? '失敗' : '成功'}）`
     : outcome?.status === 'failed' ? '失敗' : '完';
-  chapterCompleteMessage.textContent = resultLabel === 'to be continued'
+  chapterCompleteMessage.textContent = resultLabel.startsWith('to be continued')
     ? resultLabel
     : `${stage?.chapterLabel || `第${state.game?.stageNumber || ''}章`}　${resultLabel}`;
   if (elapsed >= 800) chapterCompleteBanner.classList.add('arrived');
