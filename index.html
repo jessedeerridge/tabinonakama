@@ -419,6 +419,8 @@
   .exchange-hand-hint{position:absolute;left:50%;top:calc(100% + 30px);width:68px;height:68px;box-sizing:border-box;border:0;border-radius:14px;transform:translate(-50%,-50%);background:rgba(56,189,248,.42);pointer-events:none;opacity:0;z-index:40;}
   .player-tag.exchange-drag-target .exchange-hand-hint{opacity:1;}
   .exchange-received-card{position:absolute;left:calc(50% + var(--received-offset-x,0px));top:calc(100% + 30px + var(--received-offset-y,0px));width:54px;height:81px;border:1px solid #10233f;border-radius:7px;background:#fff url('tabicardura.jpg') center/cover no-repeat;transform:translate(-50%,-50%) rotate(var(--received-tilt,0deg));transform-origin:center;pointer-events:none;z-index:calc(42 + var(--received-index,0));box-shadow:0 3px 8px rgba(0,0,0,.2);}
+  /* 他プレイヤーの手札へ置いた長き暗闇の保留札は、獲得カードと同じ38×56pxで表示する。 */
+  .player-tag:not(.me) .exchange-received-card.darkness-held-card{width:38px;height:56px;border-radius:5px;}
   .player-tag.me .exchange-received-card{top:-5px;transform:translate(-50%,-100%) rotate(calc(180deg + var(--received-tilt,0deg)));}
   .exchange-received-card.face-up{border:0;background:transparent;box-shadow:none;}
   .player-tag.me .exchange-received-card.face-up{transform:translate(-50%,-100%) rotate(var(--received-tilt,0deg));}
@@ -5413,6 +5415,12 @@ function renderPlayerCircle(players){
       miniHand.className = 'mini-hand';
       if (state.game?.phase === 'elrond-transfer-selection'
         && !state.game?.pendingElrondTransfers?.transferred?.[p.id]) miniHand.classList.add('elrond-pending');
+      const darknessPending = state.game?.pendingDarknessExchange;
+      const hasDarknessExchangePending = state.game?.phase === 'darkness-exchange-selection'
+        && (darknessPending?.sources?.includes(p.id)
+          || Object.values(darknessPending?.offers || {}).some(offer => offer.targetId === p.id));
+      // 選択済みでも全員の交換が確定するまでは、保留中の他プレイヤー手札を明滅させ続ける。
+      if (hasDarknessExchangePending) miniHand.classList.add('elrond-pending');
 
       // キャラクターカードは獲得カード置き場で公開するため、手札の裏面には含めない。
       const colorOrder = { red:0, green:1, orange:2, gray:3, yellow:4 };
@@ -5526,13 +5534,17 @@ function renderPlayerCircle(players){
     // 同じ人へ2枚以上届いた場合も省略せず、ずらした裏面を枚数分表示する。
     darknessReceivedCards.forEach(({ sourceId, card:heldCard }, heldIndex) => {
       const receivedCard = document.createElement('div');
-      receivedCard.className = 'exchange-received-card';
+      receivedCard.className = 'exchange-received-card darkness-held-card';
       receivedCard.dataset.cardId = heldCard.id;
       receivedCard.style.setProperty('--received-index', heldIndex);
       receivedCard.style.setProperty('--received-offset-x', `${heldIndex * 9}px`);
       receivedCard.style.setProperty('--received-offset-y', `${heldIndex * 3}px`);
       receivedCard.style.setProperty('--received-tilt', `${(heldIndex - (darknessReceivedCards.length - 1) / 2) * 4}deg`);
-      receivedCard.setAttribute('aria-label', `長き暗闇の交換で受け取った裏向きの保留カード（${heldIndex + 1}/${darknessReceivedCards.length}）`);
+      const placedByMe = sourceId === state.userId;
+      receivedCard.classList.toggle('placed-by-me', placedByMe);
+      receivedCard.setAttribute('aria-label', placedByMe
+        ? `自分が置いた長き暗闇の裏向き保留カード（${heldIndex + 1}/${darknessReceivedCards.length}）`
+        : `長き暗闇の交換で受け取った裏向きの保留カード（${heldIndex + 1}/${darknessReceivedCards.length}）`);
       receivedCard.dataset.exchangeSourceId = sourceId;
       tag.appendChild(receivedCard);
     });
