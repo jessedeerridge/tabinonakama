@@ -493,18 +493,22 @@
   .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;box-sizing:border-box;border:2px solid #10233f;border-radius:50%;background:transparent url('definitechara.jpg') center/cover no-repeat;z-index:5;pointer-events:none;}
   .character-choice.required-raised{transform:translateY(-5px);}
   .character-choice.ring-required-pulse{animation:ringRequiredPulse 1.05s ease-in-out infinite;}
+  .character-choice.long-chapter-achieved>.character-card{border-color:#102b50;box-shadow:0 0 0 3px #102b50,0 4px 12px rgba(0,0,0,.25);}
   @keyframes ringRequiredPulse{50%{transform:translateY(-7px) scale(1.06)}}
   /* 全員の目的達成後は、章完了演出に視線を集めるためカードのパルスを止める。 */
   body.victory-complete .my-hand.has-playable-cards .my-card.playable,
   body.victory-complete .excluded-card-slot.gandalf-pick,
   body.victory-complete .my-card.exchange-pick,
   body.victory-complete .character-choice.ring-required-pulse{animation:none!important;}
-  .chapter-complete-banner{position:fixed;left:0;top:50%;z-index:1200;padding:9px 21px;background:#000;color:#fff;font-family:serif;font-size:clamp(18px,5vw,30px);font-weight:900;line-height:1;letter-spacing:.12em;white-space:nowrap;pointer-events:none;transform:translate(-110%,-50%);will-change:transform;}
-  .chapter-complete-banner.running{animation:chapterCompleteFlow 2.9s ease-in-out both;}
+  .chapter-complete-banner{position:fixed;left:50%;top:50%;z-index:1200;display:flex;flex-direction:column;align-items:center;gap:9px;pointer-events:none;transform:translate(-50%,-50%);}
+  .chapter-complete-banner.hidden{display:none;}
+  .chapter-complete-message{padding:9px 21px;background:#000;color:#fff;font-family:serif;font-size:clamp(18px,5vw,30px);font-weight:900;line-height:1;letter-spacing:.12em;white-space:nowrap;transform:translateX(calc(-50vw - 110%));will-change:transform;}
+  .chapter-complete-banner.running .chapter-complete-message{animation:chapterCompleteFlow .8s ease-out both;}
+  .chapter-continue-btn{pointer-events:auto;padding:4px 12px;border:1px solid #111;border-radius:999px;background:#fff;color:#111;font-size:11px;font-weight:800;cursor:pointer;opacity:0;}
+  .chapter-complete-banner.arrived .chapter-continue-btn{opacity:1;}
   @keyframes chapterCompleteFlow{
-    0%{transform:translate(-110%,-50%);}
-    24.138%,75.862%{transform:translate(calc(50vw - 50%),-50%);}
-    100%{transform:translate(calc(100vw + 10%),-50%);}
+    from{transform:translateX(calc(-50vw - 110%));}
+    to{transform:translateX(0);}
   }
   .character-card-slot{position:relative;flex:0 0 82px;width:82px;height:122px;visibility:hidden;pointer-events:none;}
   .hand-row>.character-card{width:82px;height:122px;flex:0 0 82px;}
@@ -807,7 +811,10 @@
   <div class="yellow-one-note">＊2秒長押しで決定。</div>
 </section>
 
-<div id="chapterCompleteBanner" class="chapter-complete-banner" role="status" aria-live="assertive"></div>
+<div id="chapterCompleteBanner" class="chapter-complete-banner hidden" role="status" aria-live="assertive">
+  <div id="chapterCompleteMessage" class="chapter-complete-message"></div>
+  <button id="chapterContinueBtn" class="chapter-continue-btn" type="button">続ける</button>
+</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
@@ -907,6 +914,8 @@ const exchangeTargets = document.getElementById('exchangeTargets');
 const striderChoiceDialog = document.getElementById('striderChoiceDialog');
 const striderChoiceQuestion = document.getElementById('striderChoiceQuestion');
 const chapterCompleteBanner = document.getElementById('chapterCompleteBanner');
+const chapterCompleteMessage = document.getElementById('chapterCompleteMessage');
+const chapterContinueBtn = document.getElementById('chapterContinueBtn');
 const threatChoiceDialog = document.getElementById('threatChoiceDialog');
 const threatChoiceMessage = document.getElementById('threatChoiceMessage');
 const threatChoiceGrid = document.getElementById('threatChoiceGrid');
@@ -1638,6 +1647,21 @@ function chapterOutcome(room){
 
 let chapterCompleteTimer = null;
 let renderedChapterCompleteAt = null;
+function achievedLongChapterCharacters(room = state.room){
+  const achieved = new Set(Object.keys(room?.longChapterProgress?.characters || {}));
+  Object.entries(room?.game?.characterSelections || {}).forEach(([playerId, character]) => {
+    if (victoryConditionStatus(room, playerId).status === 'achieved') achieved.add(character.name);
+  });
+  return achieved;
+}
+
+function isLongChapterComplete(room = state.room){
+  const stage = STAGES.find(item => item.number === Number(room?.game?.stageNumber));
+  if (stage?.winCondition !== 'long') return false;
+  const achieved = achievedLongChapterCharacters(room);
+  return (room?.game?.availableCharacters || []).every(character => achieved.has(character.name));
+}
+
 function renderChapterComplete(){
   clearTimeout(chapterCompleteTimer);
   const outcome = state.game?.chapterOutcome;
@@ -1645,8 +1669,9 @@ function renderChapterComplete(){
   if (!decidedAt) {
     document.body.classList.remove('victory-complete');
     renderedChapterCompleteAt = null;
-    chapterCompleteBanner.classList.remove('running');
-    chapterCompleteBanner.textContent = '';
+    chapterCompleteBanner.classList.add('hidden');
+    chapterCompleteBanner.classList.remove('running', 'arrived');
+    chapterCompleteMessage.textContent = '';
     return;
   }
   const animationAt = decidedAt;
@@ -1657,18 +1682,27 @@ function renderChapterComplete(){
     return;
   }
   document.body.classList.add('victory-complete');
-  if (elapsed >= 2900 || renderedChapterCompleteAt === decidedAt) return;
-  renderedChapterCompleteAt = decidedAt;
+  chapterCompleteBanner.classList.remove('hidden');
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
-  const resultLabel = outcome?.status === 'failed' ? '失敗' : '完';
-  chapterCompleteBanner.textContent = `${stage?.chapterLabel || `第${state.game?.stageNumber || ''}章`}　${resultLabel}`;
+  const longFinal = stage?.winCondition === 'long' && isLongChapterComplete();
+  const resultLabel = stage?.winCondition === 'long' && !longFinal
+    ? 'to be continued'
+    : outcome?.status === 'failed' ? '失敗' : '完';
+  chapterCompleteMessage.textContent = resultLabel === 'to be continued'
+    ? resultLabel
+    : `${stage?.chapterLabel || `第${state.game?.stageNumber || ''}章`}　${resultLabel}`;
+  if (elapsed >= 800) chapterCompleteBanner.classList.add('arrived');
+  if (renderedChapterCompleteAt === decidedAt) return;
+  renderedChapterCompleteAt = decidedAt;
   chapterCompleteBanner.classList.remove('running');
-  chapterCompleteBanner.style.animationDelay = `${-elapsed}ms`;
+  chapterCompleteBanner.classList.toggle('arrived', elapsed >= 800);
+  chapterCompleteMessage.style.animationDelay = `${-elapsed}ms`;
   void chapterCompleteBanner.offsetWidth;
   chapterCompleteBanner.classList.add('running');
   chapterCompleteBanner.addEventListener('animationend', () => {
     chapterCompleteBanner.classList.remove('running');
-    chapterCompleteBanner.style.removeProperty('animation-delay');
+    chapterCompleteBanner.classList.add('arrived');
+    chapterCompleteMessage.style.removeProperty('animation-delay');
   }, { once:true });
 }
 
@@ -3868,7 +3902,9 @@ async function chooseCharacter(characterName, source){
     const hasFrodoCharacter = (room.game.availableCharacters || [])
       .some(item => item.name === 'フロド');
     // フロドが登場する章だけ、黄1の所持者とフロドを対応させる。
-    if (hasFrodoCharacter && (characterName === 'フロド') !== hasYellowOne) return;
+    const stageNineOptionalFrodo = Number(room.game.stageNumber) === 9;
+    if (hasFrodoCharacter && (characterName === 'フロド') !== hasYellowOne
+      && !(stageNineOptionalFrodo && hasYellowOne && characterName !== 'フロド')) return;
     const selectedNames = new Set(Object.values(room.game.characterSelections).map(item => item.name));
     const remainingRequiredCount = (room.game.availableCharacters || [])
       .filter(item => item.required && !selectedNames.has(item.name)).length;
@@ -3993,13 +4029,16 @@ function renderCharacterPicker(){
     choice.className = 'character-choice';
     const isChosen = chosenNames.has(character.name);
     choice.classList.toggle('chosen-placeholder', isChosen);
+    const stageNineOptionalFrodo = Number(game.stageNumber) === 9;
     const violatesRingRule = hasFrodoCharacter
       && (character.name === 'フロド' ? !hasYellowOne : hasYellowOne);
-    const unavailable = violatesRingRule || (mustChooseRequired && !character.required);
+    const unavailable = (violatesRingRule && !(stageNineOptionalFrodo && hasYellowOne && character.name !== 'フロド'))
+      || (mustChooseRequired && !character.required);
     choice.disabled = isChosen || alreadyChose || unavailable;
     // 選択できない場合も、フロドは暗くせず黄1との対応を見分けやすくする。
     choice.classList.toggle('forced-unavailable', unavailable && !hasYellowOne && character.name !== 'フロド');
     choice.dataset.characterName = character.name;
+    choice.classList.toggle('long-chapter-achieved', Boolean(state.room?.longChapterProgress?.characters?.[character.name]));
     choice.classList.toggle('ring-required-pulse', hasFrodoCharacter && hasYellowOne && character.name === 'フロド');
     const choiceCard = createCharacterCardElement(characterCardData(character, state.userId));
     choice.appendChild(choiceCard);
@@ -4782,7 +4821,7 @@ btnKickYes.addEventListener('click', async (e) => {
   renderCharacterPicker();
 });
 
-async function dealInitialHands(stageNumber){
+async function dealInitialHands(stageNumber, { resetLongProgress = false } = {}){
   if (!state.roomCode) return;
 
   const tablesSnap = await get(ref(db, `rooms/${state.roomCode}/tables`));
@@ -4848,6 +4887,7 @@ async function dealInitialHands(stageNumber){
   barrowDeck = barrowDeck.map((card, index) => ({ ...card, id:`barrow-${index}-${dealtAt}` }));
   await update(ref(db, `rooms/${state.roomCode}`), {
     hands,
+    ...(resetLongProgress ? { longChapterProgress:null } : {}),
     game: {
       playerOrder, turnPlayerId: null, trickNumber: 1, stageNumber, startedAt:Date.now(),
       phase: 'character-selection', availableCharacters: stageCharacters,
@@ -4860,6 +4900,43 @@ async function dealInitialHands(stageNumber){
     }
   });
 }
+
+chapterContinueBtn.addEventListener('click', async () => {
+  if (!state.roomCode || !state.game?.chapterOutcome) return;
+  chapterContinueBtn.disabled = true;
+  const claim = `${state.userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  try {
+    const result = await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+      if (!room?.game?.chapterOutcome || room.game.continueClaim) return;
+      const stage = STAGES.find(item => item.number === Number(room.game.stageNumber));
+      if (stage?.winCondition === 'long') {
+        room.longChapterProgress ||= { stageNumber:room.game.stageNumber, characters:{} };
+        if (Number(room.longChapterProgress.stageNumber) !== Number(room.game.stageNumber)) {
+          room.longChapterProgress = { stageNumber:room.game.stageNumber, characters:{} };
+        }
+        Object.entries(room.game.characterSelections || {}).forEach(([playerId, character]) => {
+          if (victoryConditionStatus(room, playerId).status === 'achieved') {
+            room.longChapterProgress.characters[character.name] = true;
+          }
+        });
+      }
+      room.game.continueClaim = claim;
+      return room;
+    });
+    const room = result.snapshot.val();
+    if (!result.committed || room?.game?.continueClaim !== claim) return;
+    const stage = STAGES.find(item => item.number === Number(room.game.stageNumber));
+    const allLongCharactersAchieved = stage?.winCondition === 'long'
+      && (room.game.availableCharacters || []).every(character => room.longChapterProgress?.characters?.[character.name]);
+    const repeatChapter = stage?.winCondition === 'long'
+      ? !allLongCharactersAchieved
+      : room.game.chapterOutcome.status === 'failed';
+    const nextStageNumber = repeatChapter ? stage.number : Math.min(stage.number + 1, STAGES.length);
+    await dealInitialHands(nextStageNumber);
+  } finally {
+    chapterContinueBtn.disabled = false;
+  }
+});
 
 hostSettingsBtn.addEventListener('click', () => {
   if (!state.isHost) return;
@@ -4879,7 +4956,7 @@ function openStageDialog(){
     tab.addEventListener('click', async () => {
       if (!state.isHost) return;
       tab.disabled = true;
-      await dealInitialHands(stage.number);
+      await dealInitialHands(stage.number, { resetLongProgress:true });
       stageDialog.classList.add('hidden');
     });
     stageGrid.append(tab);
