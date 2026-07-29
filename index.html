@@ -2447,6 +2447,63 @@ function moriaRequiredCharacterName(game){
   return MORIA_REQUIRED_CHARACTERS[Number(game.moriaEventScrollIndex ?? game.moriaEventIndex ?? 0)] || null;
 }
 
+function rememberMoriaOriginalHands(room){
+  if (room.game.moriaOriginalSetup) return;
+  room.game.moriaOriginalSetup = JSON.parse(JSON.stringify({
+    hands:room.hands || {},
+    excludedCard:room.game.excludedCard || null,
+    excludedCardTilt:room.game.excludedCardTilt ?? null,
+    excludedCards:room.game.excludedCards || null,
+    excludedCardTilts:room.game.excludedCardTilts || null
+  }));
+}
+
+function restoreMoriaOriginalHands(room){
+  const original = room.game.moriaOriginalSetup;
+  if (!original) return;
+  room.hands = original.hands || {};
+  ['excludedCard','excludedCardTilt','excludedCards','excludedCardTilts'].forEach(key => {
+    if (original[key] == null) delete room.game[key];
+    else room.game[key] = original[key];
+  });
+  ['balrogDeck','balrogDiscard','balrogRevealed','balrogRevealAt','balrogRevealSequence'].forEach(key => delete room.game[key]);
+  delete room.game.moriaBridgePrepared;
+  delete room.game.moriaOriginalSetup;
+}
+
+function prepareMoriaBridgeHands(room){
+  if (room.game.moriaBridgePrepared) return;
+  const allTravelCards = [
+    ...Object.values(room.hands || {}).flatMap(hand => (hand.cards || []).filter(card => card.kind !== 'character')),
+    ...(room.game.excludedCards || []), ...(room.game.excludedCard ? [room.game.excludedCard] : [])
+  ];
+  const balrogCards = allTravelCards.filter(card => card.color === 'red').map(card => ({ ...card, kind:'balrog-shadow' }));
+  const fellowshipDeck = shuffleInPlace(allTravelCards.filter(card => card.color !== 'red'));
+  const yellowOneIndex = fellowshipDeck.findIndex(card => card.color === 'yellow' && Number(card.number) === 1);
+  if (yellowOneIndex > 0) [fellowshipDeck[0], fellowshipDeck[yellowOneIndex]] = [fellowshipDeck[yellowOneIndex], fellowshipDeck[0]];
+  const cardsPerPlayer = room.game.playerOrder.length === 3 ? 9 : 7;
+  room.game.playerOrder.forEach(playerId => {
+    const characterCard = (room.hands[playerId]?.cards || []).find(card => card.kind === 'character');
+    room.hands[playerId] ||= { cards:[] };
+    room.hands[playerId].cards = [characterCard, ...fellowshipDeck.splice(0, cardsPerPlayer)].filter(Boolean);
+  });
+  const frodoId = Object.entries(room.game.characterSelections || {}).find(([, selected]) => selected.name === 'フロド')?.[0];
+  const ringHolderId = room.game.playerOrder.find(playerId => room.hands[playerId].cards.some(card => card.color === 'yellow' && Number(card.number) === 1));
+  if (frodoId && ringHolderId && frodoId !== ringHolderId) {
+    const ringIndex = room.hands[ringHolderId].cards.findIndex(card => card.color === 'yellow' && Number(card.number) === 1);
+    const replacementIndex = room.hands[frodoId].cards.findIndex(card => card.kind !== 'character');
+    [room.hands[ringHolderId].cards[ringIndex], room.hands[frodoId].cards[replacementIndex]]
+      = [room.hands[frodoId].cards[replacementIndex], room.hands[ringHolderId].cards[ringIndex]];
+  }
+  room.game.excludedCards = fellowshipDeck;
+  room.game.excludedCardTilts = fellowshipDeck.map(() => Math.floor(Math.random() * 5) - 2);
+  delete room.game.excludedCard; delete room.game.excludedCardTilt;
+  balrogCards.push({ kind:'balrog-shadow', color:'red', name:'バルログ', number:5, id:`balrog-${Date.now()}` });
+  room.game.balrogDeck = shuffleInPlace(balrogCards);
+  room.game.balrogDiscard = []; room.game.balrogRevealed = [];
+  room.game.moriaBridgePrepared = true;
+}
+
 async function syncMoriaScroll(index){
   if (!state.roomCode || Number(state.game?.stageNumber) !== 14
       || state.game?.phase !== 'character-selection') return;
@@ -2454,18 +2511,22 @@ async function syncMoriaScroll(index){
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
     if (!room?.game || Number(room.game.stageNumber) !== 14 || room.game.phase !== 'character-selection') return;
     if (Number(room.game.moriaEventScrollIndex ?? 0) === index) return room;
-    room.game.moriaEventScrollIndex = index;
+    const wasBridge = Number(room.game.moriaEventScrollIndex ?? 0) === 3;
+    if (wasBridge && index !== 3) restoreMoriaOriginalHands(room);
     const selections = room.game.characterSelections || {};
-    // イベントを変えたらフロドだけを残し、その他の選択カードと選択状態を戻す。
+    // イベント変更時はフロドだけを残し、その他の選択カードを手札から戻す。
     Object.entries(selections).forEach(([playerId, character]) => {
       if (character.name === 'フロド') return;
-      if (room.hands?.[playerId]?.cards) {
-        room.hands[playerId].cards = room.hands[playerId].cards.filter(card => card.kind !== 'character');
-      }
+      if (room.hands?.[playerId]?.cards) room.hands[playerId].cards = room.hands[playerId].cards.filter(card => card.kind !== 'character');
       delete selections[playerId];
     });
     room.game.characterSelections = selections;
+    room.game.moriaEventScrollIndex = index;
     delete room.game.moriaEventOwnerId;
+    if (index === 3) {
+      rememberMoriaOriginalHands(room);
+      prepareMoriaBridgeHands(room);
+    }
     return room;
   });
 }
@@ -4623,38 +4684,7 @@ async function chooseCharacter(characterName, source){
             effect:'〈イベント：橋〉のみ：失われしカードを手札に加える。',
             id:`${ownerId}-character-moria-bridge-gandalf`
           });
-          const allTravelCards = [
-            ...Object.values(room.hands || {}).flatMap(hand => (hand.cards || []).filter(card => card.kind !== 'character')),
-            ...(room.game.excludedCards || []), ...(room.game.excludedCard ? [room.game.excludedCard] : [])
-          ];
-          const balrogCards = allTravelCards.filter(card => card.color === 'red')
-            .map(card => ({ ...card, kind:'balrog-shadow' }));
-          const fellowshipDeck = shuffleInPlace(allTravelCards.filter(card => card.color !== 'red'));
-          // 失われしカードが何枚あっても、一つの指輪は必ず誰かの手札へ配る。
-          const yellowOneIndex = fellowshipDeck.findIndex(card => card.color === 'yellow' && Number(card.number) === 1);
-          if (yellowOneIndex > 0) [fellowshipDeck[0], fellowshipDeck[yellowOneIndex]] = [fellowshipDeck[yellowOneIndex], fellowshipDeck[0]];
-          const cardsPerPlayer = room.game.playerOrder.length === 3 ? 9 : 7;
-          room.game.playerOrder.forEach(playerId => {
-            const characterCard = (room.hands[playerId]?.cards || []).find(card => card.kind === 'character');
-            room.hands[playerId].cards = [characterCard, ...fellowshipDeck.splice(0, cardsPerPlayer)].filter(Boolean);
-          });
-          const frodoId = Object.entries(room.game.characterSelections).find(([, selected]) => selected.name === 'フロド')?.[0];
-          const ringHolderId = room.game.playerOrder.find(playerId => room.hands[playerId].cards
-            .some(card => card.color === 'yellow' && Number(card.number) === 1));
-          if (frodoId && ringHolderId && frodoId !== ringHolderId) {
-            const ringIndex = room.hands[ringHolderId].cards.findIndex(card => card.color === 'yellow' && Number(card.number) === 1);
-            const replacementIndex = room.hands[frodoId].cards.findIndex(card => card.kind !== 'character');
-            [room.hands[ringHolderId].cards[ringIndex], room.hands[frodoId].cards[replacementIndex]]
-              = [room.hands[frodoId].cards[replacementIndex], room.hands[ringHolderId].cards[ringIndex]];
-          }
-          room.game.excludedCards = fellowshipDeck;
-          room.game.excludedCardTilts = fellowshipDeck.map(() => Math.floor(Math.random() * 5) - 2);
-          delete room.game.excludedCard;
-          delete room.game.excludedCardTilt;
-          balrogCards.push({ kind:'balrog-shadow', color:'red', name:'バルログ', number:5, id:`balrog-${Date.now()}` });
-          room.game.balrogDeck = shuffleInPlace(balrogCards);
-          room.game.balrogDiscard = [];
-          room.game.balrogRevealed = [];
+          prepareMoriaBridgeHands(room);
         }
       }
     }
