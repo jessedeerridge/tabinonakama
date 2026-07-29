@@ -5367,7 +5367,13 @@ function scheduleEntranceRoomExpiry(){
 }
 
 function savedEntranceName(){
-  return (localStorage.savedUserName || state.userName || '').slice(0, 4);
+  return (localStorage.savedUserName || '').slice(0, 4);
+}
+function randomHiraganaName(length = 4){
+  const characters = Array.from('あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん');
+  const values = new Uint32Array(length);
+  crypto.getRandomValues(values);
+  return Array.from(values, value => characters[value % characters.length]).join('');
 }
 function formatRoomTime(timestamp){
   const date = new Date(Number(timestamp) || 0);
@@ -5383,7 +5389,9 @@ function entranceNameForm(code){
   input.value = savedEntranceName();
   input.addEventListener('input', () => {
     input.value = input.value.slice(0, 4);
-    localStorage.savedUserName = input.value;
+    const enteredName = input.value.trim();
+    if (enteredName) localStorage.setItem('savedUserName', enteredName);
+    else localStorage.removeItem('savedUserName');
   });
   const submit = document.createElement('button');
   submit.type = 'submit';
@@ -5393,8 +5401,11 @@ function entranceNameForm(code){
     event.preventDefault();
     submit.disabled = true;
     try {
-      const name = input.value.trim().slice(0, 4) || 'name';
-      localStorage.savedUserName = name;
+      const enteredName = input.value.trim().slice(0, 4);
+      const name = enteredName || randomHiraganaName();
+      // 無記入時に生成した一時名は保存せず、次回の入室では再び新しい名前を生成する。
+      if (enteredName) localStorage.setItem('savedUserName', enteredName);
+      else localStorage.removeItem('savedUserName');
       const roomCode = code === '__create__' ? await createUniqueRoom(name) : code;
       await enterRoom(roomCode, name);
     } finally {
