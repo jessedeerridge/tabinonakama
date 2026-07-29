@@ -187,8 +187,8 @@
   .victory-condition-square.number-acquired{opacity:.25;}
   .victory-condition-icon.awaiting-threat{display:none;}
   .victory-condition-icon.moria-gimli-sequence{position:relative;height:29px;gap:0;padding:0;}
-  .victory-condition-icon.moria-gimli-sequence::after{content:'+1';position:absolute;left:50%;top:15px;transform:translateX(-50%);font-size:10px;font-weight:900;line-height:12px;}
-  .moria-sequence-arrow{position:absolute;left:-6px;right:-6px;top:7px;height:1px;background:#142b4a;z-index:4;}
+  .victory-condition-icon.moria-gimli-sequence::after{content:'+1';position:absolute;left:50%;top:18px;transform:translateX(-50%);font-size:10px;font-weight:900;line-height:12px;}
+  .moria-sequence-arrow{position:absolute;left:-6px;right:-6px;top:14px;height:1px;background:#142b4a;z-index:4;}
   .moria-sequence-arrow::after{content:'';position:absolute;right:-4px;top:-2.5px;border-left:5px solid #142b4a;border-top:3px solid transparent;border-bottom:3px solid transparent;}
   .victory-condition-icon.word .victory-condition-square{width:24px;}
   .victory-condition-icon.multiline{height:auto;flex-direction:column;gap:1px;line-height:12px;}
@@ -455,7 +455,7 @@
   .character-heading{display:block;margin-top:2px;}
   .character-line{display:block;font-size:8px;letter-spacing:normal;}
   /* 両欄の固定子要素サイズを親へ揃え、カード内に全情報が入るまで親を一括縮小する。 */
-  .winningcondition-half.left .chapter-heading{font-size:7px;}
+  .winningcondition-half.left .chapter-heading{font-size:calc(1em - 1px);}
   .winningcondition-half.left .stage-title,
   .winningcondition-half.left .character-heading,
   .winningcondition-half.left .character-line,
@@ -2779,7 +2779,7 @@ function renderStageInformation(){
     });
   }
   winningconditionInfo.append(info);
-  fitBlockText(title, 7, 3.5, .1);
+  // 左欄全体を同じ基準サイズで縮小し、章見出しだけを常に1px小さく保つ。
   fitBlockText(winningconditionInfo, 9, 2.5, .1);
 
   winningconditionGoal.replaceChildren();
