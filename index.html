@@ -488,6 +488,7 @@
   .my-card.card-orange{--card-color:#d98236;}
   .my-card.card-yellow{--card-color:#f2c94c;}
   .my-card.card-gray{--card-color:#a9aca8;}
+  .my-card.card-river{--card-color:#67c7e8;background-image:url('river.jpg');}
   .my-card.card-red{background-image:url('shadow.jpg');}
   .my-card.card-green{background-image:url('mori.jpg');}
   .my-card.card-green.card-nine{background-image:url('yanagi9.jpg');}
@@ -1288,6 +1289,27 @@ defineStage(16, {
     }
   ]
 });
+defineStage(17, {
+  title: '大河',
+  story: '「もうこの話はやめよう。舟を見ろ！ この大荷物のせいで、水面すれすれまで沈んでいる。それに、この大河の流れは速い。私は冷たい氷の中で、悲しみまで一緒に溺れたくはない」そう言うと、彼はパドルを手に取り、西の岸へと漕ぎ出した。すでに中流を抜けたアラゴルンの舟のあとを追って。',
+  characters: ['frodo*,aragorn,legolas,gimli,boromir,sam,merry,pippin,galadriel,celeborn'],
+  threats: [{ name:'脅威', min:1, max:7 }],
+  winCondition: 'long', goal: 'everywin',
+  additionalElements: '〈イベント：アンドゥイン〉の記述に従う。\n〈ミスリルの胴着〉をフロドに渡す。〈ケレボルン〉の目的は達成しなくてよい。',
+  eventCards: [
+    {
+      title:'アンドゥイン', heading:'イベント：アンドゥイン', hammer:true,
+      text:'メインのデッキを配る前に',
+      playerText:{ 3:'〈大河〉カード1～6をメインデッキに加えた後、各プレイヤーに14枚のカードを配り1枚を「失われしカード」として取っておきます。', 4:'〈大河〉カード1～8をメインデッキに加えた後、各プレイヤーに11枚のカードを配り1枚を「失われしカード」として取っておきます。' }, playerTextSeparator:'',
+      secondaryHeading:'大河',
+      afterText:'〈大河〉カードは、たとえリードスートでなくても、プレイされたトリックに勝利する。複数の〈大河〉カードがプレイされた場合は、ランク（数字）が最も高い〈大河〉カードがそのトリックに勝利する。ただし、〈大河〉カードは〈指輪の1〉には勝てない。'
+    },
+    {
+      title:'アンドゥイン',
+      text:'「おーい、アラゴルン！」ボロミアは、自らの舟が先頭の船にぶつかりながら叫んだ。「これは無茶だ！ 夜にこの急流に挑むことなどできん！ それに、昼であろうと夜であろうと、サルン・ゲビルの早瀬を生き延びた船などないぞ！」'
+    }
+  ]
+});
 
 /* ★ 追加：ヘルプUI参照 */
 const helpBtn = document.getElementById('helpBtn');
@@ -1336,6 +1358,13 @@ const CARD_DECK = CARD_TYPES.flatMap(type =>
     number: index + 1
   }))
 );
+
+function riverCardsForPlayerCount(playerCount){
+  const count = playerCount === 3 ? 6 : 8;
+  return Array.from({ length:count }, (_, index) => ({
+    color:'river', name:'大河', number:index + 1, kind:'river'
+  }));
+}
 
 // 長い特殊カード名を、カード幅に合わせて一行に収める。
 const cardNameFitObserver = new ResizeObserver(entries => {
@@ -1952,7 +1981,7 @@ function chapterOutcome(room){
   if (!playerIds.length) return null;
   const statuses = playerIds.map(playerId => victoryConditionStatus(room, playerId).status);
   if (statuses.every(status => status === 'achieved')) return 'complete';
-  if ([13, 14].includes(Number(room.game.stageNumber))) {
+  if ([13, 14, 17].includes(Number(room.game.stageNumber))) {
     // この章では、最初の確定失敗は胴着で救えるため結果を保留する。
     // 二人目が失敗した時点、または胴着を使わずに確定した時だけ敗北となる。
     if (room.game.mithrilDecision === 'no') return 'failed';
@@ -1987,7 +2016,8 @@ function isLongChapterComplete(room = state.room){
   if (stage?.winCondition !== 'long') return false;
   const achieved = achievedLongChapterCharacters(room);
   return (room?.game?.availableCharacters || []).every(character =>
-    (Number(stage.number) === 13 && character.name === '小馬のビル') || achieved.has(character.name));
+    ((Number(stage.number) === 13 && character.name === '小馬のビル')
+      || (Number(stage.number) === 17 && character.name === 'ケレボルン')) || achieved.has(character.name));
 }
 
 function renderChapterComplete(){
@@ -2051,7 +2081,7 @@ function renderChapterComplete(){
 
 function canDecideMithril(room = state.room){
   const game = room?.game;
-  if (![13, 14].includes(Number(game?.stageNumber)) || game.chapterOutcome || game.mithrilDecision) return false;
+  if (![13, 14, 17].includes(Number(game?.stageNumber)) || game.chapterOutcome || game.mithrilDecision) return false;
   if (game.pendingCapture || game.pendingOutcomeCheckAt) return false;
   if (!frodoHasMithril(room)) return false;
   const statuses = (game.playerOrder || []).map(playerId => victoryConditionStatus(room, playerId).status);
@@ -2086,7 +2116,9 @@ async function decideMithril(useCoat){
     game.mithrilDecision = useCoat ? 'yes' : 'no';
     if (useCoat) {
       game.mithrilAppliedToPlayerId = failedPlayerId;
-      room[Number(game.stageNumber) === 14 ? 'stageFourteenMithrilAvailable' : 'stageThirteenMithrilAvailable'] = false;
+      const availabilityKey = Number(game.stageNumber) === 14 ? 'stageFourteenMithrilAvailable'
+        : Number(game.stageNumber) === 17 ? 'stageSeventeenMithrilAvailable' : 'stageThirteenMithrilAvailable';
+      room[availabilityKey] = false;
       game.equipmentCards ||= {};
       game.equipmentCards[frodoPlayerId] = (game.equipmentCards[frodoPlayerId] || [])
         .filter(card => card.name !== MITHRIL_COAT.name);
@@ -4951,13 +4983,18 @@ async function playCard(cardIndex, expectedCard){
         }
       }
       const lead = plays[0].card.color;
-      const winnerPlay = plays.filter(p=>p.card.color===lead).reduce((best,p)=>p.card.number>best.card.number?p:best);
+      const yellowOnePlay = Number(room.game.stageNumber) === 17
+        ? plays.find(play => play.card.color === 'yellow' && Number(play.card.number) === 1) : null;
+      const riverPlays = Number(room.game.stageNumber) === 17 ? plays.filter(play => play.card.color === 'river') : [];
+      const winnerPlay = yellowOnePlay || (riverPlays.length
+        ? riverPlays.reduce((best, play) => Number(play.card.number) > Number(best.card.number) ? play : best)
+        : plays.filter(p=>p.card.color===lead).reduce((best,p)=>p.card.number>best.card.number?p:best));
       const winnerId = Object.entries(room.game.trick).find(([,p])=>p===winnerPlay)?.[0] || state.userId;
       const leadPlayerId = Object.entries(room.game.trick).find(([, play]) => play.order === 0)?.[0] || winnerId;
       const oldForestWins = oldForestWinsTrick(room.game, plays);
       const yellowOneEntry = Object.entries(room.game.trick)
         .find(([, play]) => play.card.color === 'yellow' && play.card.number === 1);
-      if (!oldForestWins && yellowOneEntry && yellowOneEntry[0] !== winnerId) {
+      if (!oldForestWins && yellowOneEntry && yellowOneEntry[0] !== winnerId && Number(room.game.stageNumber) !== 17) {
         // 通常判定では黄1が勝てない場合だけ、所持者の選択まで回収を保留する。
         room.game.pendingYellowOneDecision = {
           playerId:yellowOneEntry[0], normalWinnerId:winnerId,
@@ -5225,8 +5262,10 @@ async function chooseCharacter(characterName, source){
       }
     }
     const mithrilAvailable = Number(room.game.stageNumber) === 14
-      ? room.stageFourteenMithrilAvailable !== false : room.stageThirteenMithrilAvailable !== false;
-    if ([13, 14].includes(Number(room.game.stageNumber)) && characterName === 'フロド' && mithrilAvailable) {
+      ? room.stageFourteenMithrilAvailable !== false
+      : Number(room.game.stageNumber) === 17 ? room.stageSeventeenMithrilAvailable !== false
+      : room.stageThirteenMithrilAvailable !== false;
+    if ([13, 14, 17].includes(Number(room.game.stageNumber)) && characterName === 'フロド' && mithrilAvailable) {
       room.game.equipmentCards ||= {}; room.game.equipmentCards[state.userId] ||= [];
       room.game.equipmentCards[state.userId].push({
         kind:'equipment', ...MITHRIL_COAT, id:`${state.userId}-equipment-${Date.now()}`
@@ -6235,7 +6274,9 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
   // 第五章では森1～8を通常の手札へ混ぜず、柳じじいを加えた専用山札にする。
   const isOldForest = Number(stageNumber) === 5;
   const isBarrow = Number(stageNumber) === 6;
+  const isAnduin = Number(stageNumber) === 17;
   const deck = CARD_DECK.filter(card => !isOldForest || card.color !== 'green').map(card => ({ ...card }));
+  if (isAnduin) deck.push(...riverCardsForPlayerCount(seatedPlayers.length));
   for (let i = deck.length - 1; i > 0; i--){
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -6337,6 +6378,9 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     ...(Number(stageNumber) === 14
       ? { stageFourteenMithrilAvailable:resetLongProgress ? true : currentRoom.stageFourteenMithrilAvailable !== false }
       : {}),
+    ...(Number(stageNumber) === 17
+      ? { stageSeventeenMithrilAvailable:resetLongProgress ? true : currentRoom.stageSeventeenMithrilAvailable !== false }
+      : {}),
     game: {
       playerOrder, turnPlayerId: null, trickNumber: 1, stageNumber, startedAt:Date.now(),
       phase: 'character-selection', availableCharacters: stageCharacters,
@@ -6380,7 +6424,8 @@ chapterContinueBtn.addEventListener('click', async () => {
     const stage = STAGES.find(item => item.number === Number(room.game.stageNumber));
     const allLongCharactersAchieved = stage?.winCondition === 'long'
       && (room.game.availableCharacters || []).every(character =>
-        (Number(stage.number) === 13 && character.name === '小馬のビル')
+        ((Number(stage.number) === 13 && character.name === '小馬のビル')
+          || (Number(stage.number) === 17 && character.name === 'ケレボルン'))
         || room.longChapterProgress?.characters?.[character.name]);
     const repeatChapter = stage?.winCondition === 'long'
       ? !allLongCharactersAchieved
