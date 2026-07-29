@@ -1089,8 +1089,8 @@ const CHARACTER_IMAGE_FILES = {
   gwaihir: 'gwaihir.jpg',
   radagast: 'radagast.jpg',
   shadowfax: 'shadowfax.jpg',
-  orophin_rumil: 'mori.jpg',
-  haldir: 'mori.jpg'
+  orophin_rumil: 'gildor_inglorion.jpg',
+  haldir: 'glorfindel.jpg'
 };
 const WIN_LENGTH_LABELS = { short: '短い', long: '長い' };
 const WIN_GOAL_LABELS = {
@@ -2053,6 +2053,15 @@ function skipsCharacterThreatDraw(game, characterName){
   return Number(game?.stageNumber) === 14 && Number(game?.moriaEventIndex) === 1 && characterName === 'ギムリ';
 }
 
+const CHARACTER_EFFECT_THREAT_DRAWERS = new Set([
+  '農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ',
+  'オロフィンとルーミル', 'ハルディア'
+]);
+
+function characterDrawsThreat(characterName){
+  return CHARACTER_EFFECT_THREAT_DRAWERS.has(characterName);
+}
+
 function createVictoryConditionIcon(cardData, playerId){
   const icon = document.createElement('span');
   icon.className = 'victory-condition-icon';
@@ -2066,7 +2075,7 @@ function createVictoryConditionIcon(cardData, playerId){
   const threatNumber = threatNumberForPlayer(state.game, playerId);
   const equipmentChoice = state.game?.equipmentChoices?.[playerId];
   const waitsForThreat = !skipsCharacterThreatDraw(state.game, name)
-    && (['農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ', 'オロフィンとルーミル', 'ハルディア'].includes(name)
+    && (characterDrawsThreat(name)
       || (name === 'アラゴルン' && !equipmentChoice));
   if (waitsForThreat && threatNumber == null) {
     icon.classList.add('awaiting-threat');
@@ -3046,7 +3055,7 @@ function beginNextExchange(game){
       const playerId = game.exchangeQueue.shift();
       const characterName = game.characterSelections?.[playerId]?.name;
       const needsThreatDraw = !skipsCharacterThreatDraw(game, characterName)
-        && ['農夫マゴット', 'サム', '馳夫', 'アラゴルン', 'レゴラス', 'ギムリ'].includes(characterName)
+        && characterDrawsThreat(characterName)
         && !game.characterEffectThreatDrawn?.[playerId]
         && !(game.threatCards?.[playerId] || []).some(card => card.kind === 'threat');
       if (!needsThreatDraw) continue;
@@ -3089,7 +3098,7 @@ function beginNextExchange(game){
     const darknessAragornDraw = Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 2
       && characterName === 'アラゴルン';
     const needsThreatDraw = !skipsCharacterThreatDraw(game, characterName)
-      && (['農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ', 'オロフィンとルーミル', 'ハルディア'].includes(characterName) || darknessAragornDraw)
+      && (characterDrawsThreat(characterName) || darknessAragornDraw)
       && !game.characterEffectThreatDrawn?.[sourceId]
       && !(game.threatCards?.[sourceId] || []).some(card => card.kind === 'threat');
     if (needsThreatDraw) {
@@ -3285,7 +3294,7 @@ function oldForestWinsTrick(game, plays){
 function drawThreatForCharacterEffect(game, playerId){
   const characterName = game.characterSelections?.[playerId]?.name;
   if (skipsCharacterThreatDraw(game, characterName)
-      || !['農夫マゴット', 'サム', '馳夫', 'アラゴルン', 'レゴラス', 'ギムリ'].includes(characterName)) return false;
+      || !(characterDrawsThreat(characterName) || characterName === 'アラゴルン')) return false;
   game.threatCards ||= {};
   if (game.characterEffectThreatDrawn?.[playerId]
       || (game.threatCards[playerId] || []).some(card => card.kind === 'threat')) return false;
@@ -4777,8 +4786,8 @@ function characterCardData(character, playerId){
     '飛蔭（とびかげ）':{specialName:'馬の王者',victory:'丘がプレイされているトリックを2トリック獲得。',effect:'手札を1枚選び、裏向きでこのカードの下に入れる。任意のタイミング、もしくは手札がなくなったとき、そのカードを手札に戻す。',cardNumber:'2.47', rank:'黒', frameColor:'金'},
     'レゴラス':{specialName:'闇の森のエルフ',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉か〈アラゴルン〉と交換する。',cardNumber:'3.09',rank:'無し',frameColor:'緑'},
     'ギムリ':{specialName:'ドゥリンの民',victory:'引いた脅威カードと同じ数字の山カードを獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.10',rank:'無し',frameColor:'銀'},
-    'オロフィンとルーミル':{specialName:'ガラズリム',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ハルディア〉と交換する。最初のトリックをリードする。',cardNumber:'3.21',rank:'黒',frameColor:'緑',image:'mori.jpg'},
-    'ハルディア':{specialName:'境界守護者',victory:'トリックに勝利して、引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。最初のトリックをリードする。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'mori.jpg'}
+    'オロフィンとルーミル':{specialName:'ガラズリム',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ハルディア〉と交換する。最初のトリックをリードする。',cardNumber:'3.21',rank:'黒',frameColor:'緑',image:'gildor_inglorion.jpg'},
+    'ハルディア':{specialName:'境界守護者',victory:'トリックに勝利して、引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。最初のトリックをリードする。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'glorfindel.jpg'}
   };
   const details = { ...(characterDetails[character.name] || {}) };
   if (Number(state.game?.stageNumber) === 13 && character.name === 'フロド') {
