@@ -380,10 +380,10 @@
   .excluded-card-slot.hidden{display:none;}
   .excluded-card-slot.gandalf-pick{pointer-events:auto;cursor:pointer;animation:excludedCardPulse 1.05s ease-in-out infinite;}
   .excluded-card-slot.galadriel-drop-hint{pointer-events:auto;}
-  .excluded-card-slot.galadriel-drop-hint::after{content:'';position:absolute;inset:-5px;z-index:4;border:2px dashed #38bdf8;border-radius:8px;background:rgba(56,189,248,.24);box-shadow:0 0 0 3px rgba(255,255,255,.75);pointer-events:none;animation:galadrielDropPulse 1.05s ease-in-out infinite;}
-  .excluded-card-slot.galadriel-drag-over::after{background:rgba(56,189,248,.5);transform:scale(1.08);}
+  /* 他プレイヤーの交換先と同じ、青い角丸の面だけをドラッグ中に表示する。 */
+  .excluded-card-slot.galadriel-drop-hint::after{content:'';position:absolute;left:50%;top:50%;width:68px;height:68px;box-sizing:border-box;border:0;border-radius:14px;transform:translate(-50%,-50%);background:rgba(56,189,248,.42);pointer-events:none;opacity:0;z-index:40;}
+  .excluded-card-slot.galadriel-drag-target::after{opacity:1;}
   @keyframes excludedCardPulse{50%{transform:scale(1.12)}}
-  @keyframes galadrielDropPulse{50%{opacity:.55}}
   .lost-card-flight{position:fixed;z-index:1001;pointer-events:none;width:82px;height:122px;transform-origin:top left;}
   .yellow-one-decision{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:310;width:min(230px,calc(100vw - 20px));padding:10px 6px 25px;box-sizing:border-box;border:1px solid #332a16;border-radius:13px;background:rgba(15,15,15,.97);color:#fff;box-shadow:0 18px 40px rgba(0,0,0,.42);text-align:center;}
   .yellow-one-decision.hidden{display:none;}
@@ -4818,6 +4818,7 @@ function beginGaladrielLostCardDrag(event, cardData, source){
   event.preventDefault();
   source.setPointerCapture(event.pointerId);
   source.classList.add('drag-source');
+  excludedCardSlot.classList.add('galadriel-drag-target');
   const floating = createCardElement(cardData);
   floating.classList.add('drag-card');
   floating.style.setProperty('--drag-card-scale', currentHandCardScale());
@@ -4825,10 +4826,6 @@ function beginGaladrielLostCardDrag(event, cardData, source){
   const move = currentEvent => {
     floating.style.left = `${currentEvent.clientX}px`;
     floating.style.top = `${currentEvent.clientY}px`;
-    const rect = excludedCardSlot.getBoundingClientRect();
-    const over = currentEvent.clientX >= rect.left && currentEvent.clientX <= rect.right
-      && currentEvent.clientY >= rect.top && currentEvent.clientY <= rect.bottom;
-    excludedCardSlot.classList.toggle('galadriel-drag-over', over);
   };
   const cleanup = () => {
     source.removeEventListener('pointermove', move);
@@ -4836,10 +4833,15 @@ function beginGaladrielLostCardDrag(event, cardData, source){
     source.removeEventListener('pointercancel', cleanup);
     floating.remove();
     source.classList.remove('drag-source');
-    excludedCardSlot.classList.remove('galadriel-drag-over');
+    excludedCardSlot.classList.remove('galadriel-drag-target');
   };
   const finish = currentEvent => {
-    const rect = excludedCardSlot.getBoundingClientRect();
+    const slotRect = excludedCardSlot.getBoundingClientRect();
+    // 表示している通常ヒント（68px四方）全体を、そのままドロップ判定範囲にする。
+    const rect = {
+      left:slotRect.left + slotRect.width / 2 - 34, right:slotRect.left + slotRect.width / 2 + 34,
+      top:slotRect.top + slotRect.height / 2 - 34, bottom:slotRect.top + slotRect.height / 2 + 34
+    };
     const dropped = currentEvent.clientX >= rect.left && currentEvent.clientX <= rect.right
       && currentEvent.clientY >= rect.top && currentEvent.clientY <= rect.bottom;
     cleanup();
