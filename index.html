@@ -430,6 +430,15 @@
   .chapter-heading,.character-heading,.goal-heading,.goal-type{font-size:8px;letter-spacing:-.08em;}
   .character-heading{display:block;margin-top:2px;}
   .character-line{display:block;font-size:8px;letter-spacing:normal;}
+  /* 両欄の固定子要素サイズを親へ揃え、カード内に全情報が入るまで親を一括縮小する。 */
+  .winningcondition-half.left .chapter-heading,
+  .winningcondition-half.left .stage-title,
+  .winningcondition-half.left .character-heading,
+  .winningcondition-half.left .character-line,
+  .winningcondition-half.right .goal-heading,
+  .winningcondition-half.right .goal-type,
+  .winningcondition-half.right .additional-elements{font-size:inherit;}
+  .winningcondition-half.left .character-line{white-space:normal;overflow-wrap:anywhere;}
   @media (max-width:520px){
     .center-lower-card-area{width:calc(100vw - 24px);}
   }
@@ -2615,7 +2624,7 @@ function renderStageInformation(){
   }
   winningconditionInfo.append(info);
   fitSingleLineText(title, 9, 4);
-  fitBlockText(winningconditionInfo, 9, 3, .1);
+  fitBlockText(winningconditionInfo, 9, 2.5, .1);
 
   winningconditionGoal.replaceChildren();
   const goal = document.createElement('div');
