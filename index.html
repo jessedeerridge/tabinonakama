@@ -147,6 +147,16 @@
   .threat-card .card-name{left:0;right:auto;bottom:5px;width:66px;height:19px;padding-right:9px;box-sizing:border-box;background:#4a2f20;color:#fff;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);font-size:9px;line-height:19px;letter-spacing:0;white-space:nowrap;}
   .threat-card .card-name::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
+  /* character-card の共通規則より詳細度を上げ、通常の脅威カードと同じ茶枠・黒塗りを保つ。 */
+  .character-card.special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505;}
+  .character-card.special-threat-card .character-label{left:-4px;right:auto;width:max-content;min-width:0;max-width:calc(100% + 4px);height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
+  .character-card.special-threat-card .character-label::before{background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
+  .character-card.special-threat-card .character-special{left:-4px;right:auto;top:17px;width:max-content;max-width:calc(100% + 4px);padding:2px 12px 2px 6px;text-align:left;}
+  .character-card.special-threat-card .character-effect{min-height:44px;padding:11px 5px 3px;color:#27231f;}
+  .character-card.special-threat-card .character-effect::before{background:#fff8e8;}
+  .character-card.special-threat-card .character-effect-icon{color:#111;}
+  .character-card.special-threat-card.concealed{background:#fff url('tabicardura.jpg') center/cover no-repeat;border-color:#10233f;box-shadow:0 4px 12px rgba(0,0,0,.18);}
+  .character-card.special-threat-card.concealed>*{display:none;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
   .victory-condition-icon{width:auto;min-width:15px;height:15px;border:0;background:transparent;color:#111;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:1px;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none;white-space:nowrap;}
   .victory-condition-squares,.victory-condition-option{display:flex;align-items:center;justify-content:center;gap:1px;}
@@ -157,6 +167,9 @@
   .victory-condition-or{margin:0 1px;font-size:9px;font-weight:900;line-height:15px;}
   .victory-condition-suffix{margin-left:2px;font-size:9px;font-weight:900;line-height:15px;}
   .victory-condition-icon.achieved{opacity:.35;}
+  .victory-condition-icon.gandalf-numbers{height:31px;display:grid;grid-template-columns:repeat(4,15px);grid-template-rows:repeat(2,15px);gap:1px;}
+  .victory-condition-icon.gandalf-numbers .victory-condition-square{display:flex;align-items:center;justify-content:center;padding:0;text-align:center;line-height:1;}
+  .victory-condition-square.number-acquired{opacity:.25;}
   .victory-condition-icon.awaiting-threat{display:none;}
   .victory-condition-icon.word .victory-condition-square{width:24px;}
   .victory-condition-icon.multiline{height:auto;flex-direction:column;gap:1px;line-height:12px;}
@@ -164,7 +177,7 @@
   .victory-condition-label{font-size:10px;font-weight:900;line-height:12px;white-space:nowrap;}
   .victory-condition-side-label{height:30px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:12px;}
   .victory-condition-square.white{
-    border:1px solid #142b4a;background-color:#edf2f7;color:#142b4a;font-size:14px;font-weight:900;line-height:15px;text-align:center;
+    border:1px solid #142b4a;background-color:#edf2f7;color:#142b4a;font-size:14px;font-weight:900;line-height:1;text-align:center;display:flex;align-items:center;justify-content:center;padding:0;
     background-image:repeating-linear-gradient(135deg,transparent 0,transparent 3px,rgba(20,43,74,.28) 3px,rgba(20,43,74,.28) 4px);
   }
   .victory-condition-square.black{
@@ -178,6 +191,7 @@
   .victory-condition-square.yellow{background:#f2c94c;color:#111;}
   .victory-condition-square.red{background:#c94c47;color:#fff;}
   .victory-condition-square.gray{background:#a9aca8;color:#111;}
+  .victory-condition-square.orange,.victory-condition-square.gray,.victory-condition-square.yellow{border:.5px solid #142b4a;}
   .victory-condition-square.wide{width:24px;font-size:8px;}
   .victory-condition-trick{position:relative;width:23px;height:20px;display:inline-block;}
   .victory-condition-trick .victory-condition-square{position:absolute;left:0;top:5px;z-index:3;}
@@ -192,6 +206,10 @@
   .character-card-unit>.character-card{width:82px;height:122px;}
   .character-card-unit>.victory-condition-icon{position:absolute;left:50%;top:var(--victory-icon-top,127px);z-index:4;transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
   .character-capture>.victory-condition-icon{position:absolute;left:50%;top:61px;z-index:2;transform:translateX(-50%);}
+  .character-capture>.threat-condition-icon{position:absolute;left:50%;top:79px;z-index:2;transform:translateX(-50%);}
+  .threat-capture>.threat-condition-icon{position:absolute;left:50%;top:61px;z-index:3;transform:translateX(-50%);}
+  .threat-condition-icon{height:15px;display:flex;align-items:center;justify-content:center;gap:2px;font:900 9px/15px system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;pointer-events:none;}
+  .threat-condition-fail{color:#c94c47;font-size:12px;line-height:15px;}
   @keyframes captureArrive{from{transform:translate(var(--capture-x),var(--capture-y)) scale(1.6) rotate(var(--stack-rotate,0deg))}to{transform:translate(0,0) rotate(var(--stack-rotate,0deg))}}
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .stage-dialog{position:fixed;inset:0;z-index:320;display:grid;place-items:center;background:rgba(0,0,0,.38);}
@@ -274,6 +292,9 @@
   .event-card-text{position:absolute;left:50%;top:58%;width:95px;height:112px;transform:translate(-50%,-50%) translateY(-2px);display:block;padding:2px;box-sizing:border-box;overflow:hidden;white-space:pre-line;text-align:left;font-size:10px;line-height:1.08;}
   .event-card-text strong{display:block;margin-bottom:2px;font-weight:900;}
   .event-card-gap{display:block;height:3px;}
+  /* 12章の二つ目の見出しだけ、章5・6の段落間隔を参考に手前を少し広く空ける。 */
+  .event-card-gap.before-secondary-heading{height:5px;}
+  .event-card-heading.single-line{font-size:8px;letter-spacing:-.04em;white-space:nowrap;}
   .event-card-hammer{display:inline-block;width:8px;height:8px;margin-right:2px;vertical-align:-1px;color:#111;}
   .event-card-hammer svg{display:block;width:100%;height:100%;fill:currentColor;}
   .ringcircle{position:absolute;left:+80px;top:120px;width:56px;height:56px;box-sizing:border-box;border:1px solid #111;border-radius:50%;background:url('ringcircleoff.jpg') center/cover no-repeat;transform:translateY(-50%);z-index:2;}
@@ -443,8 +464,8 @@
   .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(var(--zoom-scale));transform-origin:top left;}
   .character-picker{position:fixed;inset:0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding-top:clamp(120px,calc(50vh - 160px),260px);box-sizing:border-box;pointer-events:none;transform:translateY(-30px);}
   .character-picker.hidden{display:none;}
-  .character-picker-title{margin:0;padding:7px 13px;border-radius:12px;background:#111;color:#fff;font-size:15px;font-weight:800;line-height:1;}
-  .character-picker-row{width:calc(100vw - 24px);display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
+  /* 案内ポップを外しても、候補カードの従来位置は変えない。 */
+  .character-picker-row{width:calc(100vw - 24px);margin-top:45px;display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
   .character-picker-row.two-rows{display:grid;grid-template-columns:repeat(var(--choice-columns),minmax(0,104px));justify-content:center;row-gap:clamp(8px,2vh,14px);}
   .character-choice{position:relative;flex:0 0 auto;width:min(104px,calc((100vw - 54px)/4));aspect-ratio:82/122;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;transition:transform .15s ease;}
   .character-picker-row.two-rows .character-choice{width:100%;}
@@ -728,7 +749,6 @@
 </div>
 
 <section id="characterPicker" class="character-picker hidden" aria-live="polite">
-  <h2 class="character-picker-title">カードを選んでください。</h2>
   <div id="characterPickerRow" class="character-picker-row"></div>
 </section>
 
@@ -979,7 +999,7 @@ defineStage(6, {
   characters: ['frodo*,tom_bombadil*,goldberry*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈塚人〉カードの〈イベント：霧の塚山丘陵〉の記述に従う。',
   eventCards: [
     {
-      title:'塚人', heading:'イベント：霧の塚山丘陵', hammer:true,
+      title:'塚人', heading:'イベント：霧の塚山丘陵', headingSingleLine:true, hammer:true,
       text:'指輪カードを除いた山札から',
       playerText:{ 3:'10枚とり、塚デッキを作る。その後、山札に指輪カードを戻して、各プレイヤーに手札9枚配る。', 4:'5枚とり、塚デッキを作る。その後、山札に指輪カードを戻して、各プレイヤーに手札8枚配る。' }, playerTextSeparator:'',
       afterPlayerText:'その後、「トム・ボンバディル」は塚デッキから5枚引き、手札に加える。'
@@ -1002,7 +1022,7 @@ defineStage(9, {
   title: '浅瀬への逃走', story: '意識が薄れる中、フロドは最後に叫び声を聞いた。そして、岸辺でためらう黒の乗手たちの向こうに、白く輝く姿が見えたような気がした。その背後では、小さな影のような存在が走り、炎を振りかざしていた。世界を覆う灰色の霧の中で、その炎は赤くきらめいた。',
   characters: ['glorfindel*', 'frodo,sam,merry,pippin', 'strider,bill'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'long', goal:'everywin', additionalElements:'各ラウンドでは〈グロルフィンデル〉を使う（フロドは1回のみでよい）。\n〈九人組〉カードの〈イベント：浅瀬への逃走〉の記述に従う。',
   eventCards: [
-    { title:'九人組\nイベント：浅瀬への逃走', text:'キャラクターを選ぶ際、対応する黒の乗手を一緒に受け取ります。\nフロド：《魔王》　メリー：《黒の息》　ピピン：《幽鬼》　馳夫：《見える者》　サム：《恐怖》\n《グロルフィンデル》と《小馬のビル》は受け取りません。' },
+    { title:'九人組', heading:'イベント：浅瀬への逃走', hammer:true, text:'キャラクターを選ぶ際、対応する黒の乗手を一緒に受け取ります。\n・フロド：《モルグルの刃》\n・メリー：《黒の息》\n・ピピン：《幽鬼》\n・馳夫：《見えざる者》\n・サム：《恐怖》\n・《グロルフィンデル》と《小馬のビル》は受け取りません。' },
     { title:'九人組', text:'下流の水際には九人の黒の乗手が立ち、顔を上げたその威圧的な姿に、フロドの心は怯えた。もし彼らが一度でも渡ってしまえば、浅瀬から裂け谷へ続く長く不確かな道を逃げることは、まったく無意味に思えた。' }
   ]
 });
@@ -1028,7 +1048,7 @@ defineStage(12, {
   goal: 'allwin',
   additionalElements: '〈多彩なるサルマン〉を〈ガンダルフ〉に渡す。',
   eventCards: [
-    { title:'多彩なるサルマン\nイベント：サルマン', text:'最初のトリックをリードする。\n\n足止め\n★すべての数字（1～8）を1枚以上、勝利して獲得する。' },
+    { title:'多彩なるサルマン', heading:'イベント：サルマン', text:'最初のトリックをリードする。', secondaryHeading:'足止め', wideSecondaryHeadingGap:true, afterText:'★すべての数字（1～8）を1枚以上、勝利して獲得する。' },
     { title:'多彩なるサルマン', text:'「旅路は終わり、ここで永遠の安息を得るがよい。そして、私は賢者サルマン、指輪作りのサルマン、多彩なるサルマンなのだからな！」' }
   ]
 });
@@ -1037,6 +1057,22 @@ defineStage(12, {
 const helpBtn = document.getElementById('helpBtn');
 const helpBackdrop = document.getElementById('helpBackdrop');
 const helpBody = document.getElementById('helpBody');
+
+const STAGE_NINE_THREATS = {
+  'フロド':{ type:'魔法', name:'モルグルの刃', effect:'指輪でリードすることができない。' },
+  'メリー':{ type:'黒の乗手', name:'黒の息', effect:'8を獲得してはいけない。' },
+  'ピピン':{ type:'黒の乗手', name:'幽鬼', effect:'交換できず、交換の対象にもならない。' },
+  '馳夫':{ type:'黒の乗手', name:'見えざる者', effect:'配られた脅威カードは、自分の目的を達成するまで他プレイヤーに見せてはいけない。' },
+  'サム':{ type:'黒の乗手', name:'恐怖', effect:'丘でリードすることはできない。' }
+};
+
+function hasSpecialThreat(game, playerId, name){
+  return (game?.threatCards?.[playerId] || []).some(card => card.kind === 'special-threat' && card.name === name);
+}
+
+function threatNumberForPlayer(game, playerId){
+  return (game?.threatCards?.[playerId] || []).find(card => card.kind === 'threat' && Number.isFinite(Number(card.number)))?.number;
+}
 
 // 山札は各カード1枚ずつ（黄のみ1〜5、ほかの色は1〜8）。
 const CARD_TYPES = [
@@ -1098,6 +1134,7 @@ function fitCharacterName(target){
 
 function createCardElement(cardData){
   if (cardData.kind === 'character') return createCharacterCardElement(cardData);
+  if (cardData.kind === 'special-threat') return createSpecialThreatCardElement(cardData);
   const card = document.createElement('div');
   card.className = `my-card card-${cardData.color}`;
   if (cardData.kind === 'threat') card.classList.add('threat-card');
@@ -1144,6 +1181,45 @@ function createCardElement(cardData){
   // 左右とも数字とマークは同じ通常向きで表示する。
   card.append(createBadge('left'), createBadge('right'), name);
   return card;
+}
+
+function createSpecialThreatCardElement(cardData){
+  const card = document.createElement('div');
+  card.className = 'my-card character-card special-threat-card';
+  if (cardData.concealed) card.classList.add('concealed');
+  card.setAttribute('aria-label', cardData.concealed ? '非公開の脅威カード' : `脅威 ${cardData.name}`);
+  const upper = document.createElement('span');
+  upper.className = 'character-label';
+  upper.textContent = cardData.type;
+  fitCharacterName(upper);
+  const lower = document.createElement('span');
+  lower.className = 'character-label character-special';
+  lower.textContent = cardData.name;
+  fitCharacterName(lower);
+  const effect = document.createElement('div');
+  effect.className = 'character-effect';
+  effect.appendChild(createCharacterEffectRow('special', cardData.effect));
+  card.append(upper, lower, effect);
+  if (!cardData.concealed) {
+    card.setAttribute('role', 'button'); card.tabIndex = 0;
+    const open = event => { event.preventDefault(); event.stopPropagation(); openSingleCardZoom(card); };
+    card.addEventListener('click', open);
+    card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') open(event); });
+  }
+  return card;
+}
+
+function openSingleCardZoom(sourceCard){
+  const scale = Math.min(3, Math.max(2, (window.innerHeight - 32) / 122));
+  const item = document.createElement('div');
+  item.className = 'card-zoom-item';
+  item.style.left = '50%'; item.style.top = '50%';
+  const holder = document.createElement('div'); holder.className = 'card-zoom-card';
+  const clone = sourceCard.cloneNode(true); clone.removeAttribute('role'); clone.removeAttribute('tabindex');
+  holder.appendChild(clone); item.appendChild(holder); cardZoomFrame.replaceChildren(item);
+  cardZoomFrame.style.setProperty('--zoom-base-width', '82px'); cardZoomFrame.style.setProperty('--zoom-base-height', '122px');
+  cardZoomFrame.style.setProperty('--zoom-card-width', `${82 * scale}px`); cardZoomFrame.style.setProperty('--zoom-card-height', `${122 * scale}px`);
+  cardZoomFrame.style.setProperty('--zoom-scale', scale); cardZoomBackdrop.classList.remove('hidden'); cardZoomBackdrop.setAttribute('aria-hidden', 'false');
 }
 
 function createCharacterCardElement(cardData){
@@ -1294,6 +1370,18 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   const victory = character.victory || characterCardData(character, playerId).victory;
   const isFinished = game.finished === true;
 
+  if (Number(game.stageNumber) === 12 && character.name === 'ガンダルフ') {
+    const acquired = new Set(capturedTricks.flatMap(trick => trick.cards || []).map(card => Number(card.number)));
+    if (Array.from({ length:8 }, (_, index) => index + 1).every(number => acquired.has(number))) return { status:'achieved' };
+    if (isFinished) return { status:'failed' };
+    return { status:'pending' };
+  }
+
+  if (hasSpecialThreat(game, playerId, '黒の息')) {
+    const acquiredEight = capturedTricks.some(trick => (trick.cards || []).some(card => Number(card.number) === 8));
+    if (acquiredEight) return { status:'failed' };
+  }
+
   if (victory.includes('脅威カードと同じランク') || (character.name === 'サム' && victory.includes('脅威カードと同じ数字'))) {
     const threatRanks = new Set((game.threatCards?.[playerId] || []).map(card => Number(card.number)));
     const hasMatchingHill = capturedTricks.some(trick => (trick.cards || [])
@@ -1396,7 +1484,7 @@ function createVictoryConditionIcon(cardData, playerId){
   icon.className = 'victory-condition-icon';
   const victory = cardData.victory || '';
   const name = cardData.name || '';
-  const threatNumber = state.game?.threatCards?.[playerId]?.[0]?.number;
+  const threatNumber = threatNumberForPlayer(state.game, playerId);
   const waitsForThreat = ['農夫マゴット', 'サム', '馳夫', 'アラゴルン'].includes(name);
   if (waitsForThreat && threatNumber == null) {
     icon.classList.add('awaiting-threat');
@@ -1458,35 +1546,47 @@ function createVictoryConditionIcon(cardData, playerId){
     return items;
   };
 
-  if (name === '馳夫') {
+  if (Number(state.game?.stageNumber) === 12 && name === 'ガンダルフ') {
+    icon.classList.add('gandalf-numbers');
+    const acquired = new Set((state.game?.capturedTricks?.[playerId] || []).flatMap(trick => trick.cards || []).map(card => Number(card.number)));
+    for (let number = 1; number <= 8; number += 1) {
+      const numberSquare = square(String(number));
+      if (acquired.has(number)) numberSquare.classList.add('number-acquired');
+      icon.appendChild(numberSquare);
+    }
+  } else if (hasSpecialThreat(state.game, playerId, '見えざる者') && !achieved) {
+    const choice = state.game?.striderChoices?.[playerId];
+    icon.append(square(), label('x?'));
+    if (choice) icon.append(arrow(choice));
+  } else if (name === '馳夫') {
     const choice = state.game?.striderChoices?.[playerId];
     if (threatNumber != null) icon.append(...countSquares(Number(threatNumber)));
     else icon.append(square());
     if (choice) icon.append(arrow(choice));
   } else if (name === 'ギルドール・イングロリオン') {
-    icon.append(sideLabel('last', 'play'), square('', 'green'));
+    icon.append(sideLabel('LAST', 'PLAY'), square('', 'green'));
   } else if (name === 'ゴールドベリ') {
     icon.append(label('3連'), square());
   } else if (name === '山の下さん') {
     icon.append(label('毎'), square('', 'yellow'));
   } else if (name === 'トム・ボンバディル') {
-    icon.append(label('last'), square('?', 'white'), square('?', 'white'), square('?', 'white'));
+    icon.append(label('LAST'), square('?', 'white'), square('?', 'white'), square('?', 'white'));
   } else if (name === 'バーリマン・バタバー') {
-    icon.append(square(), label('in last 3'));
+    icon.append(square(), label('IN LAST 3'));
   } else if (name === 'グロルフィンデル') {
-    icon.append(label('all'), square('', 'red'));
+    icon.append(label('ALL'), square('', 'red'));
   } else if (name === 'エルロンド') {
     icon.classList.add('multiline');
-    icon.append(line(label('all player')), line(square('', 'yellow')));
+    icon.append(line(label('ALL PLAYER')), line(square('', 'yellow')));
   } else if (name === 'グローイン') {
-    icon.append(label('most'), square('', 'gray'));
+    icon.append(label('MOST'), square('', 'gray'));
   } else if (name === 'アルウェン') {
-    icon.append(label('most'), square('', 'green'));
+    icon.append(label('MOST'), square('', 'green'));
   } else if (name === 'ボロミア') {
     icon.classList.add('multiline');
     const fail = label('✕');
     fail.classList.add('victory-condition-fail');
-    icon.append(line(label('last'), square()), line(fail, square('1', 'yellow')));
+    icon.append(line(label('LAST'), square()), line(fail, square('1', 'yellow')));
   } else if (name === 'グワイヒア') {
     icon.append(coloredTrick('gray'), coloredTrick('gray'));
   } else if (name === 'ラダガスト') {
@@ -1507,9 +1607,9 @@ function createVictoryConditionIcon(cardData, playerId){
     const twoTricks = line(...countSquares(2));
     appendOr(oneTrick, twoTricks);
   } else if (victory.includes('最も少ない')) {
-    icon.append(square('min'));
+    icon.append(square(), label('x min'));
   } else if (victory.includes('最も多く')) {
-    icon.append(square('most'));
+    icon.append(square(), label('x max'));
   } else {
     // 補足文に「指輪」が登場するビルボなどは黒のまま。枚数目標が指輪カードの場合だけ黄色にする。
     const color = /指輪カードを\d+枚/.test(victory) ? 'yellow' : 'black';
@@ -1526,6 +1626,30 @@ function createVictoryConditionIcon(cardData, playerId){
   const status = achieved ? '（達成済み）' : '';
   icon.setAttribute('aria-label', `勝利条件：${victory}${status}`);
   icon.title = `勝利条件：${victory}${status}`;
+  return icon;
+}
+
+function createThreatConditionIcon(playerId, threatName){
+  const threats = state.game?.threatCards?.[playerId] || [];
+  const restriction = threats.find(card => ['恐怖', 'モルグルの刃', '黒の息'].includes(card.name)
+    && (!threatName || card.name === threatName));
+  if (!restriction) return null;
+  const icon = document.createElement('span');
+  icon.className = 'threat-condition-icon';
+  const square = document.createElement('span');
+  const squareColor = restriction.name === '恐怖' ? 'orange' : restriction.name === 'モルグルの刃' ? 'yellow' : '';
+  square.className = `victory-condition-square${squareColor ? ` ${squareColor}` : ''}`;
+  if (restriction.name === '黒の息') {
+    icon.append('✕', square);
+    square.textContent = '8';
+    icon.setAttribute('aria-label', '8を獲得してはいけない');
+  } else {
+    const fail = document.createElement('span');
+    fail.className = 'threat-condition-fail';
+    fail.textContent = '✕';
+    icon.append(fail, 'start', square);
+    icon.setAttribute('aria-label', restriction.name === '恐怖' ? '丘でリードできない' : '指輪でリードできない');
+  }
   return icon;
 }
 
@@ -1801,6 +1925,7 @@ function renderStageInformation(){
     text.replaceChildren();
     if (eventCard?.heading) {
       const heading = document.createElement('strong');
+      heading.className = `event-card-heading${eventCard.headingSingleLine ? ' single-line' : ''}`;
       heading.textContent = eventCard.heading;
       text.appendChild(heading);
     }
@@ -1832,7 +1957,7 @@ function renderStageInformation(){
       const secondaryHeading = document.createElement('strong');
       secondaryHeading.textContent = eventCard.secondaryHeading;
       const gap = document.createElement('span');
-      gap.className = 'event-card-gap';
+      gap.className = `event-card-gap${eventCard.wideSecondaryHeadingGap ? ' before-secondary-heading' : ''}`;
       text.append(gap, secondaryHeading);
     }
     if (eventCard?.afterText) text.appendChild(document.createTextNode(eventCard.afterText));
@@ -1983,14 +2108,17 @@ function exchangeCandidates(game, sourceId){
     : characterName === 'グワイヒア' ? ['ガンダルフ']
     : null;
   return (game?.playerOrder || []).filter(playerId => playerId !== sourceId
+    && !hasSpecialThreat(game, playerId, '幽鬼')
     && (!allowedNames || allowedNames.includes(game.characterSelections?.[playerId]?.name)));
 }
 
 function exchangeRequirement(game, sourceId){
   const name = game?.characterSelections?.[sourceId]?.name;
+  if (hasSpecialThreat(game, sourceId, '幽鬼')) return { mode:'exchange', count:0 };
   if (name === '“でぶちゃん”のボルジャー') return { mode:'give', count:Math.max(0, (game.playerOrder || []).length - 1) };
   if (name === 'エルロンド') return { mode:'exchange', count:0 };
-  if (name === 'グロルフィンデル') return { mode:'exchange-all', count:Math.max(0, (game.playerOrder || []).length - 1) };
+  // グロルフィンデルは専用の同時交換フェーズで全員分を処理する。
+  if (name === 'グロルフィンデル') return { mode:'exchange-all', count:0 };
   if (name === '小馬のビル' || name === 'グワイヒア') return { mode:'exchange', count:2 };
   const singleExchangeNames = new Set(['ガンダルフ','トム・ボンバディル','馳夫','ピピン','サム','メリー',
     'バーリマン・バタバー','グローイン','アルウェン','アラゴルン','ボロミア']);
@@ -2069,7 +2197,7 @@ function beginNextExchange(game){
       return;
     }
     const needsThreatDraw = ['農夫マゴット', 'サム', '馳夫'].includes(characterName)
-      && !(game.threatCards?.[sourceId] || []).length;
+      && !(game.threatCards?.[sourceId] || []).some(card => card.kind === 'threat');
     if (needsThreatDraw) {
       game.phase = 'threat-draw-wait';
       game.threatDrawPlayerId = sourceId;
@@ -2101,7 +2229,16 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'アラゴルン' && !(game.threatCards?.[sourceId] || []).length) {
+    if (characterName === 'グロルフィンデル' && !game.glorfindelExchangeCompleted) {
+      game.phase = 'glorfindel-exchange-selection';
+      game.pendingGlorfindelExchange = {
+        sourceId, candidates:exchangeCandidates(game, sourceId),
+        sourceCards:{}, targetCards:{}, requestedAt:Date.now()
+      };
+      game.turnPlayerId = null;
+      return;
+    }
+    if (characterName === 'アラゴルン' && !(game.threatCards?.[sourceId] || []).some(card => card.kind === 'threat')) {
       game.phase = 'aragorn-threat-selection';
       game.threatDrawPlayerId = sourceId;
       game.turnPlayerId = null;
@@ -2165,7 +2302,7 @@ function drawThreatForCharacterEffect(game, playerId){
   const characterName = game.characterSelections?.[playerId]?.name;
   if (!['農夫マゴット', 'サム', '馳夫', 'アラゴルン'].includes(characterName)) return;
   game.threatCards ||= {};
-  if ((game.threatCards[playerId] || []).length) return;
+  if ((game.threatCards[playerId] || []).some(card => card.kind === 'threat')) return;
   const stage = STAGES.find(item => item.number === Number(game.stageNumber));
   const threat = stage?.threats?.[0] || { name:'脅威カード', min:1, max:4 };
   const usedNumbers = new Set(Object.values(game.threatCards)
@@ -2175,10 +2312,11 @@ function drawThreatForCharacterEffect(game, playerId){
   ).filter(number => !usedNumbers.has(number));
   if (!availableNumbers.length) return;
   const rank = availableNumbers[Math.floor(Math.random() * availableNumbers.length)];
-  game.threatCards[playerId] = [{
+  game.threatCards[playerId] ||= [];
+  game.threatCards[playerId].push({
     kind:'threat', color:'threat', name:threat.name, number:rank,
     id:`${playerId}-threat-${Date.now()}-${rank}`
-  }];
+  });
 }
 
 function beginCharacterEffectTurns(game){
@@ -2606,7 +2744,7 @@ function renderStriderChoice(){
   const visible = game?.phase === 'strider-comparison' && game.striderPlayerId === state.userId;
   striderChoiceDialog.classList.toggle('hidden', !visible);
   if (!visible) return;
-  const threatNumber = game.threatCards?.[state.userId]?.[0]?.number ?? 'x';
+  const threatNumber = threatNumberForPlayer(game, state.userId) ?? 'x';
   striderChoiceQuestion.textContent = `脅威カードの数字は${threatNumber}です。`;
   striderChoiceDialog.querySelector('[data-strider-choice="more"] span').textContent = `${threatNumber}より多く`;
   striderChoiceDialog.querySelector('[data-strider-choice="less"] span').textContent = `${threatNumber}より少なく`;
@@ -2716,6 +2854,45 @@ async function chooseElrondTransferCard(cardId, droppedTargetId){
         .find(([, character]) => character.name === 'エルロンド')?.[0]) game.exchangeQueue.shift();
       beginNextExchange(game);
     }
+    return room;
+  });
+}
+
+async function chooseGlorfindelExchangeCard(cardId, droppedTargetId){
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const game = room?.game;
+    const pending = game?.pendingGlorfindelExchange;
+    if (game?.phase !== 'glorfindel-exchange-selection' || !pending) return;
+    const isSource = pending.sourceId === state.userId;
+    const targetId = isSource ? droppedTargetId : state.userId;
+    if (!pending.candidates?.includes(targetId) || (!isSource && droppedTargetId !== pending.sourceId)) return;
+    pending.sourceCards ||= {}; pending.targetCards ||= {};
+    if ((isSource && pending.sourceCards[targetId]) || (!isSource && pending.targetCards[targetId])) return;
+    const hand = room.hands?.[state.userId]?.cards || [];
+    const cardIndex = hand.findIndex(card => card.id === cardId && card.kind !== 'character');
+    if (cardIndex < 0) return;
+    const characterName = game.characterSelections?.[state.userId]?.name;
+    const card = hand[cardIndex];
+    if (card.color === 'yellow' && card.number === 1 && characterName === 'フロド') return;
+    hand.splice(cardIndex, 1);
+    if (isSource) pending.sourceCards[targetId] = card;
+    else pending.targetCards[targetId] = card;
+
+    const ready = pending.candidates.every(id => pending.sourceCards[id] && pending.targetCards[id]);
+    if (!ready) return room;
+    // 全員分を保留してから一度のトランザクションで配置し、途中状態や順番依存を作らない。
+    pending.candidates.forEach(id => {
+      room.hands[id].cards.push(pending.sourceCards[id]);
+      room.hands[pending.sourceId].cards.push(pending.targetCards[id]);
+    });
+    game.glorfindelExchangeCompleted = true;
+    game.glorfindelExchangeTransfer = {
+      sourceId:pending.sourceId, targetIds:[...pending.candidates], completedAt:Date.now()
+    };
+    delete game.pendingGlorfindelExchange;
+    if (game.exchangeQueue?.[0] === pending.sourceId) game.exchangeQueue.shift();
+    beginNextExchange(game);
     return room;
   });
 }
@@ -2970,12 +3147,17 @@ function renderMyHand(){
   let hasPlayableCards = false;
   const exchange = state.game?.pendingExchange;
   const elrondTransfer = state.game?.pendingElrondTransfers;
+  const glorfindelExchange = state.game?.pendingGlorfindelExchange;
   const canChooseElrondCard = state.game?.phase === 'elrond-transfer-selection'
     && elrondTransfer && !elrondTransfer.transferred?.[myId];
   const canChooseExchangeCard = state.game?.phase === 'exchange-card-selection'
     && exchange && !exchange.selections?.[myId]
     && (exchange.selectingPlayerId || exchange.sourceId) === myId
     && (!exchange.selectionAvailableAt || Date.now() >= exchange.selectionAvailableAt);
+  const canChooseGlorfindelCard = state.game?.phase === 'glorfindel-exchange-selection' && glorfindelExchange
+    && (glorfindelExchange.sourceId === myId
+      ? (glorfindelExchange.candidates || []).some(id => !glorfindelExchange.sourceCards?.[id])
+      : (glorfindelExchange.candidates || []).includes(myId) && !glorfindelExchange.targetCards?.[myId]);
   const selectedExchangeCardId = exchange?.selections?.[myId] || elrondTransfer?.selections?.[myId];
   const specialSelection = ['radagast-selection','shadowfax-selection'].includes(state.game?.phase)
     && state.game?.specialSelectionPlayerId === myId;
@@ -3027,7 +3209,7 @@ function renderMyHand(){
       card.addEventListener('pointerdown', event => beginCardDrag(event, normalized, cardIndex, card));
     }
     const myCharacterName = state.game?.characterSelections?.[myId]?.name;
-    const canExchange = (canChooseExchangeCard || canChooseElrondCard) && normalized.kind !== 'character'
+    const canExchange = (canChooseExchangeCard || canChooseElrondCard || canChooseGlorfindelCard) && normalized.kind !== 'character'
       && !(normalized.color === 'yellow' && normalized.number === 1 && myCharacterName === 'フロド');
     if (canExchange) {
       card.classList.add('exchange-pick');
@@ -3053,7 +3235,7 @@ function renderMyHand(){
     } else cardRow.appendChild(card);
   });
   myHandEl.classList.toggle('has-playable-cards', hasPlayableCards);
-  myHandEl.classList.toggle('exchange-pickable', canChooseExchangeCard || canChooseElrondCard);
+  myHandEl.classList.toggle('exchange-pickable', canChooseExchangeCard || canChooseElrondCard || canChooseGlorfindelCard);
 }
 
 function beginExchangeCardDrag(event, cardData, source){
@@ -3061,11 +3243,16 @@ function beginExchangeCardDrag(event, cardData, source){
   event.preventDefault();
   const exchange = state.game?.pendingExchange;
   const isElrondTransfer = state.game?.phase === 'elrond-transfer-selection';
+  const glorfindelExchange = state.game?.pendingGlorfindelExchange;
+  const isGlorfindelExchange = state.game?.phase === 'glorfindel-exchange-selection' && Boolean(glorfindelExchange);
   const order = state.game?.playerOrder || [];
   const previousPlayerId = order[(order.indexOf(state.userId) - 1 + order.length) % order.length];
-  const targetIds = isElrondTransfer ? [previousPlayerId] : exchange?.sourceId === state.userId
-    ? (exchange.targetId ? [exchange.targetId] : exchange.candidates || [])
-    : [exchange?.sourceId].filter(Boolean);
+  const targetIds = isElrondTransfer ? [previousPlayerId]
+    : isGlorfindelExchange ? (glorfindelExchange.sourceId === state.userId
+      ? (glorfindelExchange.candidates || []).filter(id => !glorfindelExchange.sourceCards?.[id])
+      : [glorfindelExchange.sourceId])
+    : exchange?.sourceId === state.userId ? (exchange.targetId ? [exchange.targetId] : exchange.candidates || [])
+      : [exchange?.sourceId].filter(Boolean);
   const targets = targetIds.map(playerId => {
     const tag = playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(playerId)}"]`);
     return { playerId, tag, hint:tag?.querySelector('.exchange-hand-hint') };
@@ -3107,6 +3294,7 @@ function beginExchangeCardDrag(event, cardData, source){
     cancel();
     if (droppedTarget) {
       if (isElrondTransfer) chooseElrondTransferCard(cardData.id, droppedTarget.playerId);
+      else if (isGlorfindelExchange) chooseGlorfindelExchangeCard(cardData.id, droppedTarget.playerId);
       else chooseExchangeCard(cardData.id, droppedTarget.playerId);
     }
   };
@@ -3119,7 +3307,11 @@ function beginExchangeCardDrag(event, cardData, source){
 function canFollowSuit(card){
   const trick = state.game?.trick || {};
   const plays = Object.values(trick);
-  if (!plays.length) return card.color !== 'yellow' || state.game?.ringCircleOn === true;
+  if (!plays.length) {
+    if (hasSpecialThreat(state.game, state.userId, '恐怖') && card.color === 'orange') return false;
+    if (hasSpecialThreat(state.game, state.userId, 'モルグルの刃') && card.color === 'yellow') return false;
+    return card.color !== 'yellow' || state.game?.ringCircleOn === true;
+  }
   const leadColor = plays.sort((a,b) => a.order-b.order)[0].card.color;
   const cards = (state.hands[state.userId]?.cards || []).filter(card => card.kind !== 'character');
   return card.color === leadColor || !cards.some(c => c.color === leadColor);
@@ -3179,6 +3371,8 @@ async function playCard(cardIndex, expectedCard){
     if (!card || card.kind === 'character' || card.id !== expectedCard.id) return;
     const existing = Object.values(room.game.trick || {}).sort((a,b)=>a.order-b.order);
     if (!existing.length && card.color === 'yellow' && room.game.ringCircleOn !== true) return;
+    if (!existing.length && hasSpecialThreat(room.game, state.userId, '恐怖') && card.color === 'orange') return;
+    if (!existing.length && hasSpecialThreat(room.game, state.userId, 'モルグルの刃') && card.color === 'yellow') return;
     if (existing.length) {
       const lead = existing[0].card.color;
       if (card.color !== lead && hand.some(c => c.color === lead)) return;
@@ -3305,7 +3499,10 @@ function characterCardData(character, playerId){
     'ラダガスト':{specialName:'茶色の魔法使い',victory:'森がプレイされているトリックを2トリック獲得。',effect:'手札から1枚選び、表向きにして脇に置く。そのカードは最後のトリックでプレイする。その後、最初のトリックのカードをプレイする。',cardNumber:'2.48', rank:'黒', frameColor:'緑'},
     '飛蔭（とびかげ）':{specialName:'馬の王者',victory:'丘がプレイされているトリックを2トリック獲得。',effect:'手札を1枚選び、裏向きでこのカードの下に入れる。任意のタイミング、もしくは手札がなくなったとき、そのカードを手札に戻す。',cardNumber:'2.47', rank:'黒', frameColor:'金'}
   };
-  const details = characterDetails[character.name] || {};
+  const details = { ...(characterDetails[character.name] || {}) };
+  if (Number(state.game?.stageNumber) === 12 && character.name === 'ガンダルフ') {
+    details.victory = 'すべての数字（1～8）を1枚以上、勝利して獲得する。';
+  }
   const exchangeEffect = exchangeEffectText(character);
   const effect = [details.effect, exchangeEffect].filter(Boolean).join('\n');
   return {
@@ -3384,6 +3581,15 @@ async function chooseCharacter(characterName, source){
     room.hands[state.userId].cards ||= [];
     room.hands[state.userId].cards.unshift(characterCardData(character, state.userId));
     room.game.characterSelections[state.userId] = { ...character, selectedAt:Date.now() };
+    const stageNineThreat = Number(room.game.stageNumber) === 9 ? STAGE_NINE_THREATS[characterName] : null;
+    if (stageNineThreat) {
+      room.game.threatCards ||= {};
+      room.game.threatCards[state.userId] ||= [];
+      room.game.threatCards[state.userId].unshift({
+        kind:'special-threat', color:'threat', ...stageNineThreat,
+        id:`${state.userId}-stage-nine-threat-${Date.now()}`
+      });
+    }
     if (characterName === 'フロド') {
       const currentHolder = Object.keys(room.hands).find(id => room.hands[id].cards.some(card => card.color === 'yellow' && card.number === 1));
       if (currentHolder && currentHolder !== state.userId) {
@@ -3400,7 +3606,9 @@ async function chooseCharacter(characterName, source){
     }
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
-      const forcedLeaderNames = ['山の下さん', 'グロルフィンデル', 'エルロンド', 'ラダガスト'];
+      const forcedLeaderNames = Number(room.game.stageNumber) === 12
+        ? ['ガンダルフ']
+        : ['山の下さん', 'グロルフィンデル', 'エルロンド', 'ラダガスト'];
       const forcedLeader = forcedLeaderNames.map(name => Object.entries(room.game.characterSelections)
         .find(([, selected]) => selected.name === name)?.[0]).find(Boolean);
       room.game.startingPlayerId = forcedLeader || room.game.turnPlayerId || room.game.playerOrder[0];
@@ -3920,10 +4128,18 @@ function renderPlayerCircle(players){
     const myPreviousPlayerId = order[(order.indexOf(state.userId) - 1 + order.length) % order.length];
     const choosingElrondCard = state.game?.phase === 'elrond-transfer-selection'
       && !state.game?.pendingElrondTransfers?.transferred?.[state.userId];
-    const exchangeHintIds = choosingElrondCard ? [myPreviousPlayerId] : pendingExchange?.sourceId === state.userId
-      ? (pendingExchange.targetId ? [pendingExchange.targetId] : pendingExchange.candidates || [])
-      : pendingExchange?.targetId === state.userId ? [pendingExchange.sourceId] : [];
-    const exchangeHintVisible = (state.game?.phase === 'exchange-card-selection' || choosingElrondCard)
+    const pendingGlorfindel = state.game?.pendingGlorfindelExchange;
+    const choosingGlorfindelCard = state.game?.phase === 'glorfindel-exchange-selection' && pendingGlorfindel
+      && (pendingGlorfindel.sourceId === state.userId
+        ? (pendingGlorfindel.candidates || []).some(id => !pendingGlorfindel.sourceCards?.[id])
+        : pendingGlorfindel.candidates?.includes(state.userId) && !pendingGlorfindel.targetCards?.[state.userId]);
+    const exchangeHintIds = choosingElrondCard ? [myPreviousPlayerId]
+      : choosingGlorfindelCard ? (pendingGlorfindel.sourceId === state.userId
+        ? pendingGlorfindel.candidates.filter(id => !pendingGlorfindel.sourceCards?.[id])
+        : [pendingGlorfindel.sourceId])
+      : pendingExchange?.sourceId === state.userId ? (pendingExchange.targetId ? [pendingExchange.targetId] : pendingExchange.candidates || [])
+        : pendingExchange?.targetId === state.userId ? [pendingExchange.sourceId] : [];
+    const exchangeHintVisible = (state.game?.phase === 'exchange-card-selection' || choosingElrondCard || choosingGlorfindelCard)
       && exchangeHintIds.includes(p.id);
     if (exchangeHintVisible) {
       const hint = document.createElement('div');
@@ -3940,6 +4156,18 @@ function renderPlayerCircle(players){
       receivedCard.className = 'exchange-received-card';
       receivedCard.dataset.cardId = heldCard.id;
       receivedCard.setAttribute('aria-label', 'エルロンドの効果で受け取った保留カード');
+      tag.appendChild(receivedCard);
+    }
+    const heldGlorfindelCard = state.game?.pendingGlorfindelExchange?.sourceCards?.[p.id];
+    if (heldGlorfindelCard) {
+      const receivedCard = document.createElement('div');
+      receivedCard.className = 'exchange-received-card';
+      receivedCard.dataset.cardId = heldGlorfindelCard.id;
+      receivedCard.setAttribute('aria-label', 'グロルフィンデルから受け取った同時交換カード');
+      if (p.id === state.userId) {
+        receivedCard.classList.add('face-up');
+        receivedCard.appendChild(createCardElement(heldGlorfindelCard));
+      }
       tag.appendChild(receivedCard);
     }
     const offer = state.game?.exchangeOfferTransfer;
@@ -4048,6 +4276,8 @@ function renderPlayerCircle(players){
         if (isCharacterEffectTurn(p.id)) characterCard.classList.add('effect-turn');
         characterHolder.appendChild(characterCard);
         characterBundle.append(characterHolder, createVictoryConditionIcon(character, p.id));
+        const threatConditionIcon = createThreatConditionIcon(p.id);
+        if (threatConditionIcon) characterBundle.appendChild(threatConditionIcon);
         const radagastCard = state.game?.radagastReservedCard?.playerId === p.id ? state.game.radagastReservedCard : null;
         const shadowfaxCard = state.game?.shadowfaxReservedCard?.playerId === p.id && !state.game.shadowfaxReservedCard.inHand
           ? state.game.shadowfaxReservedCard : null;
@@ -4078,8 +4308,14 @@ function renderPlayerCircle(players){
       const holder = document.createElement('div');
       holder.className = 'capture-card';
       holder.style.setProperty('--stack-rotate', '0deg');
-      holder.appendChild(createCardElement(threatCard));
+      const concealed = threatCard.name === '見えざる者' && !isMe
+        && victoryConditionStatus(state.room, p.id).status !== 'achieved';
+      holder.appendChild(createCardElement(concealed ? { ...threatCard, concealed:true } : threatCard));
       threatBundle.appendChild(holder);
+      if (isMe && threatCard.kind === 'special-threat') {
+        const threatConditionIcon = createThreatConditionIcon(p.id, threatCard.name);
+        if (threatConditionIcon) threatBundle.appendChild(threatConditionIcon);
+      }
       capture.appendChild(threatBundle);
     });
     const leadingCaptureOffset = (characterOffsetCount + threatCards.length) * 40;
