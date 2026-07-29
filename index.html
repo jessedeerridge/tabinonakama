@@ -2708,26 +2708,31 @@ function renderStageInformation(){
   const sourceEventCards = Array.from(eventCardRow.querySelectorAll('.event-card')).slice(0, eventCards.length);
   eventCardModalRow.replaceChildren();
   if (isChapterFourteen) {
+    const selectedIndex = Number(state.game?.moriaEventIndex ?? state.game?.moriaEventScrollIndex ?? 0);
+    const selectedEventData = eventCards[selectedIndex];
+    const selectedEvent = sourceEventCards[selectedIndex];
+    // 1枚目は章カードではなく、選択したイベント自身のあらすじカード。
     const storyCard = document.createElement('div');
     storyCard.id = 'eventModalStoryCard';
     storyCard.className = 'center-lower-card';
     storyCard.style.backgroundImage = "url('arasujisquare.jpg')";
+    storyCard.setAttribute('aria-label', `${selectedEventData?.title || ''} あらすじ`);
     const storyHeading = document.createElement('div');
     storyHeading.className = 'arasujisquare-bar';
-    storyHeading.textContent = stage.chapterLabel;
+    storyHeading.textContent = selectedEventData?.title || '';
     const storyText = document.createElement('div');
     storyText.className = 'arasujisquare-center';
-    storyText.textContent = stage.story;
+    storyText.textContent = selectedEventData?.synopsis || stage.story;
     storyCard.append(storyHeading, storyText);
     eventCardModalRow.appendChild(storyCard);
     fitSingleLineText(storyHeading, 11, 5);
     fitBlockText(storyText, 9, 4);
-    const selectedIndex = Number(state.game?.moriaEventIndex ?? state.game?.moriaEventScrollIndex ?? 0);
-    const selectedEvent = sourceEventCards[selectedIndex];
+    // 2枚目だけが、選択したイベントの効果面。
     if (selectedEvent) {
       const eventClone = selectedEvent.cloneNode(true);
       eventClone.style.removeProperty('display');
       eventClone.style.removeProperty('visibility');
+      eventClone.setAttribute('aria-label', `${selectedEventData?.title || ''} 効果`);
       eventCardModalRow.appendChild(eventClone);
     }
   } else {
