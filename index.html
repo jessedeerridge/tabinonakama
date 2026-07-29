@@ -811,6 +811,15 @@
   <div class="yellow-one-note">＊2秒長押しで決定。</div>
 </section>
 
+<section id="mithrilDecision" class="yellow-one-decision hidden" aria-live="assertive">
+  <div class="yellow-one-question">ミスリルの胴着を使いますか。</div>
+  <div class="yellow-one-actions">
+    <button class="btn hold-decision" type="button" data-mithril-decision="yes"><span>はい</span></button>
+    <button class="btn hold-decision" type="button" data-mithril-decision="no"><span>いいえ</span></button>
+  </div>
+  <div class="yellow-one-note">＊2秒長押しで決定。</div>
+</section>
+
 <div id="chapterCompleteBanner" class="chapter-complete-banner hidden" role="status" aria-live="assertive">
   <div id="chapterCompleteMessage" class="chapter-complete-message"></div>
   <button id="chapterContinueBtn" class="chapter-continue-btn" type="button">続ける</button>
@@ -920,6 +929,7 @@ const threatChoiceDialog = document.getElementById('threatChoiceDialog');
 const threatChoiceMessage = document.getElementById('threatChoiceMessage');
 const threatChoiceGrid = document.getElementById('threatChoiceGrid');
 const shadowfaxDecision = document.getElementById('shadowfaxDecision');
+const mithrilDecision = document.getElementById('mithrilDecision');
 
 const CHARACTER_NAMES = {
   frodo: 'フロド',
@@ -946,7 +956,9 @@ const CHARACTER_NAMES = {
   boromir: 'ボロミア',
   gwaihir: 'グワイヒア',
   radagast: 'ラダガスト',
-  shadowfax: '飛蔭（とびかげ）'
+  shadowfax: '飛蔭（とびかげ）',
+  legolas: 'レゴラス',
+  gimli: 'ギムリ'
 };
 const CHARACTER_IMAGE_FILES = {
   frodo: 'frodo.jpg',
@@ -1105,6 +1117,15 @@ defineStage(12, {
     { title:'多彩なるサルマン', text:'「旅路は終わり、ここで永遠の安息を得るがよい。そして、私は賢者サルマン、指輪作りのサルマン、多彩なるサルマンなのだからな！」' }
   ]
 });
+defineStage(13, {
+  title: '指輪は南方に向かう',
+  story: '「指輪所持者は、使命を帯びて滅びの山へ旅立つ。彼に課せられた務めはただ一つ――指輪を捨てることや、敵のしもべに渡すことや、仲間や会議の者以外に触れさせてこそ許されぬ。それも、必要に迫られた時のみだ。他の者は、彼の道行きを助ける自由な仲間として、共に旅をするのだ」',
+  characters: ['frodo*', 'gandalf,aragorn,legolas,gimli,boromir,sam,merry,pippin,bill'],
+  threats: [{ name:'脅威', min:1, max:7 }],
+  winCondition: 'long',
+  goal: 'everywin',
+  additionalElements: '〈ミスリルの胴着〉を〈フロド〉に渡す。〈小馬のビル〉は選ばなくても章を達成したことにしてよい。'
+});
 
 /* ★ 追加：ヘルプUI参照 */
 const helpBtn = document.getElementById('helpBtn');
@@ -1122,6 +1143,12 @@ const STAGE_NINE_THREATS = {
 const STAGE_ELEVEN_EQUIPMENT = {
   'アラゴルン':{ name:'折れたる剣', specialName:'ナルシルの欠片', effect:'自分の脅威カードと入れ替える。\n自分の目的となる数字範囲を選ぶ。\n1～2、3～4、5～6。', cardNumber:'2.42', rank:'黒', image:'oretaruken.jpg' },
   'ボロミア':{ name:'ゴンドールの角笛', specialName:'家宝', effect:'ゲームの準備中、手札にある最も多いスートを宣言する。', cardNumber:'2.43', rank:'黒', image:'tunobue.jpg' }
+};
+
+const MITHRIL_COAT = {
+  name:'ミスリルの胴着', specialName:'鋼よりも堅い',
+  effect:'ラウンド終了時、キャラクター1人の目的が未達成なら、このカードを捨て札にして達成したものとして扱う。',
+  cardNumber:'3.11', rank:'黒'
 };
 
 function hasSpecialThreat(game, playerId, name){
@@ -1441,6 +1468,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   const character = suppliedCharacter || (room?.hands?.[playerId]?.cards || [])
     .find(card => card?.kind === 'character') || game?.characterSelections?.[playerId];
   if (!game || !character) return { status:'pending' };
+  if (Number(game.stageNumber) === 13 && game.mithrilAppliedToPlayerId === playerId) return { status:'achieved' };
   const capturedTricks = game.capturedTricks?.[playerId] || [];
   const trickCount = capturedTricks.length;
   const playerIds = game.playerOrder || [];
@@ -1558,8 +1586,8 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     return { status:!isFinished && remainingCards.some(card => card.color === 'yellow') ? 'pending' : 'failed' };
   }
 
-  if (['グローイン', 'アルウェン'].includes(character.name)) {
-    const suit = character.name === 'グローイン' ? 'gray' : 'green';
+  if (['グローイン', 'アルウェン', 'レゴラス', 'ギムリ'].includes(character.name)) {
+    const suit = ['グローイン', 'ギムリ'].includes(character.name) ? 'gray' : 'green';
     const count = cardsOfSuit(capturedCards, suit);
     const otherCounts = otherIds.map(id => cardsOfSuit((game.capturedTricks?.[id] || []).flatMap(trick => trick.cards || []), suit));
     if (!isFinished) return { status:'pending' };
@@ -1641,6 +1669,17 @@ function chapterOutcome(room){
   if (!playerIds.length) return null;
   const statuses = playerIds.map(playerId => victoryConditionStatus(room, playerId).status);
   if (statuses.every(status => status === 'achieved')) return 'complete';
+  if (Number(room.game.stageNumber) === 13) {
+    // この章では、最初の確定失敗は胴着で救えるため結果を保留する。
+    // 二人目が失敗した時点、または胴着を使わずに確定した時だけ敗北となる。
+    if (room.game.mithrilDecision === 'no') return 'failed';
+    if (statuses.filter(status => status === 'failed').length >= 2) return 'failed';
+    const oneFailureCanBeResolved = statuses.filter(status => status === 'achieved').length === playerIds.length - 1
+      && statuses.filter(status => status === 'failed').length === 1;
+    if (oneFailureCanBeResolved && room.stageThirteenMithrilAvailable === false) return 'failed';
+    if (room.game.finished === true && statuses.filter(status => status === 'achieved').length !== playerIds.length - 1) return 'failed';
+    return null;
+  }
   if (statuses.some(status => status === 'failed') || room.game.finished === true) return 'failed';
   return null;
 }
@@ -1663,7 +1702,8 @@ function isLongChapterComplete(room = state.room){
   const stage = STAGES.find(item => item.number === Number(room?.game?.stageNumber));
   if (stage?.winCondition !== 'long') return false;
   const achieved = achievedLongChapterCharacters(room);
-  return (room?.game?.availableCharacters || []).every(character => achieved.has(character.name));
+  return (room?.game?.availableCharacters || []).every(character =>
+    (Number(stage.number) === 13 && character.name === '小馬のビル') || achieved.has(character.name));
 }
 
 function renderChapterComplete(){
@@ -1708,6 +1748,46 @@ function renderChapterComplete(){
     chapterCompleteBanner.classList.add('arrived');
     chapterCompleteMessage.style.removeProperty('animation-delay');
   }, { once:true });
+}
+
+function canDecideMithril(room = state.room){
+  const game = room?.game;
+  if (Number(game?.stageNumber) !== 13 || game.chapterOutcome || game.mithrilDecision) return false;
+  if (room?.stageThirteenMithrilAvailable === false) return false;
+  const statuses = (game.playerOrder || []).map(playerId => victoryConditionStatus(room, playerId).status);
+  return statuses.filter(status => status === 'achieved').length === statuses.length - 1
+    && statuses.filter(status => status === 'failed').length === 1;
+}
+
+function renderMithrilDecision(){
+  const frodoPlayerId = Object.entries(state.game?.characterSelections || {})
+    .find(([, character]) => character.name === 'フロド')?.[0];
+  mithrilDecision.classList.toggle('hidden', !(canDecideMithril() && frodoPlayerId === state.userId));
+}
+
+async function decideMithril(useCoat){
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    if (!canDecideMithril(room)) return;
+    const game = room.game;
+    const frodoPlayerId = Object.entries(game.characterSelections || {})
+      .find(([, character]) => character.name === 'フロド')?.[0];
+    if (frodoPlayerId !== state.userId) return;
+    const failedPlayerId = (game.playerOrder || [])
+      .find(playerId => victoryConditionStatus(room, playerId).status !== 'achieved');
+    game.mithrilDecision = useCoat ? 'yes' : 'no';
+    if (useCoat) {
+      game.mithrilAppliedToPlayerId = failedPlayerId;
+      room.stageThirteenMithrilAvailable = false;
+      game.equipmentCards ||= {};
+      game.equipmentCards[frodoPlayerId] = (game.equipmentCards[frodoPlayerId] || [])
+        .filter(card => card.name !== MITHRIL_COAT.name);
+      game.chapterOutcome = { status:'complete', decidedAt:Date.now() };
+    } else {
+      game.chapterOutcome = { status:'failed', decidedAt:Date.now() };
+    }
+    return room;
+  });
 }
 
 function createVictoryConditionIcon(cardData, playerId){
@@ -2969,6 +3049,7 @@ function subscribeRoom(){
     renderStriderChoice();
     renderThreatChoice();
     renderChapterComplete();
+    renderMithrilDecision();
     scheduleOldForestDraw();
     scheduleBarrowDraw();
     scheduleThreatDraw();
@@ -3083,6 +3164,9 @@ shadowfaxDecision.querySelectorAll('.hold-decision').forEach(button => {
       return game;
     });
   });
+});
+mithrilDecision.querySelectorAll('.hold-decision').forEach(button => {
+  attachTwoSecondHold(button, () => decideMithril(button.dataset.mithrilDecision === 'yes'));
 });
 
 function renderExchangeDialog(){
@@ -3395,7 +3479,19 @@ function scheduleTrickClear(){
       if (!game.finished && Number(game.stageNumber) === 5 && game.oldForestDeck?.length) {
         game.pendingOldForestDrawAt = Date.now() + 1000;
       }
-      const outcome = chapterOutcome({ game, hands:state.room?.hands || {} });
+      if (!game.finished && Number(game.stageNumber) === 13) {
+        const playerIds = game.playerOrder || [];
+        const statuses = playerIds.map(playerId => victoryConditionStatus({ game, hands:state.room?.hands || {} }, playerId).status);
+        const oneFailureCanBeResolved = statuses.filter(status => status === 'achieved').length === playerIds.length - 1
+          && statuses.filter(status => status === 'failed').length === 1;
+        // 残る一人の失敗が確定した時点でトリックを切り上げ、胴着の判断へ移る。
+        if (oneFailureCanBeResolved) game.finished = true;
+      }
+      const outcome = chapterOutcome({
+        game,
+        hands:state.room?.hands || {},
+        stageThirteenMithrilAvailable:state.room?.stageThirteenMithrilAvailable
+      });
       if (!game.chapterOutcome && outcome) {
         game.chapterOutcome = { status:outcome, decidedAt:Date.now() };
       }
@@ -3834,9 +3930,15 @@ function characterCardData(character, playerId){
     'ボロミア':{specialName:'ゴンドールの大将',victory:'最後のトリックに勝利する。もし〈ボロミア〉が〈1の指輪〉を獲得した場合、その章は即座に敗北となる。',effect:'〈フロド〉以外の任意のキャラクターと交換する。',cardNumber:'2.41', rank:'無し', frameColor:'銀'},
     'グワイヒア':{specialName:'風早彦',victory:'山がプレイされているトリックを2トリック獲得。',effect:'〈ガンダルフ〉と交換する。その後、再び〈ガンダルフ〉と交換する。',cardNumber:'2.46', rank:'黒', frameColor:'銀'},
     'ラダガスト':{specialName:'茶色の魔法使い',victory:'森がプレイされているトリックを2トリック獲得。',effect:'手札から1枚選び、表向きにして脇に置く。そのカードは最後のトリックでプレイする。その後、最初のトリックのカードをプレイする。',cardNumber:'2.48', rank:'黒', frameColor:'緑'},
-    '飛蔭（とびかげ）':{specialName:'馬の王者',victory:'丘がプレイされているトリックを2トリック獲得。',effect:'手札を1枚選び、裏向きでこのカードの下に入れる。任意のタイミング、もしくは手札がなくなったとき、そのカードを手札に戻す。',cardNumber:'2.47', rank:'黒', frameColor:'金'}
+    '飛蔭（とびかげ）':{specialName:'馬の王者',victory:'丘がプレイされているトリックを2トリック獲得。',effect:'手札を1枚選び、裏向きでこのカードの下に入れる。任意のタイミング、もしくは手札がなくなったとき、そのカードを手札に戻す。',cardNumber:'2.47', rank:'黒', frameColor:'金'},
+    'レゴラス':{specialName:'エルフの王子',victory:'最も多く森カードを獲得する。',effect:'なし',cardNumber:'3.02',rank:'無し',frameColor:'緑'},
+    'ギムリ':{specialName:'ドワーフの戦士',victory:'最も多く山カードを獲得する。',effect:'なし',cardNumber:'3.03',rank:'無し',frameColor:'銀'}
   };
   const details = { ...(characterDetails[character.name] || {}) };
+  if (Number(state.game?.stageNumber) === 13 && character.name === 'フロド') {
+    details.cardNumber = '3.01';
+    details.rank = '無し';
+  }
   if (Number(state.game?.stageNumber) === 12 && character.name === 'ガンダルフ') {
     details.victory = 'すべての数字（1～8）を1枚以上、勝利して獲得する。';
   }
@@ -3935,6 +4037,13 @@ async function chooseCharacter(characterName, source){
         room.game.mostSuitDeclarations ||= {};
         room.game.mostSuitDeclarations[state.userId] = CARD_TYPES.map(type => type.color).filter(color => counts[color] === most).slice(0, 1);
       }
+    }
+    if (Number(room.game.stageNumber) === 13 && characterName === 'フロド'
+      && room.stageThirteenMithrilAvailable !== false) {
+      room.game.equipmentCards ||= {}; room.game.equipmentCards[state.userId] ||= [];
+      room.game.equipmentCards[state.userId].push({
+        kind:'equipment', ...MITHRIL_COAT, id:`${state.userId}-equipment-${Date.now()}`
+      });
     }
     const stageNineThreat = Number(room.game.stageNumber) === 9 ? STAGE_NINE_THREATS[characterName] : null;
     if (stageNineThreat) {
@@ -4828,8 +4937,9 @@ btnKickYes.addEventListener('click', async (e) => {
 async function dealInitialHands(stageNumber, { resetLongProgress = false } = {}){
   if (!state.roomCode) return;
 
-  const tablesSnap = await get(ref(db, `rooms/${state.roomCode}/tables`));
-  const tables = tablesSnap.val() || {};
+  const roomSnap = await get(ref(db, `rooms/${state.roomCode}`));
+  const currentRoom = roomSnap.val() || {};
+  const tables = currentRoom.tables || {};
   const seatedPlayers = Object.values(tables).filter(t => t && t.playerId);
   if (!seatedPlayers.length) return;
   const hands = {};
@@ -4892,6 +5002,9 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
   await update(ref(db, `rooms/${state.roomCode}`), {
     hands,
     ...(resetLongProgress ? { longChapterProgress:null } : {}),
+    ...(Number(stageNumber) === 13
+      ? { stageThirteenMithrilAvailable:resetLongProgress ? true : currentRoom.stageThirteenMithrilAvailable !== false }
+      : {}),
     game: {
       playerOrder, turnPlayerId: null, trickNumber: 1, stageNumber, startedAt:Date.now(),
       phase: 'character-selection', availableCharacters: stageCharacters,
@@ -4933,7 +5046,9 @@ chapterContinueBtn.addEventListener('click', async () => {
     if (!result.committed || room?.game?.continueClaim !== claim) return;
     const stage = STAGES.find(item => item.number === Number(room.game.stageNumber));
     const allLongCharactersAchieved = stage?.winCondition === 'long'
-      && (room.game.availableCharacters || []).every(character => room.longChapterProgress?.characters?.[character.name]);
+      && (room.game.availableCharacters || []).every(character =>
+        (Number(stage.number) === 13 && character.name === '小馬のビル')
+        || room.longChapterProgress?.characters?.[character.name]);
     const repeatChapter = stage?.winCondition === 'long'
       ? !allLongCharactersAchieved
       : room.game.chapterOutcome.status === 'failed';
