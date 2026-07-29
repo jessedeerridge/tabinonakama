@@ -339,6 +339,7 @@
   .hold-decision::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,.24);transform:scaleX(var(--hold-progress,0));transform-origin:left;z-index:0;}
   .hold-decision>span{position:relative;z-index:1;}
   .yellow-one-note{position:absolute;right:10px;bottom:6px;font-size:10px;font-weight:700;}
+  .yellow-one-decision.read-only .hold-decision:disabled{color:#fff;opacity:1;cursor:default;filter:none;}
   .exchange-dialog{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:315;width:max-content;max-width:calc(100vw - 24px);box-sizing:border-box;padding:10px 12px 24px;border:1px solid #bbb;border-radius:12px;background:#fff;color:#111;box-shadow:0 12px 28px rgba(0,0,0,.28);text-align:center;}
   .exchange-dialog.hidden{display:none;}
   .strider-choice-dialog.hidden{display:none;}
@@ -519,7 +520,7 @@
   .chapter-complete-banner.hidden{display:none;}
   .chapter-complete-banner.running,.chapter-complete-banner.arrived{visibility:visible;}
   .chapter-complete-message{padding:9px 21px;background:#000;color:#fff;font-family:serif;font-size:clamp(18px,5vw,30px);font-weight:900;line-height:1;letter-spacing:.12em;white-space:nowrap;transform:translateX(calc(-50vw - 110%));will-change:transform;}
-  .chapter-complete-banner.running .chapter-complete-message{animation:chapterCompleteFlow .8s ease-out both;}
+  .chapter-complete-banner.running .chapter-complete-message{transform:translateX(0);}
   .chapter-complete-banner.arrived .chapter-complete-message{transform:translateX(0);}
   .chapter-continue-btn{pointer-events:auto;padding:4px 12px;border:1px solid #111;border-radius:999px;background:#fff;color:#111;font-size:11px;font-weight:800;cursor:pointer;opacity:0;}
   .chapter-complete-banner.arrived .chapter-continue-btn{opacity:1;}
@@ -1727,6 +1728,7 @@ function chapterOutcome(room){
 
 let chapterCompleteTimer = null;
 let renderedChapterCompleteAt = null;
+let chapterCompleteAnimation = null;
 function achievedLongChapterCharacters(room = state.room){
   const achieved = new Set(Object.keys(room?.longChapterProgress?.characters || {}));
   // ラウンド全体が成功した場合だけ、そのラウンドの個別目的を長編進捗として認める。
@@ -1752,6 +1754,8 @@ function renderChapterComplete(){
   const outcome = state.game?.chapterOutcome;
   const decidedAt = outcome?.decidedAt || state.game?.allVictoryConditionsAchievedAt;
   if (!decidedAt) {
+    chapterCompleteAnimation?.cancel();
+    chapterCompleteAnimation = null;
     document.body.classList.remove('victory-complete');
     renderedChapterCompleteAt = null;
     chapterCompleteBanner.classList.add('hidden');
@@ -1776,20 +1780,32 @@ function renderChapterComplete(){
   chapterCompleteMessage.textContent = resultLabel.startsWith('to be continued')
     ? resultLabel
     : `${stage?.chapterLabel || `第${state.game?.stageNumber || ''}章`}　${resultLabel}`;
-  if (elapsed >= 800) chapterCompleteBanner.classList.add('arrived');
-  if (renderedChapterCompleteAt === decidedAt) return;
-  renderedChapterCompleteAt = decidedAt;
-  chapterCompleteBanner.classList.remove('running');
-  chapterCompleteBanner.classList.toggle('arrived', elapsed >= 800);
-  chapterCompleteMessage.style.animationDelay = `${-elapsed}ms`;
-  void chapterCompleteBanner.offsetWidth;
-  chapterCompleteBanner.classList.add('running');
-  chapterCompleteBanner.addEventListener('animationend', () => {
-    // 到着位置を先に固定してから animation を外し、終了フレームでの一瞬の巻き戻りを防ぐ。
+  const movementDuration = 900;
+  if (elapsed >= movementDuration) {
     chapterCompleteBanner.classList.add('arrived');
     chapterCompleteBanner.classList.remove('running');
-    chapterCompleteMessage.style.removeProperty('animation-delay');
-  }, { once:true });
+  }
+  if (renderedChapterCompleteAt === decidedAt) return;
+  renderedChapterCompleteAt = decidedAt;
+  chapterCompleteAnimation?.cancel();
+  chapterCompleteBanner.classList.toggle('arrived', elapsed >= movementDuration);
+  if (elapsed >= movementDuration) return;
+  chapterCompleteBanner.classList.add('running');
+  chapterCompleteAnimation = chapterCompleteMessage.animate([
+    { transform:'translateX(calc(-50vw - 110%))' },
+    { transform:'translateX(0)' }
+  ], {
+    duration:movementDuration,
+    delay:-Math.max(0, elapsed),
+    easing:'cubic-bezier(.22,.72,.22,1)',
+    fill:'both'
+  });
+  chapterCompleteAnimation.finished.then(() => {
+    // 到着状態を先に固定し、同じ描画フレームで演出要素を置き換えてちらつきを防ぐ。
+    chapterCompleteBanner.classList.add('arrived');
+    chapterCompleteBanner.classList.remove('running');
+    chapterCompleteAnimation = null;
+  }).catch(() => {});
 }
 
 function canDecideMithril(room = state.room){
@@ -1805,7 +1821,15 @@ function canDecideMithril(room = state.room){
 function renderMithrilDecision(){
   const frodoPlayerId = Object.entries(state.game?.characterSelections || {})
     .find(([, character]) => character.name === 'フロド')?.[0];
-  mithrilDecision.classList.toggle('hidden', !(canDecideMithril() && frodoPlayerId === state.userId));
+  const visible = canDecideMithril();
+  const isFrodo = frodoPlayerId === state.userId;
+  mithrilDecision.classList.toggle('hidden', !visible);
+  mithrilDecision.classList.toggle('read-only', visible && !isFrodo);
+  mithrilDecision.querySelector('.yellow-one-question').textContent = isFrodo
+    ? 'ミスリルの胴着を使いますか。'
+    : 'フロドはミスリルの胴着を使いますか。';
+  mithrilDecision.querySelector('.yellow-one-note').classList.toggle('hidden', !isFrodo);
+  mithrilDecision.querySelectorAll('.hold-decision').forEach(button => { button.disabled = !isFrodo; });
 }
 
 async function decideMithril(useCoat){
@@ -2101,7 +2125,8 @@ let latestPlayers = [];
 let trickClearTimer = null;
 let outcomeCheckTimer = null;
 const CAPTURE_ARRIVAL_DURATION_MS = 700;
-const OUTCOME_CHECK_DELAY_MS = 2000;
+// 獲得カードの到着と同時に結果を確定し、次の手番とプレイ可能パルスを待たせない。
+const OUTCOME_CHECK_DELAY_MS = 0;
 let oldForestDrawTimer = null;
 let barrowDrawTimer = null;
 let threatDrawTimer = null;
@@ -2937,15 +2962,18 @@ async function animateThreatDraw(sourceRect, transfer){
       { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(180deg)` },
       { left:`${leftReveal}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(0deg)` }
     ], { duration:600, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     await flight.animate([
       { left:`${leftReveal}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(0deg)` },
       { left:`${targetLeft}px`, top:`${targetTop}px`, transform:`scale(${destinationScale}) rotateY(0deg)` }
-    ], { duration:800, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
+    ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
   } finally {
-    flight.remove();
     animatingThreatCardIds.delete(transfer.card.id);
-    playerCircle.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`)?.classList.remove('threat-draw-target-hidden');
+    const destination = playerCircle.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
+    destination?.classList.remove('threat-draw-target-hidden');
+    // 実カードを表示してから飛行カードを外し、到着時に背景が見えるフレームを作らない。
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    flight.remove();
   }
 }
 
@@ -3580,7 +3608,7 @@ function scheduleTrickClear(){
       }
       delete game.trick;
       delete game.pendingCapture;
-      // 獲得欄へ到着するアニメーションが終わってから、結果判定までさらに2秒待つ。
+      // 獲得欄への到着と同時に結果判定を行い、次の手番をすぐ開始できるようにする。
       game.pendingOutcomeCheckAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS + OUTCOME_CHECK_DELAY_MS;
       // 獲得カードの移動完了から1秒待って、次の森カードを公開する。
       if (!game.finished && Number(game.stageNumber) === 5 && game.oldForestDeck?.length) {
