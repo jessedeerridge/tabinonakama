@@ -5915,10 +5915,12 @@ function renderPlayerCircle(players){
     const mirrorReceivedCards = [1, 2].flatMap(round => Object.values(state.game?.mirrorDraft?.offers?.[round] || {})
       .map(byTarget => byTarget?.[p.id]).filter(Boolean));
     mirrorReceivedCards.forEach((heldCard, heldIndex) => {
-      const receivedCard = document.createElement('div'); receivedCard.className = 'exchange-received-card face-up';
+      const receivedCard = document.createElement('div'); receivedCard.className = 'exchange-received-card';
       receivedCard.style.setProperty('--received-index', heldIndex); receivedCard.style.setProperty('--received-offset-x', `${heldIndex * 9}px`);
       receivedCard.style.setProperty('--received-offset-y', `${heldIndex * 3}px`); receivedCard.dataset.cardId = heldCard.id;
-      receivedCard.appendChild(createCardElement(heldCard)); tag.appendChild(receivedCard);
+      // 鏡で譲渡した札は、受取人を含む全員に待機中の内容を公開しない。
+      receivedCard.setAttribute('aria-label', `ガラドリエルの鏡で受け取った裏向きの保留カード（${heldIndex + 1}/${mirrorReceivedCards.length}）`);
+      tag.appendChild(receivedCard);
     });
     const heldElrondEntry = Object.entries(state.game?.pendingElrondTransfers?.targetIds || {})
       .find(([sourceId, targetId]) => targetId === p.id && state.game?.pendingElrondTransfers?.cards?.[sourceId]);
@@ -6118,12 +6120,9 @@ function renderPlayerCircle(players){
       const threatBundle = document.createElement('div');
       threatBundle.className = 'capture-trick threat-capture';
       threatBundle.dataset.threatCardId = threatCard.id;
-      const currentThreatTransfer = state.game?.threatDrawTransfer;
-      const currentThreatTransferKey = currentThreatTransfer?.card?.id && currentThreatTransfer?.movedAt
-        ? `${currentThreatTransfer.card.id}:${currentThreatTransfer.movedAt}` : null;
-      const awaitsThreatLanding = currentThreatTransfer?.card?.id === threatCard.id
-        && currentThreatTransferKey && !landedThreatDrawTransfers.has(currentThreatTransferKey);
-      if (animatingThreatCardIds.has(threatCard.id) || awaitsThreatLanding) {
+      // 永続データ上は既に獲得済みなので、実際に飛行演出が動いている間だけ到着先を隠す。
+      // 転送記録だけが残った再接続・再描画で、脅威カードが永久に消えたように見えるのを防ぐ。
+      if (animatingThreatCardIds.has(threatCard.id)) {
         threatBundle.classList.add('threat-draw-target-hidden');
       }
       threatBundle.style.left = `${(characterOffsetCount + equipmentCards.length + threatIndex) * 40}px`;
