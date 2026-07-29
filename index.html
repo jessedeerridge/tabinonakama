@@ -451,12 +451,12 @@
   .additional-elements-mark path{fill:currentColor;stroke:none;}
   .winningcondition-content strong{font-weight:900;}
   .chapter-heading,.stage-title,.character-heading,.character-line,.goal-heading,.goal-type{white-space:nowrap;}
-  .stage-title{font-size:8px;letter-spacing:normal;}
+  .stage-title{display:block;font-size:7px;line-height:1.05;letter-spacing:normal;white-space:normal;overflow-wrap:anywhere;}
   .chapter-heading,.character-heading,.goal-heading,.goal-type{font-size:8px;letter-spacing:-.08em;}
   .character-heading{display:block;margin-top:2px;}
   .character-line{display:block;font-size:8px;letter-spacing:normal;}
   /* 両欄の固定子要素サイズを親へ揃え、カード内に全情報が入るまで親を一括縮小する。 */
-  .winningcondition-half.left .chapter-heading,
+  .winningcondition-half.left .chapter-heading{font-size:7px;}
   .winningcondition-half.left .stage-title,
   .winningcondition-half.left .character-heading,
   .winningcondition-half.left .character-line,
@@ -2261,6 +2261,7 @@ let lastAnimatedBarrowDrawAt = null;
 let lastAnimatedThreatDrawAt = null;
 const animatingThreatCardIds = new Set();
 const activeThreatDrawTransfers = new Set();
+const animatedThreatDrawTransfers = new Set();
 const playedAnimationTimes = new Map();
 const captureAnimationTimes = new Map();
 const renderedCaptureCounts = new Map();
@@ -2404,11 +2405,34 @@ function showMoriaProvisionalSelection(index){
   });
 }
 
+const MORIA_REQUIRED_CHARACTERS = ['ガンダルフ', 'ギムリ', 'アラゴルン', 'ガンダルフ'];
+
+function moriaRequiredCharacterName(game){
+  if (Number(game?.stageNumber) !== 14) return null;
+  return MORIA_REQUIRED_CHARACTERS[Number(game.moriaEventScrollIndex ?? game.moriaEventIndex ?? 0)] || null;
+}
+
 async function syncMoriaScroll(index){
   if (!state.roomCode || Number(state.game?.stageNumber) !== 14
       || state.game?.phase !== 'character-selection') return;
   if (Number(state.game?.moriaEventScrollIndex ?? 0) === index) return;
-  await update(ref(db, `rooms/${state.roomCode}/game`), { moriaEventScrollIndex:index });
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    if (!room?.game || Number(room.game.stageNumber) !== 14 || room.game.phase !== 'character-selection') return;
+    if (Number(room.game.moriaEventScrollIndex ?? 0) === index) return room;
+    room.game.moriaEventScrollIndex = index;
+    const selections = room.game.characterSelections || {};
+    // イベントを変えたらフロドだけを残し、その他の選択カードと選択状態を戻す。
+    Object.entries(selections).forEach(([playerId, character]) => {
+      if (character.name === 'フロド') return;
+      if (room.hands?.[playerId]?.cards) {
+        room.hands[playerId].cards = room.hands[playerId].cards.filter(card => card.kind !== 'character');
+      }
+      delete selections[playerId];
+    });
+    room.game.characterSelections = selections;
+    delete room.game.moriaEventOwnerId;
+    return room;
+  });
 }
 
 eventCardRow.addEventListener('pointerdown', () => {
@@ -2726,7 +2750,7 @@ function renderStageInformation(){
     });
   }
   winningconditionInfo.append(info);
-  fitSingleLineText(title, 9, 4);
+  fitBlockText(title, 7, 3.5, .1);
   fitBlockText(winningconditionInfo, 9, 2.5, .1);
 
   winningconditionGoal.replaceChildren();
@@ -2874,6 +2898,7 @@ function beginNextExchange(game){
       && characterName === 'アラゴルン';
     const needsThreatDraw = (['農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ'].includes(characterName)
       || darknessAragornDraw)
+      && !game.characterEffectThreatDrawn?.[sourceId]
       && !(game.threatCards?.[sourceId] || []).some(card => card.kind === 'threat');
     if (needsThreatDraw) {
       game.phase = 'threat-draw-wait';
@@ -3016,13 +3041,14 @@ function drawThreatForCharacterEffect(game, playerId){
   const characterName = game.characterSelections?.[playerId]?.name;
   if (!['農夫マゴット', 'サム', '馳夫', 'アラゴルン', 'レゴラス', 'ギムリ'].includes(characterName)) return;
   game.threatCards ||= {};
-  if ((game.threatCards[playerId] || []).some(card => card.kind === 'threat')) return;
+  if (game.characterEffectThreatDrawn?.[playerId]
+      || (game.threatCards[playerId] || []).some(card => card.kind === 'threat')) return false;
   const stage = STAGES.find(item => item.number === Number(game.stageNumber));
   const threat = stage?.threats?.[0] || { name:'脅威カード', min:1, max:4 };
   game.threatDeck ||= Array.from(
     { length:threat.max - threat.min + 1 }, (_, index) => threat.min + index
   );
-  if (!game.threatDeck.length) return;
+  if (!game.threatDeck.length) return false;
   const rank = game.threatDeck.shift();
   game.threatCards[playerId] ||= [];
   const drawnCard = {
@@ -3031,7 +3057,10 @@ function drawThreatForCharacterEffect(game, playerId){
     id:`${playerId}-threat-${Date.now()}-${rank}`
   };
   game.threatCards[playerId].push(drawnCard);
+  game.characterEffectThreatDrawn ||= {};
+  game.characterEffectThreatDrawn[playerId] = true;
   game.threatDrawTransfer = { playerId, card:drawnCard, movedAt:Date.now() };
+  return true;
 }
 
 function beginCharacterEffectTurns(game){
@@ -3475,10 +3504,14 @@ function subscribeRoom(){
       ? `${threatTransfer.card.id}:${threatTransfer.movedAt}` : null;
     const shouldAnimateThreatDraw = Boolean(threatTransferKey
       && threatTransfer.movedAt !== lastAnimatedThreatDrawAt
-      && !activeThreatDrawTransfers.has(threatTransferKey) && threatSourceRect?.width);
+      && !animatedThreatDrawTransfers.has(threatTransferKey)
+      && !activeThreatDrawTransfers.has(threatTransferKey)
+      && !document.querySelector(`[data-threat-draw-transfer="${CSS.escape(threatTransferKey)}"]`)
+      && threatSourceRect?.width);
     if (shouldAnimateThreatDraw) {
       // 再描画や重複購読が続いても、同じ転送を描画前に一度だけ確保する。
       activeThreatDrawTransfers.add(threatTransferKey);
+      animatedThreatDrawTransfers.add(threatTransferKey);
       lastAnimatedThreatDrawAt = threatTransfer.movedAt;
       animatingThreatCardIds.add(threatTransfer.card.id);
     }
@@ -4503,11 +4536,13 @@ async function chooseCharacter(characterName, source){
     if (hasFrodoCharacter && (characterName === 'フロド') !== hasYellowOne
       && !(stageNineOptionalFrodo && hasYellowOne && characterName !== 'フロド')) return;
     const selectedNames = new Set(Object.values(room.game.characterSelections).map(item => item.name));
+    const moriaRequiredName = moriaRequiredCharacterName(room.game);
+    const characterIsRequired = character.required || character.name === moriaRequiredName;
     const remainingRequiredCount = (room.game.availableCharacters || [])
-      .filter(item => item.required && !selectedNames.has(item.name)).length;
+      .filter(item => (item.required || item.name === moriaRequiredName) && !selectedNames.has(item.name)).length;
     const remainingPlayerCount = (room.game.playerOrder || []).length - Object.keys(room.game.characterSelections).length;
     // 残り人数と必須カード数が同じなら、任意カードを選んで必須カードを残すことはできない。
-    if (remainingRequiredCount >= remainingPlayerCount && !character.required) return;
+    if (remainingRequiredCount >= remainingPlayerCount && !characterIsRequired) return;
     room.hands ||= {};
     room.hands[state.userId] ||= { cards:[] };
     room.hands[state.userId].cards ||= [];
@@ -4516,8 +4551,7 @@ async function chooseCharacter(characterName, source){
     if (Number(room.game.stageNumber) === 14
         && Object.keys(room.game.characterSelections).length === (room.game.playerOrder || []).length) {
       room.game.moriaEventIndex = Number(room.game.moriaEventScrollIndex ?? 0);
-      const eventOwners = ['ガンダルフ', 'ギムリ', 'アラゴルン', 'ガンダルフ'];
-      const ownerName = eventOwners[room.game.moriaEventIndex];
+      const ownerName = MORIA_REQUIRED_CHARACTERS[room.game.moriaEventIndex];
       const ownerId = Object.entries(room.game.characterSelections).find(([, selected]) => selected.name === ownerName)?.[0];
       if (ownerId) {
         room.game.moriaEventOwnerId = ownerId;
@@ -4654,7 +4688,7 @@ function renderCharacterPicker(){
   const oldRects = new Map();
   characterPickerRow.querySelectorAll('.character-choice').forEach(choice => oldRects.set(choice.dataset.characterName, choice.getBoundingClientRect()));
   Object.entries(selections).forEach(([playerId, character]) => {
-    const key = `${game?.startedAt || game?.stageNumber}:${playerId}:${character.name}`;
+    const key = `${game?.startedAt || game?.stageNumber}:${playerId}:${character.name}:${character.selectedAt || 0}`;
     if (seenCharacterSelections.has(key)) return;
     seenCharacterSelections.add(key);
     const sourceRect = characterSelectionSources.get(character.name) || oldRects.get(character.name);
@@ -4679,7 +4713,8 @@ function renderCharacterPicker(){
   const allCharacters = game.availableCharacters || [];
   const hasFrodoCharacter = allCharacters.some(character => character.name === 'フロド');
   const remainingCharacters = allCharacters.filter(character => !chosenNames.has(character.name));
-  const remainingRequiredCount = remainingCharacters.filter(character => character.required).length;
+  const moriaRequiredName = moriaRequiredCharacterName(game);
+  const remainingRequiredCount = remainingCharacters.filter(character => character.required || character.name === moriaRequiredName).length;
   const remainingPlayerCount = (game.playerOrder || []).length - Object.keys(selections).length;
   const mustChooseRequired = remainingRequiredCount > 0 && remainingRequiredCount >= remainingPlayerCount;
   const hasYellowOne = (state.hands?.[state.userId]?.cards || [])
@@ -4694,12 +4729,13 @@ function renderCharacterPicker(){
     choice.type = 'button';
     choice.className = 'character-choice';
     const isChosen = chosenNames.has(character.name);
+    const isRequired = character.required || character.name === moriaRequiredCharacterName(game);
     choice.classList.toggle('chosen-placeholder', isChosen);
     const stageNineOptionalFrodo = Number(game.stageNumber) === 9;
     const violatesRingRule = hasFrodoCharacter
       && (character.name === 'フロド' ? !hasYellowOne : hasYellowOne);
     const unavailable = (violatesRingRule && !(stageNineOptionalFrodo && hasYellowOne && character.name !== 'フロド'))
-      || (mustChooseRequired && !character.required);
+      || (mustChooseRequired && !isRequired);
     choice.disabled = isChosen || alreadyChose || unavailable;
     // 選択できない場合も、フロドは暗くせず黄1との対応を見分けやすくする。
     choice.classList.toggle('forced-unavailable', unavailable && !hasYellowOne && character.name !== 'フロド');
@@ -4708,7 +4744,7 @@ function renderCharacterPicker(){
     choice.classList.toggle('ring-required-pulse', hasFrodoCharacter && hasYellowOne && character.name === 'フロド');
     const choiceCard = createCharacterCardElement(characterCardData(character, state.userId));
     choice.appendChild(choiceCard);
-    if (character.required) {
+    if (isRequired) {
       // 必須マークはカード内部ではなく、選択肢の右下に独立した要素として重ねる。
       const requiredDot = document.createElement('span');
       requiredDot.className = 'required-character-dot';
