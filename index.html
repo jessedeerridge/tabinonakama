@@ -150,7 +150,7 @@
   .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
   /* 第十三章の脅威デッキは、黒の乗手とは別の専用イラストを使う。 */
   .threat-card.chapter-thirteen-threat{background-image:url('kyoi17.jpg');}
-  .threat-card.concealed{border-color:#10233f;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.18);}
+  .threat-card.concealed{border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.18);}
   .threat-card.concealed>*{display:none;}
   /* character-card の共通規則より詳細度を上げ、通常の脅威カードと同じ茶枠・黒塗りを保つ。 */
   .character-card.special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505;}
@@ -186,10 +186,10 @@
   .victory-condition-icon.gandalf-numbers .victory-condition-square{display:flex;align-items:center;justify-content:center;padding:0;text-align:center;line-height:1;}
   .victory-condition-square.number-acquired{opacity:.25;}
   .victory-condition-icon.awaiting-threat{display:none;}
-  .victory-condition-icon.moria-gimli-sequence{position:relative;gap:0;padding-right:18px;}
-  .victory-condition-icon.moria-gimli-sequence::after{content:'+1';position:absolute;right:0;font-size:9px;font-weight:900;}
-  .moria-sequence-arrow{position:absolute;left:2px;right:17px;top:6px;height:4px;background:#142b4a;z-index:4;}
-  .moria-sequence-arrow::after{content:'';position:absolute;right:-5px;top:-3px;border-left:6px solid #142b4a;border-top:5px solid transparent;border-bottom:5px solid transparent;}
+  .victory-condition-icon.moria-gimli-sequence{position:relative;height:29px;gap:0;padding:0;}
+  .victory-condition-icon.moria-gimli-sequence::after{content:'+1';position:absolute;left:50%;top:15px;transform:translateX(-50%);font-size:10px;font-weight:900;line-height:12px;}
+  .moria-sequence-arrow{position:absolute;left:-6px;right:-6px;top:7px;height:1px;background:#142b4a;z-index:4;}
+  .moria-sequence-arrow::after{content:'';position:absolute;right:-4px;top:-2.5px;border-left:5px solid #142b4a;border-top:3px solid transparent;border-bottom:3px solid transparent;}
   .victory-condition-icon.word .victory-condition-square{width:24px;}
   .victory-condition-icon.multiline{height:auto;flex-direction:column;gap:1px;line-height:12px;}
   .victory-condition-line{display:flex;align-items:center;justify-content:center;gap:2px;height:15px;}
@@ -222,7 +222,6 @@
   .victory-condition-trick::after{left:3px;top:0;z-index:1;}
   .victory-condition-fail{position:relative;margin-right:-5px;top:-1px;z-index:4;color:#c94c47;font-size:12px;line-height:15px;}
   .character-card-unit{position:relative;flex:0 0 82px;width:82px;height:122px;}
-  .moria-owner-badge{position:absolute;right:3px;top:3px;width:16px;height:16px;border:2px solid #fff;border-radius:50%;box-sizing:border-box;background:#2563a6;color:#fff;display:grid;place-items:center;font:900 10px/12px system-ui;z-index:8;box-shadow:0 1px 4px rgba(0,0,0,.35);}
   .character-card-unit>.character-card{width:82px;height:122px;}
   .character-card-unit>.victory-condition-icon{position:absolute;left:50%;top:var(--victory-icon-top,127px);z-index:4;transform:translateX(-50%) scale(var(--victory-icon-scale,1));}
   .character-capture>.victory-condition-icon{position:absolute;left:50%;top:61px;z-index:2;transform:translateX(-50%);}
@@ -1481,14 +1480,6 @@ function createCharacterCardElement(cardData){
     createCharacterEffectRow('special', cardData.effect || '特殊説明')
   );
   card.append(name, special, effect);
-  const moriaOwner = Number(state.game?.stageNumber) === 14 && state.game?.moriaEventOwnerId
-    && state.game.characterSelections?.[state.game.moriaEventOwnerId]?.name === cardData.name;
-  if (moriaOwner) {
-    const badge = document.createElement('span');
-    badge.className = 'moria-owner-badge'; badge.textContent = '!';
-    badge.setAttribute('aria-label', 'モリアイベント所持者');
-    card.appendChild(badge);
-  }
   card.addEventListener('click', event => {
     event.stopPropagation();
     openCardZoom(card);
@@ -3086,7 +3077,6 @@ function drawThreatForCharacterEffect(game, playerId){
   game.threatCards[playerId] ||= [];
   const drawnCard = {
     kind:'threat', color:'threat', name:threat.name, number:rank,
-    ...(Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 2 ? { concealed:true } : {}),
     id:`${playerId}-threat-${Date.now()}-${rank}`
   };
   game.threatCards[playerId].push(drawnCard);
@@ -3305,7 +3295,10 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
   }
   const flight = document.createElement('div');
   flight.classList.add('exchange-card-flight', 'threat-draw-flight');
-  flight.appendChild(createCardElement(transfer.card));
+  const darknessConcealed = Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 2
+    && transfer.playerId !== state.userId;
+  const displayedThreatCard = { ...transfer.card, concealed:darknessConcealed };
+  flight.appendChild(createCardElement(displayedThreatCard));
   const startScale = sourceRect.width / 82;
   const destinationScale = targetRect.width / 82;
   const leftReveal = sourceRect.left - sourceRect.width - 5;
@@ -3315,7 +3308,7 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
   flight.dataset.threatDrawTransfer = transferKey;
   document.body.appendChild(flight);
   try {
-    if (transfer.card.concealed) {
+    if (displayedThreatCard.concealed) {
       await flight.animate([
         { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${startScale}) rotateY(180deg)` },
         { left:`${targetLeft}px`, top:`${targetTop}px`, transform:`scale(${destinationScale}) rotateY(180deg)` }
@@ -5436,7 +5429,7 @@ function renderPlayerCircle(players){
       holder.style.setProperty('--stack-rotate', '0deg');
       const objectiveAchieved = victoryConditionStatus(state.room, p.id).status === 'achieved';
       const concealed = (threatCard.name === '見えざる者' && !isMe && !objectiveAchieved)
-        || (Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 2 && !objectiveAchieved);
+        || (Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 2 && !isMe && !objectiveAchieved);
       holder.appendChild(createCardElement({ ...threatCard, concealed }));
       threatBundle.appendChild(holder);
       if (isMe && threatCard.kind === 'special-threat') {
@@ -5448,11 +5441,14 @@ function renderPlayerCircle(players){
     const leadingCaptureOffset = (characterOffsetCount + equipmentCards.length + threatCards.length) * 40;
     // 黄カードを横へ広げた分は、詰め表示でも次のトリックとの間隔に加える。
     // 各トリックの黄カード枚数は最大でも少数なので、全体を広げすぎず重なりも判別できる。
+    const spreadGimliMountains = Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 1
+      && state.game?.characterSelections?.[p.id]?.name === 'ギムリ';
+    const isSpreadCard = card => card.color === 'yellow' || (spreadGimliMountains && card.color === 'gray');
     const compactYellowOffsets = [];
     let compactYellowOffset = 0;
     capturedTricks.forEach((capturedTrick, trickIndex) => {
       compactYellowOffsets[trickIndex] = compactYellowOffset;
-      const yellowCount = (capturedTrick.cards || []).filter(card => card.color === 'yellow').length;
+      const yellowCount = (capturedTrick.cards || []).filter(isSpreadCard).length;
       compactYellowOffset += Math.max(0, yellowCount - 1) * 10;
     });
     capturedTricks.forEach((capturedTrick, trickIndex) => {
@@ -5466,19 +5462,19 @@ function renderPlayerCircle(players){
       bundle.style.left = `${bundleLeft}px`;
       if (!isMe) bundle.style.zIndex = String(trickIndex + 1);
       const cards = capturedTrick.cards || [];
-      const yellows = cards.filter(card => card.color === 'yellow');
+      const spreadCards = cards.filter(isSpreadCard);
       const winner = cards.find(card => card.id === capturedTrick.winningCardId);
-      const ordered = yellows.length
-        ? [...cards.filter(card => card.color !== 'yellow'), ...yellows]
+      const ordered = spreadCards.length
+        ? [...cards.filter(card => !isSpreadCard(card)), ...spreadCards]
         : [...cards.filter(card => card.id !== capturedTrick.winningCardId), ...(winner ? [winner] : [])];
       ordered.forEach((cardData, cardIndex) => {
         const holder = document.createElement('div');
         holder.className = 'capture-card';
-        const yellowIndex = cardData.color === 'yellow'
-          ? ordered.slice(0, cardIndex).filter(card => card.color === 'yellow').length
+        const yellowIndex = isSpreadCard(cardData)
+          ? ordered.slice(0, cardIndex).filter(isSpreadCard).length
           : 0;
-        const rotation = cardData.color === 'yellow' ? -2 + yellowIndex * 5 : -2;
-        const yellowOffsetX = cardData.color === 'yellow' ? yellowIndex * 10 : 0;
+        const rotation = isSpreadCard(cardData) ? -2 + yellowIndex * 5 : -2;
+        const yellowOffsetX = isSpreadCard(cardData) ? yellowIndex * 10 : 0;
         holder.style.left = `${yellowOffsetX}px`;
         holder.style.top = '0';
         holder.style.setProperty('--stack-rotate', `${rotation}deg`);
