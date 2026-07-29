@@ -3847,6 +3847,42 @@ function animateMyHandReflow(previousRects){
   });
 }
 
+function animateMirrorHandTransition(previousMyHandRects, previousPositions){
+  // 既に手札にあったカードはFLIPで新しい整列位置へ滑らせる。
+  animateMyHandReflow(previousMyHandRects);
+  let arrivalIndex = 0;
+  previousPositions.forEach((from, key) => {
+    if (!key.startsWith('card:')) return;
+    const cardId = key.slice(5);
+    // 元から自分の手札にあった札は上のreflowだけで動かし、飛行カードを重ねない。
+    if (previousMyHandRects.has(cardId)) return;
+    const ownTarget = myHandEl.querySelector(`[data-card-id="${CSS.escape(cardId)}"]`);
+    const otherTarget = ownTarget ? null
+      : playerCircle.querySelector(`.mini-card[data-card-id="${CSS.escape(cardId)}"]`);
+    const target = ownTarget || otherTarget;
+    const to = target?.getBoundingClientRect();
+    if (!to?.width || Math.hypot(from.left - to.left, from.top - to.top) < 2) return;
+    const cardData = Object.values(state.hands || {}).flatMap(hand => hand?.cards || []).find(card => card?.id === cardId);
+    if (!cardData) return;
+    const flight = ownTarget ? createCardElement(cardData) : document.createElement('div');
+    flight.classList.add('exchange-card-flight');
+    if (!ownTarget) flight.classList.add('card-back');
+    const startScale = Math.min(from.width / 82, from.height / 122, 1);
+    const endScale = Math.min(to.width / 82, to.height / 122, 1);
+    Object.assign(flight.style, { left:`${from.left}px`, top:`${from.top}px`, transform:`scale(${startScale})` });
+    target.style.opacity = '0';
+    document.body.appendChild(flight);
+    flight.animate([
+      { left:`${from.left}px`, top:`${from.top}px`, transform:`scale(${startScale}) rotate(-2deg)`, opacity:1 },
+      { offset:.72, left:`${to.left}px`, top:`${to.top - 5}px`, transform:`scale(${endScale * 1.025}) rotate(.5deg)`, opacity:1 },
+      { left:`${to.left}px`, top:`${to.top}px`, transform:`scale(${endScale}) rotate(0deg)`, opacity:1 }
+    ], { duration:850, delay:arrivalIndex * 45, easing:'cubic-bezier(.2,.78,.22,1)', fill:'forwards' }).finished.finally(() => {
+      flight.remove(); target.style.removeProperty('opacity');
+    });
+    arrivalIndex += 1;
+  });
+}
+
 function subscribeRoom(){
   const roomRef = ref(db, `rooms/${state.roomCode}`);
   onValue(roomRef, snap => {
@@ -3856,6 +3892,7 @@ function subscribeRoom(){
     const threatSourceRect = state.game?.threatDeck?.length ? threatDeck.getBoundingClientRect() : null;
     const previousMyHandRects = captureMyHandRects();
     const previousExchangePositions = captureExchangePositions();
+    const previousGame = state.game;
     state.room = snap.val() || {};
     state.game = state.room.game || null;
     state.hands = state.room.hands || {};
@@ -3887,6 +3924,9 @@ function subscribeRoom(){
     renderThreatChoice();
     renderChapterComplete();
     renderMithrilDecision();
+    if (Number(previousGame?.stageNumber) === 16 || Number(state.game?.stageNumber) === 16) {
+      requestAnimationFrame(() => animateMirrorHandTransition(previousMyHandRects, previousExchangePositions));
+    }
     scheduleOldForestDraw();
     scheduleBarrowDraw();
     scheduleThreatDraw();
