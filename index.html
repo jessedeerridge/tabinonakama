@@ -320,7 +320,7 @@
   @keyframes deckSlideOutRight{to{transform:translateX(90px);opacity:0}}
   @keyframes deckSlideInRight{from{transform:translateX(90px);opacity:0}to{transform:translateX(0);opacity:1}}
   .balrog-deck-area{display:none;position:absolute;right:72px;top:-27px;width:170px;height:56px;z-index:10;pointer-events:none;}
-  .center-lower-card-area:not(.character-selection-layout)>.balrog-deck-area.active{display:flex;align-items:flex-start;gap:5px;}
+  .center-lower-card-area:not(.character-selection-layout)>.balrog-deck-area.active{display:flex;flex-direction:row-reverse;align-items:flex-start;gap:5px;}
   .balrog-deck{flex:0 0 38px;width:38px;height:56px;border:1px solid #10233f;border-radius:6px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-sizing:border-box;}
   .balrog-deck.empty{visibility:hidden;}
   .balrog-revealed{display:flex;gap:3px;}
@@ -3047,12 +3047,24 @@ function drawBalrogCards(game){
   game.balrogDiscard ||= [];
   if (game.balrogRevealed?.length) game.balrogDiscard.push(...game.balrogRevealed);
   game.balrogDeck ||= [];
-  if (game.balrogDeck.length < count) {
-    game.balrogDeck.push(...shuffleInPlace(game.balrogDiscard.splice(0)));
+  game.balrogRevealed = [];
+  for (let index = 0; index < count; index += 1) {
+    // 残り枚数が必要数未満でも継ぎ足さず、山札を0枚まで引いてから捨て札を再構築する。
+    if (game.balrogDeck.length === 0 && game.balrogDiscard.length) {
+      game.balrogDeck = shuffleInPlace(game.balrogDiscard.splice(0));
+    }
+    if (!game.balrogDeck.length) break;
+    game.balrogRevealed.push(game.balrogDeck.shift());
   }
-  game.balrogRevealed = game.balrogDeck.splice(0, count);
   game.balrogRevealAt = Date.now();
   delete game.pendingBalrogDrawAt;
+}
+
+function balrogOverpowersTrick(balrogCards, plays){
+  const fellowshipTotal = plays.reduce((total, play) => total + Number(play.card?.number || 0), 0);
+  const balrogTotal = (balrogCards || []).reduce((total, card) => total + Number(card.number || 0), 0);
+  // 同点は旅の仲間側のセーフ。バルログ側が厳密に上回った時だけ失敗する。
+  return balrogTotal > fellowshipTotal;
 }
 
 function oldForestWinsTrick(game, plays){
@@ -4355,9 +4367,7 @@ async function playCard(cardIndex, expectedCard){
     if (existing.length + 1 === trickPlayers.length) {
       const plays = [...existing, room.game.trick[state.userId]];
       if (Number(room.game.stageNumber) === 14 && Number(room.game.moriaEventIndex) === 3) {
-        const fellowshipTotal = plays.reduce((total, play) => total + Number(play.card.number || 0), 0);
-        const balrogTotal = (room.game.balrogRevealed || []).reduce((total, item) => total + Number(item.number || 0), 0);
-        if (balrogTotal > fellowshipTotal) {
+        if (balrogOverpowersTrick(room.game.balrogRevealed, plays)) {
           room.game.finished = true;
           room.game.chapterOutcome = { status:'failed', reason:'balrog', decidedAt:Date.now() };
         }
