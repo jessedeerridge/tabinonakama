@@ -3985,10 +3985,15 @@ async function animateThreatReturn(sourceRect, targetDeck, transfer, drawReplace
   // 時間指定ではなくドロー演出の完了を待つことで、低速端末でも古い札が先に戻らない。
   await new Promise(resolve => requestAnimationFrame(resolve));
   if (drawReplacement) await drawReplacement();
+  // threatDeck 自体ではなくデッキ置き場から返却先を算出する。ドロー中に山札が空になり
+  // threatDeck が hidden になっても、返却カードは右端にある山札の位置まで必ず移動する。
+  const deckAreaRect = targetDeck.closest('.threat-deck-area')?.getBoundingClientRect();
   const latestDeckRect = targetDeck.getBoundingClientRect();
+  const deckLeft = deckAreaRect ? deckAreaRect.right - latestDeckRect.width : latestDeckRect.left;
+  const deckTop = deckAreaRect?.top ?? latestDeckRect.top;
   await flight.animate([
     { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${sourceRect.width / 82}) rotateY(0deg)` },
-    { left:`${latestDeckRect.left}px`, top:`${latestDeckRect.top}px`, transform:`scale(${latestDeckRect.width / 82}) rotateY(180deg)` }
+    { left:`${deckLeft}px`, top:`${deckTop}px`, transform:`scale(${latestDeckRect.width / 82}) rotateY(180deg)` }
   ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
   flight.remove();
 }
