@@ -3924,7 +3924,8 @@ async function claimContinuationEquipment(){
   continuationEquipmentPromptOpen = false;
   continuationEquipmentDecision.classList.add('hidden');
   if (!state.roomCode) return;
-  await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const game = room?.game;
     if (!canClaimContinuationEquipment(game, state.userId)) return;
     game.equipmentCards ||= {};
     game.equipmentCards[state.userId] ||= [];
@@ -3933,7 +3934,8 @@ async function claimContinuationEquipment(){
       id:`${state.userId}-continuation-equipment-${Date.now()}`
     });
     game.continuationEquipmentOwnerId = state.userId;
-    return game;
+    finishCharacterSelection(room);
+    return room;
   });
 }
 
@@ -6090,6 +6092,83 @@ function animateCharacterSelection(playerId, character, sourceRect){
   });
 }
 
+function finishCharacterSelection(room){
+  const game = room?.game;
+  const allCharactersChosen = Object.keys(game?.characterSelections || {}).length >= (game?.playerOrder || []).length;
+  const equipmentReady = !game?.continuation || Boolean(game.continuationEquipmentOwnerId);
+  if (!game || game.phase !== 'character-selection' || !allCharactersChosen || !equipmentReady) return false;
+  if (room.game.continuationChallengeSelectedAt
+      && room.game.continuationSpecialThreat && !room.game.continuationSpecialThreatAssigned) {
+    const invisible = room.game.continuationSpecialThreat.name === '見えざる者';
+    const threatDrawers = Object.entries(room.game.characterSelections)
+      .filter(([, selected]) => characterDrawsThreat(selected.name)).map(([id]) => id);
+    const specialCandidates = invisible ? threatDrawers : [...room.game.playerOrder];
+    const targetId = specialCandidates[Math.floor(Math.random() * specialCandidates.length)];
+    const burdenPlayerId = Object.entries(room.game.characterSelections)
+      .find(([, selected]) => selected.name === room.game.continuationBurdenName)?.[0];
+    const numberCandidates = room.game.playerOrder.filter(id => id !== burdenPlayerId);
+    const numberTargetId = numberCandidates[Math.floor(Math.random() * numberCandidates.length)];
+    room.game.threatCards ||= {};
+    if (targetId) {
+      room.game.threatCards[targetId] ||= [];
+      room.game.threatCards[targetId].unshift({
+        kind:'special-threat', color:'threat', ...room.game.continuationSpecialThreat,
+        id:`${targetId}-continuation-special-threat-${Date.now()}`
+      });
+      room.game.continuationSpecialThreatPlayerId = targetId;
+    }
+    if (numberTargetId) {
+      // 追加の数値脅威はキャラクターの効果ターンを待たず、ゲーム開始前に直接配布する。
+      room.game.threatCards[numberTargetId] ||= [];
+      room.game.threatCards[numberTargetId].push({
+        kind:'threat', color:'threat', name:'脅威', number:room.game.continuationChallengeThreatNumber,
+        id:`${numberTargetId}-continuation-number-threat-${Date.now()}`,
+        numberRevealedAt:Date.now() + 3500
+      });
+      room.game.continuationChallengeThreatPlayerId = numberTargetId;
+    }
+    room.game.continuationChallengeActive = Boolean(targetId && numberTargetId);
+    room.game.continuationSpecialThreatAssigned = true;
+  }
+  if (Number(room.game.stageNumber) === 15) {
+    const gimliId = Object.entries(room.game.characterSelections)
+      .find(([, selected]) => selected.name === 'ギムリ')?.[0];
+    const blindfold = STAGES.find(stage => stage.number === 15)?.eventCards?.[0];
+    if (gimliId && blindfold) {
+      room.game.equipmentCards ||= {};
+      room.game.equipmentCards[gimliId] ||= [];
+      room.game.equipmentCards[gimliId].push({
+        kind:'equipment', name:'目隠し', specialName:'イベント：目隠し',
+        effect:blindfold.text, eventData:blindfold, image:'eventback.jpg',
+        id:`${gimliId}-blindfold-${Date.now()}`
+      });
+    }
+  }
+  const selectedCharacterNames = new Set(Object.values(room.game.characterSelections).map(selected => selected.name));
+  const forcedLeaderNames = Number(room.game.stageNumber) === 15
+    ? ['オロフィンとルーミル']
+    : selectedCharacterNames.has('フロド') && selectedCharacterNames.has('グロルフィンデル')
+    ? ['グロルフィンデル']
+    : Number(room.game.stageNumber) === 12
+    ? ['ガンダルフ']
+    : ['山の下さん', 'グロルフィンデル', 'エルロンド', 'ラダガスト'];
+  const forcedLeader = forcedLeaderNames.map(name => Object.entries(room.game.characterSelections)
+    .find(([, selected]) => selected.name === name)?.[0]).find(Boolean);
+  room.game.startingPlayerId = forcedLeader || room.game.turnPlayerId || room.game.playerOrder[0];
+  if (Number(room.game.stageNumber) === 6 && room.game.barrowDeck?.length) {
+    room.game.barrowPlayerId = Object.entries(room.game.characterSelections)
+      .find(([, selected]) => selected.name === 'トム・ボンバディル')?.[0] || null;
+    room.game.pendingBarrowDrawAt = Date.now() + 1000;
+    room.game.phase = 'barrow-draw-wait';
+    room.game.turnPlayerId = null;
+  } else {
+    beginCharacterEffectTurns(room.game);
+    beginNextExchange(room.game);
+  }
+
+  return true;
+}
+
 async function chooseCharacter(characterName, source){
   if (!state.roomCode || state.game?.phase !== 'character-selection') return;
   characterSelectionSources.set(characterName, source.getBoundingClientRect());
@@ -6235,76 +6314,7 @@ async function chooseCharacter(characterName, source){
       });
       room.game.continuationEquipmentOwnerId = state.userId;
     }
-    const chosenCount = Object.keys(room.game.characterSelections).length;
-    if (chosenCount >= room.game.playerOrder.length) {
-      if (room.game.continuationChallengeSelectedAt
-          && room.game.continuationSpecialThreat && !room.game.continuationSpecialThreatAssigned) {
-        const invisible = room.game.continuationSpecialThreat.name === '見えざる者';
-        const threatDrawers = Object.entries(room.game.characterSelections)
-          .filter(([, selected]) => characterDrawsThreat(selected.name)).map(([id]) => id);
-        const specialCandidates = invisible ? threatDrawers : [...room.game.playerOrder];
-        const targetId = specialCandidates[Math.floor(Math.random() * specialCandidates.length)];
-        const burdenPlayerId = Object.entries(room.game.characterSelections)
-          .find(([, selected]) => selected.name === room.game.continuationBurdenName)?.[0];
-        const numberCandidates = room.game.playerOrder.filter(id => id !== burdenPlayerId);
-        const numberTargetId = numberCandidates[Math.floor(Math.random() * numberCandidates.length)];
-        room.game.threatCards ||= {};
-        if (targetId) {
-          room.game.threatCards[targetId] ||= [];
-          room.game.threatCards[targetId].unshift({
-            kind:'special-threat', color:'threat', ...room.game.continuationSpecialThreat,
-            id:`${targetId}-continuation-special-threat-${Date.now()}`
-          });
-          room.game.continuationSpecialThreatPlayerId = targetId;
-        }
-        if (numberTargetId) {
-          room.game.threatCards[numberTargetId] ||= [];
-          room.game.threatCards[numberTargetId].push({
-            kind:'threat', color:'threat', name:'脅威', number:room.game.continuationChallengeThreatNumber,
-            id:`${numberTargetId}-continuation-number-threat-${Date.now()}`,
-            numberRevealedAt:Date.now() + 3500
-          });
-          room.game.continuationChallengeThreatPlayerId = numberTargetId;
-        }
-        room.game.continuationChallengeActive = Boolean(targetId && numberTargetId);
-        room.game.continuationSpecialThreatAssigned = true;
-      }
-      if (Number(room.game.stageNumber) === 15) {
-        const gimliId = Object.entries(room.game.characterSelections)
-          .find(([, selected]) => selected.name === 'ギムリ')?.[0];
-        const blindfold = STAGES.find(stage => stage.number === 15)?.eventCards?.[0];
-        if (gimliId && blindfold) {
-          room.game.equipmentCards ||= {};
-          room.game.equipmentCards[gimliId] ||= [];
-          room.game.equipmentCards[gimliId].push({
-            kind:'equipment', name:'目隠し', specialName:'イベント：目隠し',
-            effect:blindfold.text, eventData:blindfold, image:'eventback.jpg',
-            id:`${gimliId}-blindfold-${Date.now()}`
-          });
-        }
-      }
-      const selectedCharacterNames = new Set(Object.values(room.game.characterSelections).map(selected => selected.name));
-      const forcedLeaderNames = Number(room.game.stageNumber) === 15
-        ? ['オロフィンとルーミル']
-        : selectedCharacterNames.has('フロド') && selectedCharacterNames.has('グロルフィンデル')
-        ? ['グロルフィンデル']
-        : Number(room.game.stageNumber) === 12
-        ? ['ガンダルフ']
-        : ['山の下さん', 'グロルフィンデル', 'エルロンド', 'ラダガスト'];
-      const forcedLeader = forcedLeaderNames.map(name => Object.entries(room.game.characterSelections)
-        .find(([, selected]) => selected.name === name)?.[0]).find(Boolean);
-      room.game.startingPlayerId = forcedLeader || room.game.turnPlayerId || room.game.playerOrder[0];
-      if (Number(room.game.stageNumber) === 6 && room.game.barrowDeck?.length) {
-        room.game.barrowPlayerId = Object.entries(room.game.characterSelections)
-          .find(([, selected]) => selected.name === 'トム・ボンバディル')?.[0] || null;
-        room.game.pendingBarrowDrawAt = Date.now() + 1000;
-        room.game.phase = 'barrow-draw-wait';
-        room.game.turnPlayerId = null;
-      } else {
-        beginCharacterEffectTurns(room.game);
-        beginNextExchange(room.game);
-      }
-    }
+    finishCharacterSelection(room);
     return room;
   });
 }
