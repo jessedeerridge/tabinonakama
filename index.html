@@ -1452,6 +1452,18 @@ const MITHRIL_COAT = {
   cardNumber:'3.11', rank:'黒', image:'mithril.jpg'
 };
 
+const TSURANUKIMARU = {
+  name:'つらぬき丸', specialName:'ビルボの剣',
+  effect:'失われしカードと交換するか、失われしカードを手札に加えたキャラクターと交換する。',
+  cardNumber:'3.47', rank:'黒', image:'tsuranukimaru.jpg', continuationOwnerName:'フロド'
+};
+
+const GLAMDRING = {
+  name:'グラムドリング', specialName:'エルフの剣',
+  effect:'最初のトリックの間のみ、スートをフォローしなくてもよい。',
+  cardNumber:'3.48', rank:'黒', image:'gramdrink.jpg', continuationOwnerName:'ガンダルフ'
+};
+
 const CONTINUATION_GOLD_PAIRS = [
   ['sam','samwise_gamgee'], ['merry','meriadoc_brandybuck'], ['pippin','peregrin_took'],
   ['aragorn','aragorn_arathorn'], ['boromir','boromir_denethor'],
@@ -1463,9 +1475,22 @@ const CONTINUATION_BLACK_CODES = [
   'orophin_rumil','haldir','galadriel','celeborn'
 ];
 const CONTINUATION_EQUIPMENT = [
-  STAGE_ELEVEN_EQUIPMENT['アラゴルン'], STAGE_ELEVEN_EQUIPMENT['ボロミア'], MITHRIL_COAT
+  STAGE_ELEVEN_EQUIPMENT['アラゴルン'], STAGE_ELEVEN_EQUIPMENT['ボロミア'], MITHRIL_COAT,
+  TSURANUKIMARU, GLAMDRING
 ];
 const CONTINUATION_THREATS = Object.values(STAGE_NINE_THREATS);
+
+function playerHasEquipment(game, playerId, equipmentName){
+  return (game?.equipmentCards?.[playerId] || []).some(card => card.name === equipmentName);
+}
+
+function ignoresFollowSuit(game, playerId){
+  const bridgeGandalf = Number(game?.stageNumber) === 14 && Number(game?.moriaEventIndex) === 3
+    && game?.characterSelections?.[playerId]?.name === 'ガンダルフ';
+  const firstTrickGlamdring = Number(game?.trickNumber || 1) === 1
+    && playerHasEquipment(game, playerId, 'グラムドリング');
+  return bridgeGandalf || firstTrickGlamdring;
+}
 
 function hasSpecialThreat(game, playerId, name){
   return (game?.threatCards?.[playerId] || []).some(card => card.kind === 'special-threat' && card.name === name);
@@ -5706,8 +5731,7 @@ function beginExchangeCardDrag(event, cardData, source){
 }
 
 function canFollowSuit(card){
-  const ignoresSuit = Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 3
-    && state.game?.characterSelections?.[state.userId]?.name === 'ガンダルフ';
+  const ignoresSuit = ignoresFollowSuit(state.game, state.userId);
   const trick = state.game?.trick || {};
   const plays = Object.values(trick);
   if (!plays.length) {
@@ -5780,8 +5804,7 @@ async function playCard(cardIndex, expectedCard){
     if (!existing.length && hasSpecialThreat(room.game, state.userId, 'モルグルの刃') && card.color === 'yellow') return;
     if (existing.length) {
       const lead = existing[0].card.color;
-      const ignoresSuit = Number(room.game.stageNumber) === 14 && Number(room.game.moriaEventIndex) === 3
-        && room.game.characterSelections?.[state.userId]?.name === 'ガンダルフ';
+      const ignoresSuit = ignoresFollowSuit(room.game, state.userId);
       if (!ignoresSuit && card.color !== lead && hand.some(c => c.color === lead)) return;
     }
     hand.splice(cardIndex, 1);
@@ -6125,6 +6148,26 @@ async function chooseCharacter(characterName, source){
     }
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
+      if (room.game.continuation && !room.game.continuationEquipmentAssigned) {
+        const selectedCharacters = Object.entries(room.game.characterSelections);
+        const selectedNames = new Set(selectedCharacters.map(([, selected]) => selected.name));
+        // 続の章のアイテムはキャラクター選択後に抽選する。グラムドリングは
+        // 渡す相手となるガンダルフが実際に選ばれた場合だけ候補に加える。
+        const equipmentCandidates = CONTINUATION_EQUIPMENT.filter(equipment =>
+          equipment.name !== 'グラムドリング' || selectedNames.has('ガンダルフ'));
+        const equipment = equipmentCandidates[Math.floor(Math.random() * equipmentCandidates.length)];
+        const designatedOwnerId = equipment.continuationOwnerName
+          ? selectedCharacters.find(([, selected]) => selected.name === equipment.continuationOwnerName)?.[0]
+          : null;
+        const ownerId = designatedOwnerId
+          || room.game.playerOrder[Math.floor(Math.random() * room.game.playerOrder.length)];
+        room.game.equipmentCards ||= {};
+        room.game.equipmentCards[ownerId] ||= [];
+        room.game.equipmentCards[ownerId].push({
+          kind:'equipment', ...equipment, id:`${ownerId}-continuation-equipment-${Date.now()}`
+        });
+        room.game.continuationEquipmentAssigned = true;
+      }
       if (room.game.continuationSpecialThreat && !room.game.continuationSpecialThreatAssigned) {
         const invisible = room.game.continuationSpecialThreat.name === '見えざる者';
         const threatDrawers = Object.entries(room.game.characterSelections)
@@ -7213,10 +7256,8 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     stageCharacters = ['frodo','gandalf', burdenCode, ...normalGoldCodes, ...blackCodes].map(code => ({
       code, name:CHARACTER_NAMES[code], required:code === 'frodo'
     }));
-    const equipment = CONTINUATION_EQUIPMENT[Math.floor(Math.random() * CONTINUATION_EQUIPMENT.length)];
     const specialThreat = CONTINUATION_THREATS[Math.floor(Math.random() * CONTINUATION_THREATS.length)];
     continuationSetup = {
-      equipment:{ ...equipment }, equipmentPlayerId:playerOrder[Math.floor(Math.random() * playerOrder.length)],
       specialThreat:{ ...specialThreat }, specialThreatFallbackPlayerId:playerOrder[Math.floor(Math.random() * playerOrder.length)]
     };
   }
@@ -7284,7 +7325,6 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
       ringCircleOn: false,
       ...(continuationSetup ? {
         continuation:true,
-        equipmentCards:{ [continuationSetup.equipmentPlayerId]:[{ kind:'equipment', ...continuationSetup.equipment, id:`${continuationSetup.equipmentPlayerId}-continuation-equipment-${dealtAt}` }] },
         continuationSpecialThreat:continuationSetup.specialThreat,
         continuationSpecialThreatFallbackPlayerId:continuationSetup.specialThreatFallbackPlayerId
       } : {}),
