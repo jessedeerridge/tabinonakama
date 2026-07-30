@@ -2238,7 +2238,7 @@ function chapterOutcome(room){
   if (!playerIds.length) return null;
   const statuses = playerIds.map(playerId => victoryConditionStatus(room, playerId).status);
   if (statuses.every(status => status === 'achieved')) return 'complete';
-  if ([13, 14, 17].includes(Number(room.game.stageNumber))) {
+  if (frodoHasMithril(room)) {
     // この章では、最初の確定失敗は胴着で救えるため結果を保留する。
     // 二人目が失敗した時点、または胴着を使わずに確定した時だけ敗北となる。
     if (room.game.mithrilDecision === 'no') return 'failed';
@@ -2338,7 +2338,7 @@ function renderChapterComplete(){
 
 function canDecideMithril(room = state.room){
   const game = room?.game;
-  if (![13, 14, 17].includes(Number(game?.stageNumber)) || game.chapterOutcome || game.mithrilDecision) return false;
+  if (![13, 14, 17, 19].includes(Number(game?.stageNumber)) || game.chapterOutcome || game.mithrilDecision) return false;
   if (game.pendingCapture || game.pendingOutcomeCheckAt) return false;
   if (!frodoHasMithril(room)) return false;
   const statuses = (game.playerOrder || []).map(playerId => victoryConditionStatus(room, playerId).status);
@@ -2374,8 +2374,9 @@ async function decideMithril(useCoat){
     if (useCoat) {
       game.mithrilAppliedToPlayerId = failedPlayerId;
       const availabilityKey = Number(game.stageNumber) === 14 ? 'stageFourteenMithrilAvailable'
-        : Number(game.stageNumber) === 17 ? 'stageSeventeenMithrilAvailable' : 'stageThirteenMithrilAvailable';
-      room[availabilityKey] = false;
+        : Number(game.stageNumber) === 17 ? 'stageSeventeenMithrilAvailable'
+        : Number(game.stageNumber) === 13 ? 'stageThirteenMithrilAvailable' : null;
+      if (availabilityKey) room[availabilityKey] = false;
       game.equipmentCards ||= {};
       game.equipmentCards[frodoPlayerId] = (game.equipmentCards[frodoPlayerId] || [])
         .filter(card => card.name !== MITHRIL_COAT.name);
@@ -6355,7 +6356,8 @@ function renderCharacterPicker(){
   const hasYellowOne = (state.hands?.[state.userId]?.cards || [])
     .some(card => card.color === 'yellow' && card.number === 1);
   const continuationEquipment = game.continuationEquipment;
-  const showContinuationEquipment = Boolean(continuationEquipment && !game.continuationEquipmentOwnerId);
+  // 獲得後も同じ枠にカードを残し、右隣の効果脅威カードがずれないようにする。
+  const showContinuationEquipment = Boolean(continuationEquipment);
   const challengeWasSelected = Boolean(game.continuationChallengeSelectedAt);
   const showContinuationChallenge = Boolean(game.continuationSpecialThreat && !challengeWasSelected);
   const displayedChoiceCount = allCharacters.length + (showContinuationEquipment ? 1 : 0)
@@ -7398,7 +7400,10 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
       code, name:CHARACTER_NAMES[code], required:code === 'frodo'
     }));
     const equipment = CONTINUATION_EQUIPMENT[Math.floor(Math.random() * CONTINUATION_EQUIPMENT.length)];
-    const specialThreat = CONTINUATION_THREATS[Math.floor(Math.random() * CONTINUATION_THREATS.length)];
+    const persistedThreatName = resetLongProgress ? null
+      : currentRoom.longChapterProgress?.continuationThreatName;
+    const specialThreat = CONTINUATION_THREATS.find(threat => threat.name === persistedThreatName)
+      || CONTINUATION_THREATS[Math.floor(Math.random() * CONTINUATION_THREATS.length)];
     continuationSetup = {
       equipment:{ ...equipment },
       burdenName:CHARACTER_NAMES[burdenCode],
@@ -7494,6 +7499,10 @@ chapterContinueBtn.addEventListener('click', async () => {
         room.longChapterProgress ||= { stageNumber:room.game.stageNumber, characters:{} };
         if (Number(room.longChapterProgress.stageNumber) !== Number(room.game.stageNumber)) {
           room.longChapterProgress = { stageNumber:room.game.stageNumber, characters:{} };
+        }
+        if (room.game.continuationChallengeSelectedAt && room.game.continuationSpecialThreat?.name) {
+          // 成否にかかわらず、次のキャラクター選択でも同じ効果脅威カードを表向きで表示する。
+          room.longChapterProgress.continuationThreatName = room.game.continuationSpecialThreat.name;
         }
         if (room.game.chapterOutcome.status === 'complete') {
           Object.entries(room.game.characterSelections || {}).forEach(([playerId, character]) => {
