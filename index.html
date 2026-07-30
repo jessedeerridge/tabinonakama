@@ -2384,6 +2384,9 @@ function createVictoryConditionIcon(cardData, playerId){
   // 〈長き暗闇〉では数字だけを伏せ、目的本来のスート色・トリック記号・枚数表記は残す。
   // 共通の白い「?」へ置き換えると、どの種類のカードを何枚集める目的なのか判別できない。
   const displayedThreatNumber = moriaDarknessConcealed ? null : threatNumber;
+  const appendSuitRank = (...colors) => {
+    icon.append(...colors.map(color => square('', color)), label(`x${displayedThreatNumber ?? '?'}`));
+  };
   if (Number(state.game?.stageNumber) === 14 && moriaEventIndex === 0 && name === 'ガンダルフ') {
     icon.append(square('', 'orange'), square('', 'gray'), square('', 'green'));
   } else if (Number(state.game?.stageNumber) === 14 && moriaEventIndex === 1 && name === 'ギムリ') {
@@ -2450,18 +2453,13 @@ function createVictoryConditionIcon(cardData, playerId){
   } else if (name === '飛蔭（とびかげ）') {
     icon.append(coloredTrick('orange'), coloredTrick('orange'));
   } else if (['サム', 'サムワイズ・ギャムジー'].includes(name)) {
-    if (moriaDarknessConcealed) icon.append(square('', 'orange'), label('x?'));
-    else icon.append(square(String(displayedThreatNumber ?? '?'), 'orange'));
+    appendSuitRank('orange');
   } else if (name === 'ペレグリン・トゥック') {
     icon.append(coloredTrick(), label('x0'));
   } else if (['レゴラス', 'ギムリ', '緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name)) {
     const suit = ['レゴラス', '緑葉のレゴラス'].includes(name) ? 'green' : 'gray';
-    if (moriaDarknessConcealed) icon.append(square('', suit), label('x?'));
-    else icon.append(square(String(displayedThreatNumber ?? '?'), suit));
-    if (['緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name)) {
-      if (moriaDarknessConcealed) icon.append(square('', 'red'), label('x?'));
-      else icon.append(square(String(displayedThreatNumber ?? '?'), 'red'));
-    }
+    const requiresShadow = ['緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name);
+    appendSuitRank(...(requiresShadow ? [suit, 'red'] : [suit]));
   } else if (['アラゴルン', 'アラソルンの息子アラゴルン'].includes(name)) {
     if (equipmentChoice) {
       const expandBoth = equipmentChoice.min === 1 && equipmentChoice.max === 2;
