@@ -3504,6 +3504,7 @@ function beginNextExchange(game){
 function effectAnimationsReadyAt(game){
   const deadlines = [
     Number(game.threatDrawTransfer?.movedAt || 0) + 2700,
+    Number(game.threatRedrawTransfer?.movedAt || 0) + 3700,
     Number(game.lostCardTransfer?.movedAt || 0) + 900,
     Number(game.barrowDrawTransfer?.movedAt || 0) + 1400,
     Number(game.exchangeOfferTransfer?.movedAt || 0) + 1500,
@@ -4311,14 +4312,21 @@ function subscribeRoom(){
     if (barrowTransfer?.movedAt && barrowTransfer.movedAt !== lastAnimatedBarrowDrawAt) {
       requestAnimationFrame(() => animateBarrowDraw(barrowSourceRect, barrowTransfer));
     }
-    if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey);
     const threatRedrawTransfer = state.game?.threatRedrawTransfer;
-    if (threatRedrawTransfer?.movedAt && threatRedrawTransfer.movedAt !== lastAnimatedThreatRedrawAt) {
+    const shouldAnimateThreatReturn = Boolean(threatRedrawTransfer?.movedAt
+      && threatRedrawTransfer.movedAt !== lastAnimatedThreatRedrawAt);
+    if (shouldAnimateThreatReturn) {
       lastAnimatedThreatRedrawAt = threatRedrawTransfer.movedAt;
       const returnSourceRect = previousThreatCardRects.get(threatRedrawTransfer.returnedCard?.id);
-      // ドロー開始時に保存した座標ではなく、現在の脅威デッキ本体を着地先にする。
-      requestAnimationFrame(() => animateThreatReturn(returnSourceRect, threatDeck, threatRedrawTransfer));
-    }
+      // 先に古い脅威カードをデッキ本体まで戻し切り、その後で代わりの1枚をドローする。
+      // 2つを同時に動かすと、表にしたカードがドロー位置に残り、戻し先に見えてしまう。
+      requestAnimationFrame(async () => {
+        await animateThreatReturn(returnSourceRect, threatDeck, threatRedrawTransfer);
+        if (shouldAnimateThreatDraw) {
+          await animateThreatDraw(threatDeck.getBoundingClientRect(), threatTransfer, threatTransferKey);
+        }
+      });
+    } else if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey);
     const galadrielLostTransfer = state.game?.galadrielLostTransfer;
     if (galadrielLostTransfer?.completedAt
         && galadrielLostTransfer.completedAt !== lastAnimatedGaladrielLostTransferAt) {
