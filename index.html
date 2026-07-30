@@ -3181,6 +3181,21 @@ function renderStageInformation(){
   updateWinningConditionOverflow();
 }
 
+const CHARACTER_EXCHANGE_NAME_GROUPS = [
+  ['サム', 'サムワイズ・ギャムジー'],
+  ['メリー', 'メリアドク・ブランディバック'],
+  ['ピピン', 'ペレグリン・トゥック'],
+  ['アラゴルン', 'アラソルンの息子アラゴルン'],
+  ['ボロミア', 'デネソールの息子ボロミア'],
+  ['レゴラス', '緑葉のレゴラス'],
+  ['ギムリ', 'グローインの息子ギムリ']
+];
+
+function characterMatchesExchangeName(characterName, targetName){
+  if (characterName === targetName) return true;
+  return CHARACTER_EXCHANGE_NAME_GROUPS.some(group => group.includes(characterName) && group.includes(targetName));
+}
+
 function exchangeCandidates(game, sourceId){
   const characterName = game?.characterSelections?.[sourceId]?.name;
   const allowedNames = ['ガンダルフ', 'トム・ボンバディル'].includes(characterName)
@@ -3189,6 +3204,8 @@ function exchangeCandidates(game, sourceId){
     : characterName === 'ピピン' ? ['フロド', 'サム', 'メリー']
     : characterName === 'サム' ? ['フロド', 'メリー', 'ピピン']
     : characterName === 'メリー' ? ['フロド', 'サム', 'ピピン']
+    : characterName === '農夫マゴット' ? ['ピピン', 'メリー']
+    : characterName === 'ギルドール・イングロリオン' ? ['フロド']
     : characterName === '小馬のビル' ? ['サム', 'フロド']
     : characterName === 'グローイン' ? ['ビルボ', 'ビルボ・バギンズ', 'ギムリ']
     : characterName === 'アルウェン' ? ['エルロンド', 'アラゴルン']
@@ -3196,19 +3213,23 @@ function exchangeCandidates(game, sourceId){
     : characterName === 'ギムリ' ? ['レゴラス', 'アラゴルン']
     : characterName === 'オロフィンとルーミル' ? ['ハルディア']
     : characterName === 'ハルディア' ? (game.playerOrder || []).map(id => game.characterSelections?.[id]?.name)
-      .filter(name => name && name !== 'ギムリ' && name !== 'ハルディア')
+      .filter(name => name && !characterMatchesExchangeName(name, 'ギムリ') && name !== 'ハルディア')
     : characterName === 'ケレボルン' ? (game.playerOrder || []).map(id => game.characterSelections?.[id]?.name)
       .filter(name => name && name !== 'ケレボルン')
     : characterName === 'ボロミア' ? (game.playerOrder || []).map(id => game.characterSelections?.[id]?.name).filter(name => name !== 'フロド')
     : characterName === 'グワイヒア' ? ['ガンダルフ']
-    : ['サムワイズ・ギャムジー', 'メリアドク・ブランディバック'].includes(characterName)
-      ? ['フロド', 'メリアドク・ブランディバック', 'ペレグリン・トゥック', 'サムワイズ・ギャムジー']
+    : characterName === 'ガラドリエル' ? ['ガンダルフ']
+    : characterName === '緑葉のレゴラス' ? ['ギムリ', 'アラゴルン']
+    : characterName === 'グローインの息子ギムリ' ? ['レゴラス', 'アラゴルン']
+    : characterName === 'メリアドク・ブランディバック'
+      ? ['フロド', 'サム', 'ピピン']
     : characterName === 'デネソールの息子ボロミア'
       ? (game.playerOrder || []).map(id => game.characterSelections?.[id]?.name).filter(name => name !== 'フロド')
     : null;
   return (game?.playerOrder || []).filter(playerId => playerId !== sourceId
     && !hasSpecialThreat(game, playerId, '幽鬼')
-    && (!allowedNames || allowedNames.includes(game.characterSelections?.[playerId]?.name)));
+    && (!allowedNames || allowedNames.some(targetName =>
+      characterMatchesExchangeName(game.characterSelections?.[playerId]?.name, targetName))));
 }
 
 function exchangeRequirement(game, sourceId){
@@ -3222,9 +3243,9 @@ function exchangeRequirement(game, sourceId){
   // 小馬のビルもグロルフィンデルと同じく、対象全員との交換を同時に確定する。
   if (name === '小馬のビル') return { mode:'exchange-all', count:0 };
   if (name === 'グワイヒア') return { mode:'exchange', count:2 };
-  const singleExchangeNames = new Set(['ガンダルフ','トム・ボンバディル','馳夫','ピピン','サム','メリー',
+  const singleExchangeNames = new Set(['ガンダルフ','トム・ボンバディル','馳夫','ピピン','サム','メリー','農夫マゴット','ギルドール・イングロリオン',
     'バーリマン・バタバー','グローイン','アルウェン','アラゴルン','ボロミア','レゴラス','ギムリ',
-    'オロフィンとルーミル','ハルディア','ケレボルン','サムワイズ・ギャムジー',
+    'オロフィンとルーミル','ハルディア','ケレボルン','ガラドリエル','緑葉のレゴラス','グローインの息子ギムリ',
     'メリアドク・ブランディバック','ペレグリン・トゥック','アラソルンの息子アラゴルン',
     'デネソールの息子ボロミア']);
   return { mode:'exchange', count:singleExchangeNames.has(name) && exchangeCandidates(game, sourceId).length ? 1 : 0 };
@@ -3423,7 +3444,8 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'ガラドリエル' && game.excludedCard && !game.galadrielLostExchangeCompleted) {
+    if (characterName === 'ガラドリエル' && (game.excludedCard || exchangeCandidates(game, sourceId).length)
+        && !game.galadrielLostExchangeCompleted) {
       game.phase = 'galadriel-lost-selection';
       game.specialSelectionPlayerId = sourceId;
       game.turnPlayerId = null;
@@ -5164,11 +5186,16 @@ function scheduleMirrorDraft(){
 function beginGaladrielLostCardDrag(event, cardData, source){
   if (event.button !== undefined && event.button !== 0) return;
   if (state.game?.phase !== 'galadriel-lost-selection'
-      || state.game?.specialSelectionPlayerId !== state.userId || !state.game?.excludedCard) return;
+      || state.game?.specialSelectionPlayerId !== state.userId) return;
   event.preventDefault();
   source.setPointerCapture(event.pointerId);
   source.classList.add('drag-source');
-  excludedCardSlot.classList.add('galadriel-drag-target');
+  if (state.game?.excludedCard) excludedCardSlot.classList.add('galadriel-drag-target');
+  const gandalfId = exchangeCandidates(state.game, state.userId)[0];
+  const gandalfTag = gandalfId
+    ? playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(gandalfId)}"]`)
+    : null;
+  gandalfTag?.classList.add('exchange-drag-target');
   const floating = createCardElement(cardData);
   floating.classList.add('drag-card');
   floating.style.setProperty('--drag-card-scale', currentHandCardScale());
@@ -5184,6 +5211,7 @@ function beginGaladrielLostCardDrag(event, cardData, source){
     floating.remove();
     source.classList.remove('drag-source');
     excludedCardSlot.classList.remove('galadriel-drag-target');
+    gandalfTag?.classList.remove('exchange-drag-target');
   };
   const finish = currentEvent => {
     const slotRect = excludedCardSlot.getBoundingClientRect();
@@ -5192,10 +5220,15 @@ function beginGaladrielLostCardDrag(event, cardData, source){
       left:slotRect.left + slotRect.width / 2 - 34, right:slotRect.left + slotRect.width / 2 + 34,
       top:slotRect.top + slotRect.height / 2 - 34, bottom:slotRect.top + slotRect.height / 2 + 34
     };
-    const dropped = currentEvent.clientX >= rect.left && currentEvent.clientX <= rect.right
+    const droppedOnLostCard = Boolean(state.game?.excludedCard)
+      && currentEvent.clientX >= rect.left && currentEvent.clientX <= rect.right
       && currentEvent.clientY >= rect.top && currentEvent.clientY <= rect.bottom;
+    const gandalfRect = gandalfTag?.querySelector('.exchange-hand-hint')?.getBoundingClientRect();
+    const droppedOnGandalf = gandalfRect && currentEvent.clientX >= gandalfRect.left && currentEvent.clientX <= gandalfRect.right
+      && currentEvent.clientY >= gandalfRect.top && currentEvent.clientY <= gandalfRect.bottom;
     cleanup();
-    if (dropped) exchangeGaladrielLostCard(cardData.id);
+    if (droppedOnLostCard) exchangeGaladrielCard(cardData.id);
+    else if (droppedOnGandalf) exchangeGaladrielCard(cardData.id, gandalfId);
   };
   move(event);
   source.addEventListener('pointermove', move);
@@ -5203,15 +5236,32 @@ function beginGaladrielLostCardDrag(event, cardData, source){
   source.addEventListener('pointercancel', cleanup, { once:true });
 }
 
-async function exchangeGaladrielLostCard(cardId){
+async function exchangeGaladrielCard(cardId, gandalfId = null){
   if (!state.roomCode || state.game?.phase !== 'galadriel-lost-selection') return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
     const game = room?.game;
-    if (!game || game.phase !== 'galadriel-lost-selection' || game.specialSelectionPlayerId !== state.userId || !game.excludedCard) return;
+    if (!game || game.phase !== 'galadriel-lost-selection' || game.specialSelectionPlayerId !== state.userId) return;
     const cards = room.hands?.[state.userId]?.cards || [];
     const cardIndex = cards.findIndex(card => card.id === cardId && card.kind !== 'character');
     if (cardIndex < 0) return;
     const outgoing = cards[cardIndex];
+    if (gandalfId) {
+      if (!exchangeCandidates(game, state.userId).includes(gandalfId)) return;
+      game.pendingExchange = {
+        sourceId:state.userId, targetId:gandalfId, candidates:[gandalfId],
+        selectingPlayerId:gandalfId, selections:{ [state.userId]:cardId }, mode:'exchange', requestedAt:Date.now()
+      };
+      game.exchangeOfferTransfer = {
+        sourceId:state.userId, targetId:gandalfId, card:outgoing,
+        tilt:Math.floor(Math.random() * 5) - 2, movedAt:Date.now()
+      };
+      game.pendingExchange.selectionAvailableAt = game.exchangeOfferTransfer.movedAt + 1400;
+      game.galadrielLostExchangeCompleted = true;
+      delete game.specialSelectionPlayerId;
+      game.phase = 'exchange-card-selection';
+      return room;
+    }
+    if (!game.excludedCard) return;
     const incoming = game.excludedCard;
     cards[cardIndex] = incoming;
     game.excludedCard = outgoing;
@@ -6386,9 +6436,11 @@ function renderPlayerCircle(players){
         ? pendingGlorfindel.candidates.filter(id => !pendingGlorfindel.sourceCards?.[id])
         : [pendingGlorfindel.sourceId])
       : pendingExchange?.sourceId === state.userId ? (pendingExchange.targetId ? [pendingExchange.targetId] : pendingExchange.candidates || [])
+        : state.game?.phase === 'galadriel-lost-selection' && state.game?.specialSelectionPlayerId === state.userId
+          ? exchangeCandidates(state.game, state.userId)
         : pendingExchange?.targetId === state.userId ? [pendingExchange.sourceId] : [];
     const exchangeHintVisible = (state.game?.phase === 'exchange-card-selection' || /^mirror-draft-[12]$/.test(state.game?.phase || '') || choosingElrondCard || choosingGlorfindelCard
-      || state.game?.phase === 'darkness-exchange-selection')
+      || state.game?.phase === 'darkness-exchange-selection' || state.game?.phase === 'galadriel-lost-selection')
       && exchangeHintIds.includes(p.id);
     if (exchangeHintVisible) {
       const hint = document.createElement('div');
