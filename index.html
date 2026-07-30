@@ -3624,6 +3624,7 @@ function finishCharacterEffectTransition(game){
   game.phase = 'playing';
   game.turnPlayerId = game.startingPlayerId || game.playerOrder?.[0] || null;
   delete game.startingPlayerId;
+  delete game.effectStartingPlayerId;
   delete game.effectTransitionReadyAt;
   game.deckTransitionAt = Date.now();
   drawBalrogCards(game);
@@ -3777,9 +3778,12 @@ function beginCharacterEffectTurns(game){
     : null;
   const frodoIndex = order.indexOf(frodoId);
   // 長き暗闇とガラドリエルの鏡では、フロド本人ではなく次の席から効果順を始める。
-  const startingPlayerId = frodoIndex >= 0 ? order[(frodoIndex + 1) % order.length] : (game.startingPlayerId || order[0]);
+  const startingPlayerId = frodoIndex >= 0
+    ? order[(frodoIndex + 1) % order.length]
+    : (game.effectStartingPlayerId || game.startingPlayerId || order[0]);
   const startingIndex = Math.max(0, order.indexOf(startingPlayerId));
-  // 効果ターンは常にスタートプレイヤーから席順に処理する。
+  // フロド不在時の効果ターンだけは黄1の所持者から始める。通常プレイのスタピーは
+  // startingPlayerId に保持し、カード効果で指定されたキャラクターから開始する。
   game.effectOrder = [...order.slice(startingIndex), ...order.slice(0, startingIndex)];
   game.exchangeQueue = [...game.effectOrder];
 }
@@ -6005,8 +6009,9 @@ async function chooseCharacter(characterName, source){
       }
       room.game.turnPlayerId = state.userId;
     } else if (!hasFrodoCharacter && hasYellowOne) {
-      // フロドが登場しない章では、黄1の所持者をスタートプレイヤーにする。
-      room.game.turnPlayerId = state.userId;
+      // フロドが登場しない章では、黄1の所持者を効果ターンの先頭にする。
+      // 通常プレイのスタピーは、この後カード効果から別途決定する。
+      room.game.effectStartingPlayerId = state.userId;
     }
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
