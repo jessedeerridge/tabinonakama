@@ -3970,7 +3970,7 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
   }
 }
 
-async function animateThreatReturn(sourceRect, targetDeck, transfer, delayMs = 0){
+async function animateThreatReturn(sourceRect, targetDeck, transfer, drawReplacement){
   const targetRect = targetDeck?.getBoundingClientRect();
   if (!sourceRect?.width || !targetRect?.width || !transfer?.returnedCard) return;
   const flight = document.createElement('div');
@@ -3981,7 +3981,10 @@ async function animateThreatReturn(sourceRect, targetDeck, transfer, delayMs = 0
     transform:`scale(${sourceRect.width / 82}) rotateY(0deg)`
   });
   document.body.appendChild(flight);
-  if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));
+  // 古い札の飛行要素を獲得位置に残したまま、代わりの札をその手前へ着地させる。
+  // 時間指定ではなくドロー演出の完了を待つことで、低速端末でも古い札が先に戻らない。
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  if (drawReplacement) await drawReplacement();
   const latestDeckRect = targetDeck.getBoundingClientRect();
   await flight.animate([
     { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${sourceRect.width / 82}) rotateY(0deg)` },
@@ -4322,12 +4325,11 @@ function subscribeRoom(){
       // 古い脅威カードは元の獲得位置に残し、代わりの1枚が到着してからデッキへ戻す。
       // 戻す際は表にしたドロー位置で止めず、現在のデッキ本体まで移動させる。
       requestAnimationFrame(async () => {
-        // 先に飛行要素を作り、新しいカードのドロー中も古いカードを元の位置に表示する。
-        const returnAnimation = animateThreatReturn(returnSourceRect, threatDeck, threatRedrawTransfer, 2700);
-        if (shouldAnimateThreatDraw) {
-          await animateThreatDraw(threatDeck.getBoundingClientRect(), threatTransfer, threatTransferKey);
-        }
-        await returnAnimation;
+        // 古いカードを後ろに保持し、2枚目の着地完了後に古いカードをデッキ本体へ戻す。
+        await animateThreatReturn(returnSourceRect, threatDeck, threatRedrawTransfer,
+          shouldAnimateThreatDraw
+            ? () => animateThreatDraw(threatDeck.getBoundingClientRect(), threatTransfer, threatTransferKey)
+            : null);
       });
     } else if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey);
     const galadrielLostTransfer = state.game?.galadrielLostTransfer;
