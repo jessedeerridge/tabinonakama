@@ -209,6 +209,7 @@
   .moria-sequence-arrow::after{content:'';position:absolute;right:-4px;top:-2.5px;border-left:5px solid #142b4a;border-top:3px solid transparent;border-bottom:3px solid transparent;}
   .victory-condition-icon.tom-bombadil{gap:0;}
   .victory-condition-icon.tom-bombadil .victory-condition-square + .victory-condition-square{margin-left:-3px;}
+  .victory-condition-icon.tom-bombadil .victory-condition-side-label{position:absolute;left:50%;z-index:4;transform:translateX(-50%);height:15px;text-shadow:0 0 2px #fff,0 0 2px #fff;}
   .victory-condition-icon.word .victory-condition-square{width:24px;}
   .victory-condition-icon.multiline{height:auto;flex-direction:column;gap:1px;line-height:12px;}
   .victory-condition-line{display:flex;align-items:center;justify-content:center;gap:2px;height:15px;}
@@ -2399,12 +2400,12 @@ function createVictoryConditionIcon(cardData, playerId){
     }
   } else if (hasSpecialThreat(state.game, playerId, '見えざる者') && playerId !== state.userId && !achieved) {
     const choice = state.game?.striderChoices?.[playerId];
-    icon.append(coloredTrick('black', 'x?'));
+    icon.append(coloredTrick(), label('x?'));
     if (choice) icon.append(arrow(choice));
   } else if (name === '馳夫') {
     const choice = state.game?.striderChoices?.[playerId];
     if (threatNumber != null) icon.append(...countTricks(Number(threatNumber)));
-    else icon.append(coloredTrick('black', '?'));
+    else icon.append(coloredTrick(), label('x?'));
     if (choice) icon.append(arrow(choice));
   } else if (name === 'ギルドール・イングロリオン') {
     icon.append(sideLabel('last', 'play'), square('', 'green'));
@@ -2414,7 +2415,7 @@ function createVictoryConditionIcon(cardData, playerId){
     icon.append(label('毎'), coloredTrick('yellow'));
   } else if (name === 'トム・ボンバディル') {
     icon.classList.add('tom-bombadil');
-    icon.append(sideLabel('same'), square('', 'white'), square('', 'white'), square('', 'white'));
+    icon.append(square('', 'white'), square('', 'white'), square('', 'white'), sideLabel('same'));
   } else if (name === 'バーリマン・バタバー') {
     icon.append(coloredTrick(), sideLabel('in', 'last 3'));
   } else if (name === 'グロルフィンデル') {
@@ -2431,6 +2432,11 @@ function createVictoryConditionIcon(cardData, playerId){
     const sameNumberSquares = [square('n'), square('n'), square('n')];
     sameNumberSquares.forEach(item => item.classList.add('number-centered'));
     icon.append(...sameNumberSquares);
+  } else if (name === 'ビルボ・バギンズ') {
+    icon.classList.add('multiline');
+    const fail = label('✕');
+    fail.classList.add('victory-condition-fail');
+    icon.append(line(...countTricks(3)), line(fail, square('1', 'yellow')));
   } else if (['ボロミア', 'デネソールの息子ボロミア'].includes(name)) {
     icon.classList.add('multiline');
     const fail = label('✕');
@@ -2461,7 +2467,7 @@ function createVictoryConditionIcon(cardData, playerId){
         appendOr(line(coloredTrick(), label(`x${equipmentChoice.min}`)), line(label(String(equipmentChoice.max))));
       }
     } else if (threatNumber != null) icon.append(...countTricks(Number(threatNumber)));
-    else icon.append(coloredTrick('black', '?'));
+    else icon.append(coloredTrick(), label('x?'));
   } else if (victory.includes('脅威カードと同じ数字')) {
     const matchingSquare = () => {
       const color = name === 'レゴラス' ? 'green' : name === 'ギムリ' ? 'gray' : 'black';
@@ -4000,7 +4006,9 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
   flight.classList.add('exchange-card-flight', 'threat-draw-flight');
   const darknessConcealed = Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 2
     && transfer.playerId !== state.userId;
-  const displayedThreatCard = { ...transfer.card, concealed:darknessConcealed };
+  const unseenConcealed = transfer.playerId !== state.userId
+    && hasSpecialThreat(state.game, transfer.playerId, '見えざる者');
+  const displayedThreatCard = { ...transfer.card, concealed:darknessConcealed || unseenConcealed };
   const displayedThreatElement = createCardElement(displayedThreatCard);
   if (!darknessConcealed && Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventIndex) === 2) {
     displayedThreatElement.classList.add('owner-concealed');
@@ -4597,7 +4605,7 @@ striderChoiceDialog.querySelectorAll('.hold-decision').forEach(button => {
 });
 
 shadowfaxDecision.querySelectorAll('.hold-decision').forEach(button => {
-  attachTwoSecondHold(button, async () => {
+  const decide = async () => {
     const add = button.dataset.shadowfaxDecision === 'yes';
     shadowfaxDecision.classList.add('hidden');
     if (!add || !state.roomCode) return;
@@ -4607,7 +4615,10 @@ shadowfaxDecision.querySelectorAll('.hold-decision').forEach(button => {
       game.shadowfaxReservedCard.returnedAt = Date.now();
       return game;
     });
-  });
+  };
+  // 戻す「はい」だけは2秒長押し。「いいえ」はポップを閉じるだけなので1クリックで確定する。
+  if (button.dataset.shadowfaxDecision === 'yes') attachTwoSecondHold(button, decide);
+  else button.addEventListener('click', decide);
 });
 mithrilDecision.querySelectorAll('.hold-decision').forEach(button => {
   attachTwoSecondHold(button, () => decideMithril(button.dataset.mithrilDecision === 'yes'));
