@@ -705,6 +705,11 @@
     font-size:22px;font-weight:800;cursor:pointer;z-index:230;
   }
   .help-btn.visible{display:flex;}
+  .help-btn .help-character-selection-icon{display:none;align-items:center;justify-content:center;gap:2px;}
+  .help-btn .help-character-selection-icon svg{display:block;width:22px;height:24px;fill:#fff;}
+  .help-btn .help-character-selection-question{font-size:18px;line-height:1;}
+  .help-btn.character-selection-mode .help-default-question{display:none;}
+  .help-btn.character-selection-mode .help-character-selection-icon{display:flex;}
 
   /* ★ 追加：ヘルプ一覧ポップ */
   .help-pop-backdrop{
@@ -870,7 +875,13 @@
 <button id="hostSettingsBtn" class="host-settings-btn" title="設定">⚙</button>
 
 <!-- ★ 追加：ヘルプボタン（？） -->
-<button id="helpBtn" class="help-btn" title="カードリスト">？</button>
+<button id="helpBtn" class="help-btn" title="カードリスト" aria-label="カードリスト">
+  <span class="help-default-question">？</span>
+  <span class="help-character-selection-icon" aria-hidden="true">
+    <svg viewBox="0 0 22 24"><circle cx="11" cy="7" r="5"/><path d="M2 23 11 6l9 17Z"/></svg>
+    <span class="help-character-selection-question">？</span>
+  </span>
+</button>
 
 <!-- ★ 追加：ヘルプ一覧ポップ -->
 <div id="helpBackdrop" class="help-pop-backdrop hidden">
@@ -2708,7 +2719,9 @@ function closeHelp(){
 }
 helpBtn.addEventListener('click', () => {
   // 入室後だけ
-  if (joinBox.classList.contains('hidden')) openHelp();
+  if (!joinBox.classList.contains('hidden')) return;
+  if (state.game?.phase === 'character-selection') openCardZoom();
+  else openHelp();
 });
 helpBackdrop.addEventListener('click', (e) => {
   if (e.target === helpBackdrop) closeHelp();
@@ -6314,6 +6327,10 @@ async function chooseCharacter(characterName, source){
 function renderCharacterPicker(){
   const game = state.game;
   const selections = game?.characterSelections || {};
+  const isCharacterSelection = game?.phase === 'character-selection';
+  helpBtn.classList.toggle('character-selection-mode', isCharacterSelection);
+  helpBtn.title = isCharacterSelection ? '選択済みキャラクター' : 'カードリスト';
+  helpBtn.setAttribute('aria-label', helpBtn.title);
   // フェーズが切り替わる最後の選択でも、候補を消す前に出発座標を確保する。
   const oldRects = new Map();
   characterPickerRow.querySelectorAll('.character-choice').forEach(choice => oldRects.set(choice.dataset.characterName, choice.getBoundingClientRect()));
@@ -6356,8 +6373,10 @@ function renderCharacterPicker(){
   const hasYellowOne = (state.hands?.[state.userId]?.cards || [])
     .some(card => card.color === 'yellow' && card.number === 1);
   const continuationEquipment = game.continuationEquipment;
-  // 獲得後も同じ枠にカードを残し、右隣の効果脅威カードがずれないようにする。
-  const showContinuationEquipment = Boolean(continuationEquipment);
+  // 自由獲得アイテムは枠を維持し、フロド／ガンダルフ確定アイテムだけ即座に一覧から除く。
+  const fixedOwnerEquipmentClaimed = Boolean(continuationEquipment?.continuationOwnerName
+    && game.continuationEquipmentOwnerId);
+  const showContinuationEquipment = Boolean(continuationEquipment && !fixedOwnerEquipmentClaimed);
   const challengeWasSelected = Boolean(game.continuationChallengeSelectedAt);
   const showContinuationChallenge = Boolean(game.continuationSpecialThreat && !challengeWasSelected);
   const displayedChoiceCount = allCharacters.length + (showContinuationEquipment ? 1 : 0)
