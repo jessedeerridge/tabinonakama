@@ -530,8 +530,8 @@
   .my-card.yellow-one .card-mark{height:18px;margin-top:-1px;}
   .my-card.yellow-one .card-name{left:3px;right:3px;padding:0 7px;box-sizing:border-box;font-size:9px;letter-spacing:-.06em;white-space:nowrap;overflow:hidden;}
   .my-card.yellow-one-winner{animation:yellowOneWinnerGlow 1.6s ease-in-out infinite;}
-  .my-card.yellow-one-winner::before{content:'';position:absolute;inset:0;z-index:5;pointer-events:none;background:linear-gradient(115deg,transparent 15%,rgba(255,247,164,.25) 32%,rgba(255,255,255,.9) 48%,rgba(255,211,53,.38) 62%,transparent 80%);background-size:240% 100%;animation:yellowOneWinnerSweep 1.6s linear infinite;mix-blend-mode:screen;}
-  @keyframes yellowOneWinnerGlow{50%{box-shadow:0 0 10px 4px rgba(255,220,70,.9),0 0 22px 8px rgba(255,244,160,.55),inset 0 0 0 2px #fff7a8;}}
+  .my-card.yellow-one-winner::before{content:'';position:absolute;inset:0;z-index:5;pointer-events:none;background:linear-gradient(115deg,transparent 15%,rgba(255,247,164,.18) 32%,rgba(255,255,255,.75) 48%,rgba(255,211,53,.28) 62%,transparent 80%);background-size:240% 100%;animation:yellowOneWinnerSweep 1.6s linear infinite;mix-blend-mode:screen;}
+  @keyframes yellowOneWinnerGlow{50%{box-shadow:0 0 4px 1px rgba(255,220,70,.65),0 0 8px 2px rgba(255,244,160,.25),inset 0 0 0 2px #fff7a8;}}
   @keyframes yellowOneWinnerSweep{from{background-position:130% 0}to{background-position:-130% 0}}
   .character-card{
     --character-frame:#73583a;--character-panel:#fff8e8;--character-inner-frame:#fff9e9;
@@ -5045,6 +5045,10 @@ function scheduleTrickClear(){
           remainingSuitsByPlayer: pending.remainingSuitsByPlayer
         });
       }
+      // 黄1の発光は場に出ている間だけにし、獲得欄へ移る時点で停止する。
+      (pending.cards || []).forEach(card => {
+        if (card.color === 'yellow' && Number(card.number) === 1) delete game.yellowOneWinningCards?.[card.id];
+      });
       delete game.trick;
       delete game.pendingCapture;
       if (pending.bilboChoosesNextLeader && !game.finished) {
@@ -5963,13 +5967,18 @@ async function chooseCharacter(characterName, source){
         kind:'equipment', ...MITHRIL_COAT, id:`${state.userId}-equipment-${Date.now()}`
       });
     }
-    const stageNineThreat = Number(room.game.stageNumber) === 9 ? STAGE_NINE_THREATS[characterName] : null;
-    if (stageNineThreat) {
+    const stageNumber = Number(room.game.stageNumber);
+    const stageCharacterThreat = stageNumber === 9
+      ? STAGE_NINE_THREATS[characterName]
+      : stageNumber === 8 && ['フロド', 'メリー'].includes(characterName)
+        ? STAGE_NINE_THREATS[characterName]
+        : null;
+    if (stageCharacterThreat) {
       room.game.threatCards ||= {};
       room.game.threatCards[state.userId] ||= [];
       room.game.threatCards[state.userId].unshift({
-        kind:'special-threat', color:'threat', ...stageNineThreat,
-        id:`${state.userId}-stage-nine-threat-${Date.now()}`
+        kind:'special-threat', color:'threat', ...stageCharacterThreat,
+        id:`${state.userId}-stage-${stageNumber}-threat-${Date.now()}`
       });
     }
     if (characterName === 'フロド') {
@@ -6721,7 +6730,9 @@ function renderPlayerCircle(players){
       playedEl.classList.add('played-card');
       const gimliIsBlindfolded = Number(state.game?.stageNumber) === 15
         && state.game?.characterSelections?.[p.id]?.name === 'ギムリ'
-        && !state.game?.pendingCapture;
+        && !state.game?.pendingCapture
+        // 黄1で勝つと決めた時点から、そのカードだけは目隠し中でも公開する。
+        && !state.game?.yellowOneWinningCards?.[played.card.id];
       if (gimliIsBlindfolded) {
         playedEl.classList.add('blindfolded-card');
         playedEl.setAttribute('aria-label', '目隠しで裏向きにプレイしたカード');
