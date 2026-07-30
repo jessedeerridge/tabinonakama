@@ -1547,7 +1547,7 @@ function createCardElement(cardData){
   if (cardData.kind === 'rejected-threat') card.classList.add('rejected-threat-card');
   if (cardData.kind === 'balrog-shadow' && cardData.name === 'バルログ' && Number(cardData.number) === 5) card.classList.add('balrog-five');
   if (cardData.kind === 'threat' && cardData.concealed) card.classList.add('concealed');
-  if (cardData.kind === 'threat' && Number(state.game?.stageNumber) === 13) card.classList.add('chapter-thirteen-threat');
+  if (cardData.kind === 'threat' && [13, 19].includes(Number(state.game?.stageNumber))) card.classList.add('chapter-thirteen-threat');
   const isYellowOne = cardData.kind !== 'threat' && cardData.color === 'yellow' && cardData.number === 1;
   if (isYellowOne) card.classList.add('yellow-one');
   if (isYellowOne && state.game?.yellowOneWinningCards?.[cardData.id]) card.classList.add('yellow-one-winner');
@@ -6201,7 +6201,8 @@ function renderCharacterPicker(){
     .some(card => card.color === 'yellow' && card.number === 1);
   if (allCharacters.length >= 5) {
     characterPickerRow.classList.add('two-rows');
-    characterPickerRow.style.setProperty('--choice-columns', Math.ceil(allCharacters.length / 2));
+    const rowCount = allCharacters.length > 10 ? 3 : 2;
+    characterPickerRow.style.setProperty('--choice-columns', Math.ceil(allCharacters.length / rowCount));
   }
   // 選択済みカードも不可視の枠として残し、誰かが取っても残りのカードを動かさない。
   allCharacters.forEach(character => {
@@ -7184,9 +7185,11 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     const blackCount = [2, 3].includes(playerOrder.length) ? 3 : 6;
     const goldPairs = shuffleInPlace(CONTINUATION_GOLD_PAIRS.map(pair => [...pair])).slice(0, goldCount);
     const burdenIndex = Math.floor(Math.random() * goldPairs.length);
-    const goldCodes = goldPairs.map((pair, index) => pair[index === burdenIndex ? 1 : 0]);
+    const burdenCode = goldPairs[burdenIndex][1];
+    const normalGoldCodes = goldPairs.filter((_, index) => index !== burdenIndex).map(pair => pair[0]);
     const blackCodes = shuffleInPlace([...CONTINUATION_BLACK_CODES]).slice(0, blackCount);
-    stageCharacters = ['frodo','gandalf', ...goldCodes, ...blackCodes].map(code => ({
+    // 選択画面では固定キャラ、重荷面、金ランク由来の通常面、追加候補の順に並べる。
+    stageCharacters = ['frodo','gandalf', burdenCode, ...normalGoldCodes, ...blackCodes].map(code => ({
       code, name:CHARACTER_NAMES[code], required:code === 'frodo'
     }));
     const equipment = CONTINUATION_EQUIPMENT[Math.floor(Math.random() * CONTINUATION_EQUIPMENT.length)];
