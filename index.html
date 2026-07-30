@@ -3176,7 +3176,9 @@ function renderStageInformation(){
     && state.game?.tomPlayerId === state.userId;
   const canGlorfindelPick = Boolean(excludedCard) && state.game?.phase === 'glorfindel-selection'
     && state.game?.glorfindelPlayerId === state.userId;
-  const canGaladrielExchange = Boolean(excludedCard) && state.game?.phase === 'galadriel-lost-selection'
+  const canGaladrielExchange = Boolean(excludedCard)
+    && !state.game?.lostCardClaimSkipped?.[state.userId]
+    && state.game?.phase === 'galadriel-lost-selection'
     && state.game?.specialSelectionPlayerId === state.userId;
   excludedCardSlot.classList.toggle('gandalf-pick', canGandalfPick || canTomPick || canGlorfindelPick);
   excludedCardSlot.classList.toggle('galadriel-drop-hint', canGaladrielExchange);
@@ -3475,10 +3477,10 @@ function scheduleBarrowDraw(){
 }
 
 function lostCardClaimants(game){
+  if (game?.lostCardClaimantIds?.length) return game.lostCardClaimantIds;
   if (!game?.excludedCard && !game?.excludedCards?.length) return [];
-  const eligibleNames = new Set(['ガンダルフ', 'トム・ボンバディル', 'グロルフィンデル']);
-  return (game.effectOrder || game.playerOrder || []).filter(id =>
-    eligibleNames.has(game.characterSelections?.[id]?.name));
+  const eligibleNames = new Set(['ガンダルフ', 'トム・ボンバディル', 'グロルフィンデル', 'ガラドリエル']);
+  return (game.effectOrder || game.playerOrder || []).filter(id => eligibleNames.has(game.characterSelections?.[id]?.name));
 }
 
 async function decideLostCardClaim(playerId){
@@ -3571,6 +3573,8 @@ function beginNextExchange(game){
     }
     if (claimants.length >= 2 && claimants.includes(sourceId)
         && game.lostCardClaimPlayerId !== sourceId) {
+      game.lostCardClaimSkipped ||= {};
+      game.lostCardClaimSkipped[sourceId] = true;
       if (characterName === 'ガンダルフ') game.gandalfEffectCompleted = true;
       if (characterName === 'トム・ボンバディル') game.tomEffectCompleted = true;
       if (characterName === 'グロルフィンデル') game.glorfindelEffectCompleted = true;
@@ -3608,13 +3612,14 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'トム・ボンバディル' && game.excludedCards?.length && !game.tomEffectCompleted) {
+    if (characterName === 'トム・ボンバディル' && (game.excludedCard || game.excludedCards?.length) && !game.tomEffectCompleted) {
       game.phase = 'tom-selection';
       game.tomPlayerId = sourceId;
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'ガラドリエル' && (game.excludedCard || exchangeCandidates(game, sourceId).length)
+    const galadrielCanUseLostCard = game.excludedCard && !game.lostCardClaimSkipped?.[sourceId];
+    if (characterName === 'ガラドリエル' && (galadrielCanUseLostCard || exchangeCandidates(game, sourceId).length)
         && !game.galadrielLostExchangeCompleted) {
       game.phase = 'galadriel-lost-selection';
       game.specialSelectionPlayerId = sourceId;
@@ -3875,6 +3880,8 @@ function beginCharacterEffectTurns(game){
   // startingPlayerId に保持し、カード効果で指定されたキャラクターから開始する。
   game.effectOrder = [...order.slice(startingIndex), ...order.slice(0, startingIndex)];
   game.exchangeQueue = [...game.effectOrder];
+  const claimantIds = lostCardClaimants(game);
+  if (claimantIds.length >= 2) game.lostCardClaimantIds = claimantIds;
 }
 
 function continueAfterCharacterEffects(game){
@@ -3908,15 +3915,18 @@ async function takeExcludedCardsAsTom(){
   if (!state.roomCode || state.game?.phase !== 'tom-selection' || state.game?.tomPlayerId !== state.userId) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
     const game = room?.game;
-    if (!game?.excludedCards?.length || game.phase !== 'tom-selection' || game.tomPlayerId !== state.userId) return;
+    const recoveredCards = game?.excludedCards?.length
+      ? [...game.excludedCards] : game?.excludedCard ? [game.excludedCard] : [];
+    if (!recoveredCards.length || game.phase !== 'tom-selection' || game.tomPlayerId !== state.userId) return;
     room.hands ||= {};
     room.hands[state.userId] ||= { cards:[] };
     room.hands[state.userId].cards ||= [];
-    const recoveredCards = [...game.excludedCards];
     room.hands[state.userId].cards.push(...recoveredCards);
     game.lostCardTransfer = { cards:recoveredCards, playerId:state.userId, movedAt:Date.now() };
     delete game.excludedCards;
     delete game.excludedCardTilts;
+    delete game.excludedCard;
+    delete game.excludedCardTilt;
     delete game.tomPlayerId;
     game.tomEffectCompleted = true;
     beginNextExchange(game);
@@ -5478,7 +5488,9 @@ function beginGaladrielLostCardDrag(event, cardData, source){
   event.preventDefault();
   source.setPointerCapture(event.pointerId);
   source.classList.add('drag-source');
-  if (state.game?.excludedCard) excludedCardSlot.classList.add('galadriel-drag-target');
+  const canUseLostCard = Boolean(state.game?.excludedCard)
+    && !state.game?.lostCardClaimSkipped?.[state.userId];
+  if (canUseLostCard) excludedCardSlot.classList.add('galadriel-drag-target');
   const gandalfId = exchangeCandidates(state.game, state.userId)[0];
   const gandalfTag = gandalfId
     ? playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(gandalfId)}"]`)
@@ -5508,7 +5520,7 @@ function beginGaladrielLostCardDrag(event, cardData, source){
       left:slotRect.left + slotRect.width / 2 - 34, right:slotRect.left + slotRect.width / 2 + 34,
       top:slotRect.top + slotRect.height / 2 - 34, bottom:slotRect.top + slotRect.height / 2 + 34
     };
-    const droppedOnLostCard = Boolean(state.game?.excludedCard)
+    const droppedOnLostCard = canUseLostCard
       && currentEvent.clientX >= rect.left && currentEvent.clientX <= rect.right
       && currentEvent.clientY >= rect.top && currentEvent.clientY <= rect.bottom;
     const gandalfRect = gandalfTag?.querySelector('.exchange-hand-hint')?.getBoundingClientRect();
