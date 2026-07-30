@@ -3284,16 +3284,8 @@ function offerThreatRedraw(game, playerId){
   const hasMerryBurden = Object.values(game.characterSelections || {})
     .some(character => character.name === 'メリアドク・ブランディバック');
   if (!hasMerryBurden || game.threatRedrawUsed) return false;
-  // 引き直しの確認中も、現在のキャラクターは効果キューの先頭に残る。
-  // RTDBで空配列が消えたり、複数クライアントの再描画が重なっても復帰できるよう、
-  // 進行位置を選択ダイアログと同じトランザクションに保存する。
-  const resumeQueue = [...(game.exchangeQueue || [])];
-  if (!resumeQueue.includes(playerId)) resumeQueue.unshift(playerId);
-  game.threatRedrawContinuation = {
-    playerId,
-    exchangeQueue:resumeQueue,
-    createdAt:Date.now()
-  };
+  // exchangeQueue の先頭はまだこのプレイヤーのままなので、確認中も変更しない。
+  // 引き直し専用の複製キューを作ると、復元時に現在の交換ターンを失うため保存しない。
   game.phase = 'threat-redraw-selection';
   game.threatRedrawPlayerId = playerId;
   game.threatRedrawReadyAt = Date.now() + 1000;
@@ -3302,16 +3294,6 @@ function offerThreatRedraw(game, playerId){
 
 function continueAfterThreatDraw(game, playerId){
   if (!offerThreatRedraw(game, playerId)) beginNextExchange(game);
-}
-
-function restoreThreatRedrawContinuation(game, playerId){
-  const continuation = game.threatRedrawContinuation || {
-    playerId:game.threatRedrawPlayerId, exchangeQueue:[...(game.exchangeQueue || [])]
-  };
-  if (continuation.playerId !== playerId) return false;
-  game.exchangeQueue = [...(continuation.exchangeQueue || [])];
-  delete game.threatRedrawContinuation;
-  return true;
 }
 
 function scheduleBarrowDraw(){
@@ -3621,7 +3603,6 @@ async function decideThreatRedraw(redraw){
   await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
     if (game?.phase !== 'threat-redraw-selection' || game.threatRedrawPlayerId !== state.userId
         || Date.now() < Number(game.threatRedrawReadyAt || 0)) return;
-    if (!restoreThreatRedrawContinuation(game, state.userId)) return;
     if (redraw) {
       const cards = game.threatCards?.[state.userId] || [];
       const previous = cards.find(card => card.kind === 'threat');
@@ -3634,8 +3615,7 @@ async function decideThreatRedraw(redraw){
       }
       game.threatRedrawUsed = true;
     }
-    // 選択中にキューの現在地を失わないよう、ドロー直後のスナップショットから復元する。
-    // これにより、引き直した本人の交換と後続プレイヤーの効果を必ず同じ順序で再開する。
+    // 保持していた exchangeQueue の同じ先頭から再開し、交換処理を飛ばさない。
     delete game.threatRedrawPlayerId; delete game.threatRedrawReadyAt;
     beginNextExchange(game);
     return game;
@@ -3970,9 +3950,8 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
   }
 }
 
-async function animateThreatReturn(sourceRect, targetDeck, transfer, drawReplacement){
-  const targetRect = targetDeck?.getBoundingClientRect();
-  if (!sourceRect?.width || !targetRect?.width || !transfer?.returnedCard) return;
+async function animateThreatReturn(sourceRect, deckRect, transfer, drawReplacement){
+  if (!sourceRect?.width || !deckRect?.width || !transfer?.returnedCard) return;
   const flight = document.createElement('div');
   flight.classList.add('exchange-card-flight', 'threat-draw-flight');
   flight.appendChild(createCardElement(transfer.returnedCard));
@@ -3985,15 +3964,11 @@ async function animateThreatReturn(sourceRect, targetDeck, transfer, drawReplace
   // 時間指定ではなくドロー演出の完了を待つことで、低速端末でも古い札が先に戻らない。
   await new Promise(resolve => requestAnimationFrame(resolve));
   if (drawReplacement) await drawReplacement();
-  // threatDeck 自体ではなくデッキ置き場から返却先を算出する。ドロー中に山札が空になり
-  // threatDeck が hidden になっても、返却カードは右端にある山札の位置まで必ず移動する。
-  const deckAreaRect = targetDeck.closest('.threat-deck-area')?.getBoundingClientRect();
-  const latestDeckRect = targetDeck.getBoundingClientRect();
-  const deckLeft = deckAreaRect ? deckAreaRect.right - latestDeckRect.width : latestDeckRect.left;
-  const deckTop = deckAreaRect?.top ?? latestDeckRect.top;
+  // 更新後のDOMは山札が空になったり次フェーズへ移ったりするため参照しない。
+  // 更新を受ける直前に計測した山札そのものの座標を、返却先として最後まで固定する。
   await flight.animate([
     { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${sourceRect.width / 82}) rotateY(0deg)` },
-    { left:`${deckLeft}px`, top:`${deckTop}px`, transform:`scale(${latestDeckRect.width / 82}) rotateY(180deg)` }
+    { left:`${deckRect.left}px`, top:`${deckRect.top}px`, transform:`scale(${deckRect.width / 82}) rotateY(180deg)` }
   ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
   flight.remove();
 }
@@ -4331,9 +4306,9 @@ function subscribeRoom(){
       // 戻す際は表にしたドロー位置で止めず、現在のデッキ本体まで移動させる。
       requestAnimationFrame(async () => {
         // 古いカードを後ろに保持し、2枚目の着地完了後に古いカードをデッキ本体へ戻す。
-        await animateThreatReturn(returnSourceRect, threatDeck, threatRedrawTransfer,
+        await animateThreatReturn(returnSourceRect, threatSourceRect, threatRedrawTransfer,
           shouldAnimateThreatDraw
-            ? () => animateThreatDraw(threatDeck.getBoundingClientRect(), threatTransfer, threatTransferKey)
+            ? () => animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey)
             : null);
       });
     } else if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey);
