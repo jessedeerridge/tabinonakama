@@ -2381,6 +2381,9 @@ function createVictoryConditionIcon(cardData, playerId){
   const moriaDarknessConcealed = Number(state.game?.stageNumber) === 14 && moriaEventIndex === 2
     && playerId !== state.userId
     && ['サム', 'アラゴルン', 'レゴラス', 'ギムリ'].includes(name) && !darknessRevealed;
+  // 〈長き暗闇〉では数字だけを伏せ、目的本来のスート色・トリック記号・枚数表記は残す。
+  // 共通の白い「?」へ置き換えると、どの種類のカードを何枚集める目的なのか判別できない。
+  const displayedThreatNumber = moriaDarknessConcealed ? null : threatNumber;
   if (Number(state.game?.stageNumber) === 14 && moriaEventIndex === 0 && name === 'ガンダルフ') {
     icon.append(square('', 'orange'), square('', 'gray'), square('', 'green'));
   } else if (Number(state.game?.stageNumber) === 14 && moriaEventIndex === 1 && name === 'ギムリ') {
@@ -2388,8 +2391,6 @@ function createVictoryConditionIcon(cardData, playerId){
     icon.append(square('', 'gray'), square('', 'gray'), square('', 'gray'), square('', 'gray'));
     const sequenceArrow = document.createElement('span'); sequenceArrow.className = 'moria-sequence-arrow';
     icon.appendChild(sequenceArrow);
-  } else if (moriaDarknessConcealed) {
-    icon.append(square('?', 'white'));
   } else if (Number(state.game?.stageNumber) === 12 && name === 'ガンダルフ') {
     icon.classList.add('gandalf-numbers');
     const acquired = new Set((state.game?.capturedTricks?.[playerId] || []).flatMap(trick => trick.cards || []).map(card => Number(card.number)));
@@ -2404,7 +2405,7 @@ function createVictoryConditionIcon(cardData, playerId){
     if (choice) icon.append(arrow(choice));
   } else if (name === '馳夫') {
     const choice = state.game?.striderChoices?.[playerId];
-    if (threatNumber != null) icon.append(...countTricks(Number(threatNumber)));
+    if (displayedThreatNumber != null) icon.append(...countTricks(Number(displayedThreatNumber)));
     else icon.append(coloredTrick(), label('x?'));
     if (choice) icon.append(arrow(choice));
   } else if (name === 'ギルドール・イングロリオン') {
@@ -2449,14 +2450,17 @@ function createVictoryConditionIcon(cardData, playerId){
   } else if (name === '飛蔭（とびかげ）') {
     icon.append(coloredTrick('orange'), coloredTrick('orange'));
   } else if (['サム', 'サムワイズ・ギャムジー'].includes(name)) {
-    icon.append(square(String(threatNumber ?? '?'), 'orange'));
+    if (moriaDarknessConcealed) icon.append(square('', 'orange'), label('x?'));
+    else icon.append(square(String(displayedThreatNumber ?? '?'), 'orange'));
   } else if (name === 'ペレグリン・トゥック') {
     icon.append(coloredTrick(), label('x0'));
   } else if (['レゴラス', 'ギムリ', '緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name)) {
     const suit = ['レゴラス', '緑葉のレゴラス'].includes(name) ? 'green' : 'gray';
-    icon.append(square(String(threatNumber ?? '?'), suit));
+    if (moriaDarknessConcealed) icon.append(square('', suit), label('x?'));
+    else icon.append(square(String(displayedThreatNumber ?? '?'), suit));
     if (['緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name)) {
-      icon.append(square(String(threatNumber ?? '?'), 'red'));
+      if (moriaDarknessConcealed) icon.append(square('', 'red'), label('x?'));
+      else icon.append(square(String(displayedThreatNumber ?? '?'), 'red'));
     }
   } else if (['アラゴルン', 'アラソルンの息子アラゴルン'].includes(name)) {
     if (equipmentChoice) {
@@ -2466,12 +2470,12 @@ function createVictoryConditionIcon(cardData, playerId){
       } else {
         appendOr(line(coloredTrick(), label(`x${equipmentChoice.min}`)), line(label(String(equipmentChoice.max))));
       }
-    } else if (threatNumber != null) icon.append(...countTricks(Number(threatNumber)));
+    } else if (displayedThreatNumber != null) icon.append(...countTricks(Number(displayedThreatNumber)));
     else icon.append(coloredTrick(), label('x?'));
   } else if (victory.includes('脅威カードと同じ数字')) {
     const matchingSquare = () => {
       const color = name === 'レゴラス' ? 'green' : name === 'ギムリ' ? 'gray' : 'black';
-      const item = square(String(threatNumber ?? '?'), color);
+      const item = square(String(displayedThreatNumber ?? '?'), color);
       if (name === '農夫マゴット') item.classList.add('number-centered');
       return item;
     };
