@@ -2062,8 +2062,21 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     if (acquiredEight) return { status:'failed' };
   }
 
+  if (character.name === 'サムワイズ・ギャムジー') {
+    const threatRanks = new Set((game.threatCards?.[playerId] || []).map(card => Number(card.number)));
+    const matchingSuits = new Set(capturedCards
+      .filter(card => ['orange', 'red'].includes(card.color) && threatRanks.has(Number(card.number)))
+      .map(card => card.color));
+    if (matchingSuits.has('orange') && matchingSuits.has('red')) return { status:'achieved' };
+    const remainingMatchingSuits = new Set(remainingCards
+      .filter(card => ['orange', 'red'].includes(card.color) && threatRanks.has(Number(card.number)))
+      .map(card => card.color));
+    const canComplete = ['orange', 'red'].every(color => matchingSuits.has(color) || remainingMatchingSuits.has(color));
+    return { status:(!isFinished && canComplete) ? 'pending' : 'failed' };
+  }
+
   if (victory.includes('脅威カードと同じランク')
-    || (['サム', 'サムワイズ・ギャムジー'].includes(character.name) && victory.includes('脅威カードと同じ数字'))) {
+    || (character.name === 'サム' && victory.includes('脅威カードと同じ数字'))) {
     const threatRanks = new Set((game.threatCards?.[playerId] || []).map(card => Number(card.number)));
     const hasMatchingHill = capturedTricks.some(trick => (trick.cards || [])
       .some(card => card.color === 'orange' && threatRanks.has(Number(card.number))));
@@ -2390,7 +2403,7 @@ function createVictoryConditionIcon(cardData, playerId){
   // 共通の白い「?」へ置き換えると、どの種類のカードを何枚集める目的なのか判別できない。
   const displayedThreatNumber = moriaDarknessConcealed ? null : threatNumber;
   const appendSuitRank = (...colors) => {
-    icon.append(...colors.map(color => square('', color)), label(`x${displayedThreatNumber ?? '?'}`));
+    icon.append(...colors.map(color => square(String(displayedThreatNumber ?? '?'), color)));
   };
   if (Number(state.game?.stageNumber) === 14 && moriaEventIndex === 0 && name === 'ガンダルフ') {
     icon.append(square('', 'orange'), square('', 'gray'), square('', 'green'));
@@ -2458,7 +2471,7 @@ function createVictoryConditionIcon(cardData, playerId){
   } else if (name === '飛蔭（とびかげ）') {
     icon.append(coloredTrick('orange'), coloredTrick('orange'));
   } else if (['サム', 'サムワイズ・ギャムジー'].includes(name)) {
-    appendSuitRank('orange');
+    appendSuitRank(...(name === 'サムワイズ・ギャムジー' ? ['orange', 'red'] : ['orange']));
   } else if (name === 'ペレグリン・トゥック') {
     icon.append(coloredTrick(), label('x0'));
   } else if (['レゴラス', 'ギムリ', '緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name)) {
@@ -5771,10 +5784,10 @@ function characterCardData(character, playerId){
     'レゴラス':{displayName:'レゴラス',specialName:'スランドゥイルの息子',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉か〈アラゴルン〉と交換する。',cardNumber:'3.44',rank:'無し',frameColor:'緑'},
     'ギムリ':{displayName:'ギムリ',specialName:'ドゥリンの民',victory:'脅威カードと同じ数字の山カードを獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.45',rank:'無し',frameColor:'銀'},
     'オロフィンとルーミル':{specialName:'ガラズリム',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ハルディア〉と交換する。最初のトリックをリードする。',cardNumber:'3.21',rank:'黒',frameColor:'緑',image:'orophin_rumil.jpg'},
-    'ハルディア':{specialName:'境界守護者',victory:'引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。最初のトリックをリードする。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'haldir.jpg'},
+    'ハルディア':{specialName:'境界守護者',victory:'引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'haldir.jpg'},
     'ガラドリエル':{specialName:'ロスローリエンの奥方',victory:'最も多い、または最も少ない回数のトリックを獲得する（同数は不可）。',effect:'失われしカードもしくは〈ガンダルフ〉と交換する。',cardNumber:'3.25',rank:'黒',frameColor:'金'},
     'ケレボルン':{specialName:'ロスローリエンの殿',victory:'同じ数字のカードを3枚獲得する。',effect:'任意のキャラクターと交換する。',cardNumber:'3.26',rank:'黒',frameColor:'銀'}
-    ,'サムワイズ・ギャムジー':{specialName:'重荷',victory:'脅威カードと同じ数字の丘カードを獲得する。\n〈サム〉が獲得した指輪カードは、〈フロド〉の目的として数える。',effect:'脅威カードを1枚引く。',cardNumber:'3.39',rank:'金',frameColor:'赤',image:'sam.jpg'}
+    ,'サムワイズ・ギャムジー':{specialName:'重荷',victory:'脅威カードと同じ数字の丘カードと影カードを獲得する。（別々のトリックでもよい。）\n〈サム〉が獲得した指輪カードは、〈フロド〉の目的として数える。',effect:'脅威カードを1枚引く。',cardNumber:'3.39',rank:'金',frameColor:'赤',image:'sam.jpg'}
     ,'ペレグリン・トゥック':{specialName:'重荷',victory:'トリックを1回も獲得しない。他のキャラクターは1トリック以上を獲得する。',effect:'任意のキャラクターと交換する。',cardNumber:'3.40',rank:'金',frameColor:'赤',image:'pippin.jpg'}
     ,'メリアドク・ブランディバック':{specialName:'重荷',victory:'2トリックを獲得する。',effect:'このラウンド中、脅威カードを引いたプレイヤーは一度だけ引き直してもよい。〈フロド〉、〈サム〉、〈ピピン〉のいずれか1人と交換する。',cardNumber:'3.41',rank:'金',frameColor:'赤',image:'merry.jpg'}
     ,'アラソルンの息子アラゴルン':{displayName:'アラゴルン\nアラソルンの息子',specialName:'重荷',victory:'脅威カードの数字と同じ回数のトリックを獲得する。',effect:'脅威デッキからカードを2枚引いて、1枚手札に加える。任意のキャラクターと交換する。',cardNumber:'3.42',rank:'金',frameColor:'赤',image:'aragorn.jpg'}
@@ -6013,7 +6026,7 @@ async function chooseCharacter(characterName, source){
       }
       const selectedCharacterNames = new Set(Object.values(room.game.characterSelections).map(selected => selected.name));
       const forcedLeaderNames = Number(room.game.stageNumber) === 15
-        ? ['ハルディア', 'オロフィンとルーミル']
+        ? ['オロフィンとルーミル']
         : selectedCharacterNames.has('フロド') && selectedCharacterNames.has('グロルフィンデル')
         ? ['グロルフィンデル']
         : Number(room.game.stageNumber) === 12
