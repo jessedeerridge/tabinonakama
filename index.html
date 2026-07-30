@@ -6026,7 +6026,7 @@ async function chooseCharacter(characterName, source){
       }
       const selectedCharacterNames = new Set(Object.values(room.game.characterSelections).map(selected => selected.name));
       const forcedLeaderNames = Number(room.game.stageNumber) === 15
-        ? ['ハルディア', 'オロフィンとルーミル']
+        ? ['オロフィンとルーミル']
         : selectedCharacterNames.has('フロド') && selectedCharacterNames.has('グロルフィンデル')
         ? ['グロルフィンデル']
         : Number(room.game.stageNumber) === 12
