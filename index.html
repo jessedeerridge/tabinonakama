@@ -253,10 +253,17 @@
   .game-status{text-align:center;min-height:22px;font-size:13px;font-weight:800;color:#075985;margin-top:2px;}
   .stage-dialog{position:fixed;inset:0;z-index:320;display:grid;place-items:center;background:rgba(0,0,0,.38);}
   .stage-dialog.hidden{display:none;}
+  .lost-card-dialog{position:fixed;inset:0;z-index:1250;display:grid;place-items:center;background:rgba(0,0,0,.42);}
+  .lost-card-dialog.hidden{display:none;}
+  .lost-card-panel{min-width:240px;padding:18px;border-radius:14px;background:#fff;text-align:center;box-shadow:0 18px 45px #0008;}
+  .lost-card-options{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:14px;}
+  .lost-card-options button{padding:7px 12px;border:1px solid #102b50;border-radius:999px;background:#102b50;color:#fff;font-weight:800;}
   .stage-panel{box-sizing:border-box;width:max-content;max-width:calc(100vw - 32px);padding:8px;border-radius:14px;background:#fff;box-shadow:0 18px 40px rgba(0,0,0,.35);overflow:hidden;}
   .stage-grid{display:grid;grid-template-columns:repeat(4,36px);justify-content:center;gap:10px;}
   .stage-tab{width:36px;height:36px;padding:0;border:1px solid #111;border-radius:50%;background:#fff;font-size:12px;font-weight:800;cursor:pointer;}
   .stage-tab:hover,.stage-tab:focus-visible{background:#111;color:#fff;}
+  .stage-tab.sequel{border-radius:8px;background:#102b50;color:#d9b84e;border-color:#102b50;font-family:serif;font-size:16px;}
+  .stage-tab.sequel:hover,.stage-tab.sequel:focus-visible{background:#071a33;color:#f6d76d;}
   .center-lower-card-area.hidden{display:none;}
   .center-lower-card-area{
     position:fixed;left:16px;top:calc(68% - 101px);transform:translateY(-80px);
@@ -891,6 +898,10 @@
   </div>
 </div>
 
+<div id="lostCardDialog" class="lost-card-dialog hidden" role="dialog" aria-modal="true">
+  <div class="lost-card-panel"><strong>誰が失われしカードを取りますか</strong><div id="lostCardOptions" class="lost-card-options"></div></div>
+</div>
+
 <div id="cardZoomBackdrop" class="card-zoom-backdrop hidden" aria-hidden="true">
   <div id="cardZoomFrame" class="card-zoom-frame"></div>
 </div>
@@ -1090,6 +1101,8 @@ const shadowfaxDecision = document.getElementById('shadowfaxDecision');
 const mithrilDecision = document.getElementById('mithrilDecision');
 const fellowshipGroupDecision = document.getElementById('fellowshipGroupDecision');
 const threatRedrawDecision = document.getElementById('threatRedrawDecision');
+const lostCardDialog = document.getElementById('lostCardDialog');
+const lostCardOptions = document.getElementById('lostCardOptions');
 
 const CHARACTER_NAMES = {
   frodo: 'フロド',
@@ -1185,7 +1198,7 @@ function toKanjiNumber(number){
   return `${tens > 1 ? numerals[tens] : ''}${tens ? '十' : ''}${numerals[ones]}`;
 }
 
-const STAGES = Array.from({ length: 18 }, (_, index) => ({
+const STAGES = Array.from({ length: 19 }, (_, index) => ({
   number: index + 1,
   chapterLabel: `第${toKanjiNumber(index + 1)}章`,
   title: 'xxx',
@@ -1403,6 +1416,42 @@ defineStage(18, {
     }
   ]
 });
+
+defineStage(19, {
+  chapterLabel:'続', title:'旅の続き', story:'', characters:[], threats:[{ name:'脅威', min:1, max:7 }],
+  winCondition:'short', goal:'allwin', additionalElements:''
+});
+
+// 「続」では金ランクの通常面（うち1枚だけ重荷面）と黒ランクを毎回抽選する。
+const SEQUEL_GOLD_CHARACTERS = [
+  ['sam','samwise_gamgee'], ['pippin','peregrin_took'], ['merry','meriadoc_brandybuck'],
+  ['aragorn','aragorn_arathorn'], ['boromir','boromir_denethor'],
+  ['legolas','legolas_greenleaf'], ['gimli','gimli_gloin']
+];
+const SEQUEL_BLACK_CHARACTERS = [
+  'farmer_maggot','gildor','fatty_bolger','tom_bombadil','goldberry','barliman','glorfindel','bill',
+  'elrond','gloin','arwen','bilbo_baggins','gwaihir','radagast','shadowfax','orophin_rumil','haldir','galadriel','celeborn'
+];
+const SEQUEL_EQUIPMENT = [
+  { name:'折れたる剣', specialName:'ナルシルの欠片', effect:'自分の脅威カードと入れ替える。自分の目的となる数字範囲を選ぶ。1～2、3～4、5～6。', cardNumber:'2.42', rank:'黒', image:'oretaruken.jpg' },
+  { name:'ゴンドールの角笛', specialName:'家宝', effect:'ゲームの準備中、手札にある最も多いスートを宣言する。', cardNumber:'2.43', rank:'黒', image:'tunobue.jpg' },
+  { name:'ミスリルの胴着', specialName:'鋼よりも堅い', effect:'ラウンド終了時、キャラクター1人の目的が未達成なら、このカードを捨て札にして達成したものとして扱う。', cardNumber:'3.11', rank:'黒', image:'mithril.jpg' }
+];
+function sequelCharacters(playerCount){
+  const goldCount = [2,3].includes(playerCount) ? 4 : 5;
+  const blackCount = [2,3].includes(playerCount) ? 3 : 6;
+  const gold = shuffleInPlace(SEQUEL_GOLD_CHARACTERS.map(pair => [...pair])).slice(0, goldCount);
+  const burdenIndex = Math.floor(Math.random() * gold.length);
+  return [
+    { code:'frodo', name:'フロド', required:true }, { code:'gandalf', name:'ガンダルフ', required:true },
+    ...gold.map(([normalCode, burdenCode], index) => {
+      const code = index === burdenIndex ? burdenCode : normalCode;
+      return { code, name:CHARACTER_NAMES[code], required:false };
+    }),
+    ...shuffleInPlace([...SEQUEL_BLACK_CHARACTERS]).slice(0, blackCount)
+      .map(code => ({ code, name:CHARACTER_NAMES[code], required:false }))
+  ];
+}
 
 /* ★ 追加：ヘルプUI参照 */
 const helpBtn = document.getElementById('helpBtn');
@@ -3015,7 +3064,7 @@ function renderStageInformation(){
   const wasCharacterSelection = centerLowerCardArea.classList.contains('character-selection-layout');
   const cards = Array.from(centerLowerCardArea.querySelectorAll('.center-lower-card'));
   const previousRects = cards.map(card => card.getBoundingClientRect());
-  centerLowerCardArea.classList.toggle('hidden', !stage);
+  centerLowerCardArea.classList.toggle('hidden', !stage || Number(stage.number) === 19);
   const isCharacterSelection = ['fellowship-group-selection', 'character-selection'].includes(state.game?.phase);
   centerLowerCardArea.classList.toggle('character-selection-layout', isCharacterSelection);
   centerLowerCardArea.classList.toggle('event-stage-layout', Boolean(stage?.eventCards?.length));
@@ -3484,6 +3533,15 @@ function beginNextExchange(game){
   while (game.exchangeQueue.length) {
     const sourceId = game.exchangeQueue[0];
     const characterName = game.characterSelections?.[sourceId]?.name;
+    const lostCardCharacters = new Set(['ガンダルフ','グロルフィンデル','トム・ボンバディル']);
+    const lostCardCandidates = (game.effectOrder || game.playerOrder || []).filter(id => lostCardCharacters.has(game.characterSelections?.[id]?.name));
+    if (Number(game.stageNumber) === 19 && game.excludedCard && lostCardCandidates.length > 1
+        && !game.lostCardClaimPlayerId && !game.pendingLostCardClaim) {
+      game.phase = 'lost-card-claim-selection';
+      game.pendingLostCardClaim = { selectingPlayerId:sourceId, candidates:lostCardCandidates, requestedAt:Date.now() };
+      game.turnPlayerId = null;
+      return;
+    }
     game.effectTurnStartedAt ||= {};
     game.effectTurnStartedAt[sourceId] ||= Date.now();
     if (characterName === 'エルロンド' && !game.elrondEffectCompleted) {
@@ -3513,13 +3571,13 @@ function beginNextExchange(game){
       return;
     }
     const bridgeHasLostCard = Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3 && game.excludedCards?.length;
-    if (characterName === 'ガンダルフ' && (game.excludedCard || bridgeHasLostCard) && !game.gandalfEffectCompleted) {
+    if (characterName === 'ガンダルフ' && (!game.lostCardClaimPlayerId || game.lostCardClaimPlayerId === sourceId) && (game.excludedCard || bridgeHasLostCard) && !game.gandalfEffectCompleted) {
       game.phase = 'gandalf-selection';
       game.gandalfPlayerId = sourceId;
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'トム・ボンバディル' && game.excludedCards?.length && !game.tomEffectCompleted) {
+    if (characterName === 'トム・ボンバディル' && (!game.lostCardClaimPlayerId || game.lostCardClaimPlayerId === sourceId) && game.excludedCards?.length && !game.tomEffectCompleted) {
       game.phase = 'tom-selection';
       game.tomPlayerId = sourceId;
       game.turnPlayerId = null;
@@ -3532,7 +3590,7 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'グロルフィンデル' && game.excludedCard && !game.glorfindelEffectCompleted) {
+    if (characterName === 'グロルフィンデル' && (!game.lostCardClaimPlayerId || game.lostCardClaimPlayerId === sourceId) && game.excludedCard && !game.glorfindelEffectCompleted) {
       game.phase = 'glorfindel-selection';
       game.glorfindelPlayerId = sourceId;
       game.turnPlayerId = null;
@@ -5719,10 +5777,38 @@ async function playCard(cardIndex, expectedCard){
     return room;
   });
 }
+function renderLostCardClaim(){
+  const pending = state.game?.pendingLostCardClaim;
+  const visible = Boolean(pending && pending.selectingPlayerId === state.userId);
+  lostCardDialog.classList.toggle('hidden', !visible);
+  lostCardOptions.replaceChildren();
+  if (!visible) return;
+  pending.candidates.forEach(playerId => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = state.room?.players?.[playerId]?.name || state.game?.characterSelections?.[playerId]?.name || 'プレイヤー';
+    button.addEventListener('click', () => {
+      Array.from(lostCardOptions.children).forEach(item => { item.disabled = true; });
+      button.textContent += '（確定中）';
+      setTimeout(async () => {
+        await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+          if (!game?.pendingLostCardClaim || game.pendingLostCardClaim.selectingPlayerId !== state.userId) return;
+          game.lostCardClaimPlayerId = playerId;
+          delete game.pendingLostCardClaim;
+          beginNextExchange(game);
+          return game;
+        });
+      }, 2000);
+    });
+    lostCardOptions.appendChild(button);
+  });
+}
+
 function renderHands(){
   renderCharacterPicker();
   renderFellowshipGroupDecision();
   renderThreatRedrawDecision();
+  renderLostCardClaim();
   renderMyHand();
   if (latestPlayers.length) renderPlayerCircle(latestPlayers);
 }
@@ -6028,6 +6114,19 @@ async function chooseCharacter(characterName, source){
             id:`${gimliId}-blindfold-${Date.now()}`
           });
         }
+      }
+      if (Number(room.game.stageNumber) === 19 && room.game.sequelSetup && !room.game.sequelSetup.assigned) {
+        const setup = room.game.sequelSetup;
+        const randomPlayer = room.game.playerOrder[Math.floor(Math.random() * room.game.playerOrder.length)];
+        room.game.equipmentCards ||= {}; room.game.equipmentCards[randomPlayer] ||= [];
+        room.game.equipmentCards[randomPlayer].push({ kind:'equipment', ...setup.equipment, id:`${randomPlayer}-sequel-equipment-${Date.now()}` });
+        const threatEligible = room.game.playerOrder.filter(id => setup.specialThreat.name !== '見えざる者'
+          || characterDrawsThreat(room.game.characterSelections[id]?.name));
+        const threatPlayer = threatEligible[Math.floor(Math.random() * threatEligible.length)] || randomPlayer;
+        room.game.threatCards ||= {}; room.game.threatCards[threatPlayer] ||= [];
+        room.game.threatCards[threatPlayer].unshift({ kind:'special-threat', color:'threat', ...setup.specialThreat,
+          id:`${threatPlayer}-sequel-threat-${Date.now()}` });
+        setup.assigned = true;
       }
       const selectedCharacterNames = new Set(Object.values(room.game.characterSelections).map(selected => selected.name));
       const forcedLeaderNames = Number(room.game.stageNumber) === 15
@@ -7064,7 +7163,7 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     const j = Math.floor(Math.random() * (i + 1));
     [threatDeck[i], threatDeck[j]] = [threatDeck[j], threatDeck[i]];
   }
-  const stageCharacters = (stage?.characters || [])
+  const stageCharacters = Number(stageNumber) === 19 ? sequelCharacters(playerOrder.length) : (stage?.characters || [])
     .flatMap(line => line.split(/[、,]/))
     .map(name => name.trim())
     .filter(name => name && name !== 'xxx')
@@ -7128,6 +7227,10 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
       playerOrder, turnPlayerId: null, trickNumber: 1, stageNumber, startedAt:Date.now(),
       phase: Number(stageNumber) === 18 ? 'fellowship-group-selection' : 'character-selection',
       availableCharacters: Number(stageNumber) === 18 ? [] : stageCharacters,
+      ...(Number(stageNumber) === 19 ? {
+        sequelSetup:{ equipment:shuffleInPlace(SEQUEL_EQUIPMENT.map(card => ({...card})))[0],
+          specialThreat:shuffleInPlace(Object.values(STAGE_NINE_THREATS).map(card => ({...card})))[0] }
+      } : {}),
       ...(fellowshipGroups ? {
         fellowshipGroups,
         groupChooserPlayerId:playerOrder.find(id => hands[id].cards.some(card => card.color === 'yellow' && Number(card.number) === 1)) || playerOrder[0]
@@ -7181,7 +7284,7 @@ chapterContinueBtn.addEventListener('click', async () => {
     const repeatChapter = stage?.winCondition === 'long'
       ? !allLongCharactersAchieved
       : room.game.chapterOutcome.status === 'failed';
-    const nextStageNumber = repeatChapter ? stage.number : Math.min(stage.number + 1, STAGES.length);
+    const nextStageNumber = repeatChapter || stage.number === 19 ? stage.number : Math.min(stage.number + 1, STAGES.length);
     await dealInitialHands(nextStageNumber);
   } finally {
     chapterContinueBtn.disabled = false;
@@ -7202,7 +7305,8 @@ function openStageDialog(){
     const tab = document.createElement('button');
     tab.type = 'button';
     tab.className = 'stage-tab';
-    tab.textContent = `#${stage.number}`;
+    tab.textContent = stage.number === 19 ? '続' : `#${stage.number}`;
+    if (stage.number === 19) tab.classList.add('sequel');
     tab.addEventListener('click', async () => {
       if (!state.isHost) return;
       tab.disabled = true;
