@@ -1807,6 +1807,12 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     return { status:otherIds.every(id => (game.capturedTricks?.[id] || []).length >= 1) ? 'achieved' : 'failed' };
   }
 
+  if (character.name === 'メリアドク・ブランディバック') {
+    if (trickCount > 2) return { status:'failed' };
+    if (!isFinished) return { status:'pending' };
+    return { status:trickCount === 2 ? 'achieved' : 'failed' };
+  }
+
   if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 0 && character.name === 'ガンダルフ') {
     const requiredSuits = ['orange', 'gray', 'green'];
     const capturedSuits = new Set(capturedCards.map(card => card.color));
@@ -1833,12 +1839,20 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     return { status:!isFinished && count + available >= 2 ? 'pending' : 'failed' };
   }
 
-  if ([13, 14, 15].includes(Number(game.stageNumber)) && ['レゴラス', 'ギムリ'].includes(character.name)) {
+  const threatSuitCharacters = {
+    'レゴラス':{ suit:'green', requiresShadow:false },
+    'ギムリ':{ suit:'gray', requiresShadow:false },
+    '緑葉のレゴラス':{ suit:'green', requiresShadow:true },
+    'グローインの息子ギムリ':{ suit:'gray', requiresShadow:true }
+  };
+  const threatSuitGoal = threatSuitCharacters[character.name];
+  if (threatSuitGoal) {
     const threat = Number(threatNumberForPlayer(game, playerId));
-    const suit = character.name === 'レゴラス' ? 'green' : 'gray';
     if (!Number.isFinite(threat)) return { status:'pending' };
-    if (capturedCards.some(card => card.color === suit && Number(card.number) === threat)) return { status:'achieved' };
-    const stillAvailable = remainingCards.some(card => card.color === suit && Number(card.number) === threat);
+    const hasRequiredCards = cards => cards.some(card => card.color === threatSuitGoal.suit && Number(card.number) === threat)
+      && (!threatSuitGoal.requiresShadow || cards.some(card => card.color === 'red' && Number(card.number) === threat));
+    if (hasRequiredCards(capturedCards)) return { status:'achieved' };
+    const stillAvailable = hasRequiredCards([...capturedCards, ...remainingCards]);
     return { status:!isFinished && stillAvailable ? 'pending' : 'failed' };
   }
 
@@ -1937,7 +1951,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     return { status:(choice === 'more' ? trickCount > threat : trickCount < threat) ? 'achieved' : 'failed' };
   }
 
-  if (character.name === 'アラゴルン') {
+  if (['アラゴルン', 'アラソルンの息子アラゴルン'].includes(character.name)) {
     const choice = game.equipmentChoices?.[playerId];
     const target = Number(threatNumberForPlayer(game, playerId));
     const min = choice?.min ?? target;
@@ -1948,7 +1962,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     return { status:trickCount >= min && trickCount <= max ? 'achieved' : 'failed' };
   }
 
-  if (character.name === 'ボロミア') {
+  if (['ボロミア', 'デネソールの息子ボロミア'].includes(character.name)) {
     if (capturedCards.some(card => card.color === 'yellow' && Number(card.number) === 1)) return { status:'failed' };
     if (!isFinished) return { status:'pending' };
     return { status:game.lastWinnerId === playerId ? 'achieved' : 'failed' };
@@ -2010,7 +2024,8 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     if (acquiredEight) return { status:'failed' };
   }
 
-  if (victory.includes('脅威カードと同じランク') || (character.name === 'サム' && victory.includes('脅威カードと同じ数字'))) {
+  if (victory.includes('脅威カードと同じランク')
+    || (['サム', 'サムワイズ・ギャムジー'].includes(character.name) && victory.includes('脅威カードと同じ数字'))) {
     const threatRanks = new Set((game.threatCards?.[playerId] || []).map(card => Number(card.number)));
     const hasMatchingHill = capturedTricks.some(trick => (trick.cards || [])
       .some(card => card.color === 'orange' && threatRanks.has(Number(card.number))));
@@ -2044,7 +2059,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     return { status:'pending' };
   }
 
-  if (victory.includes('1か2トリック')) {
+  if (victory.includes('1か2トリック') || victory.includes('ちょうど1もしくは2トリック')) {
     if (trickCount > 2) return { status:'failed' };
     if (!isFinished) return { status:'pending' };
     return { status:trickCount >= 1 ? 'achieved' : 'failed' };
@@ -2392,7 +2407,7 @@ function createVictoryConditionIcon(cardData, playerId){
     const sameNumberSquares = [square('n'), square('n'), square('n')];
     sameNumberSquares.forEach(item => item.classList.add('number-centered'));
     icon.append(...sameNumberSquares);
-  } else if (name === 'ボロミア') {
+  } else if (['ボロミア', 'デネソールの息子ボロミア'].includes(name)) {
     icon.classList.add('multiline');
     const fail = label('✕');
     fail.classList.add('victory-condition-fail');
@@ -2403,9 +2418,17 @@ function createVictoryConditionIcon(cardData, playerId){
     icon.append(coloredTrick('green'), coloredTrick('green'));
   } else if (name === '飛蔭（とびかげ）') {
     icon.append(coloredTrick('orange'), coloredTrick('orange'));
-  } else if (name === 'サム') {
+  } else if (['サム', 'サムワイズ・ギャムジー'].includes(name)) {
     icon.append(square(String(threatNumber ?? 'x'), 'orange'));
-  } else if (name === 'アラゴルン') {
+  } else if (name === 'ペレグリン・トゥック') {
+    icon.append(coloredTrick(), label('x0'));
+  } else if (['レゴラス', 'ギムリ', '緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name)) {
+    const suit = ['レゴラス', '緑葉のレゴラス'].includes(name) ? 'green' : 'gray';
+    icon.append(square(String(threatNumber ?? 'x'), suit));
+    if (['緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name)) {
+      icon.append(square(String(threatNumber ?? 'x'), 'red'));
+    }
+  } else if (['アラゴルン', 'アラソルンの息子アラゴルン'].includes(name)) {
     if (equipmentChoice) {
       const expandBoth = equipmentChoice.min === 1 && equipmentChoice.max === 2;
       if (expandBoth) {
@@ -2558,10 +2581,10 @@ let threatDrawTimer = null;
 let effectTransitionTimer = null;
 let lastAnimatedBarrowDrawAt = null;
 let lastAnimatedThreatDrawAt = null;
+let lastAnimatedThreatRedrawAt = null;
 const animatingThreatCardIds = new Set();
 const activeThreatDrawTransfers = new Set();
 const animatedThreatDrawTransfers = new Set();
-const animatedThreatDrawPlayers = new Set();
 // 転送データと到着先カードは同じRealtime Database更新で届くため、DOM描画の完了とは別に
 // 「着地済み」を記録する。飛行カードが着くまで実カードを表示しないための唯一の判定源にする。
 const landedThreatDrawTransfers = new Set();
@@ -3212,6 +3235,7 @@ function isCharacterEffectTurn(playerId){
   if (!playerId || !game || ['playing', 'character-selection'].includes(game.phase)) return false;
   const activePlayerId = game.pendingExchange?.sourceId
     || (game.phase === 'threat-draw-wait' ? game.threatDrawPlayerId : null)
+    || (game.phase === 'threat-redraw-selection' ? game.threatRedrawPlayerId : null)
     || (game.phase === 'barrow-draw-wait' ? game.barrowPlayerId : null)
     || (game.phase === 'tom-selection' ? game.tomPlayerId : null)
     || (game.phase === 'gandalf-selection' ? game.gandalfPlayerId : null)
@@ -3239,6 +3263,7 @@ function scheduleThreatDraw(){
         game.aragornBurdenThreatChoices = game.threatDeck.splice(0, 2);
         game.phase = 'aragorn-burden-threat-selection';
         game.threatDrawPlayerId = playerId;
+        game.aragornBurdenThreatChoiceReadyAt = Date.now() + 2820;
         game.threatDrawTransfer = { playerId, cards:game.aragornBurdenThreatChoices.map(number => ({
           kind:'threat', color:'threat', name:'脅威', number, id:`${playerId}-threat-choice-${Date.now()}-${number}`
         })), movedAt:Date.now() };
@@ -3248,17 +3273,45 @@ function scheduleThreatDraw(){
       delete game.pendingThreatDrawAt;
       if (!isBurdenAragorn) delete game.threatDrawPlayerId;
       delete game.threatDrawRequestId;
-      const hasMerryBurden = Object.values(game.characterSelections || {})
-        .some(character => character.name === 'メリアドク・ブランディバック');
       if (isBurdenAragorn) return game;
-      if (hasMerryBurden && !game.threatRedrawUsed) {
-        game.phase = 'threat-redraw-selection';
-        game.threatRedrawPlayerId = playerId;
-        game.threatRedrawReadyAt = Date.now() + 1000;
-      } else beginNextExchange(game);
+      continueAfterThreatDraw(game, playerId);
       return game;
     });
   }, Math.max(0, drawAt - Date.now()) + 20);
+}
+
+function offerThreatRedraw(game, playerId){
+  const hasMerryBurden = Object.values(game.characterSelections || {})
+    .some(character => character.name === 'メリアドク・ブランディバック');
+  if (!hasMerryBurden || game.threatRedrawUsed) return false;
+  // 引き直しの確認中も、現在のキャラクターは効果キューの先頭に残る。
+  // RTDBで空配列が消えたり、複数クライアントの再描画が重なっても復帰できるよう、
+  // 進行位置を選択ダイアログと同じトランザクションに保存する。
+  const resumeQueue = [...(game.exchangeQueue || [])];
+  if (!resumeQueue.includes(playerId)) resumeQueue.unshift(playerId);
+  game.threatRedrawContinuation = {
+    playerId,
+    exchangeQueue:resumeQueue,
+    createdAt:Date.now()
+  };
+  game.phase = 'threat-redraw-selection';
+  game.threatRedrawPlayerId = playerId;
+  game.threatRedrawReadyAt = Date.now() + 1000;
+  return true;
+}
+
+function continueAfterThreatDraw(game, playerId){
+  if (!offerThreatRedraw(game, playerId)) beginNextExchange(game);
+}
+
+function restoreThreatRedrawContinuation(game, playerId){
+  const continuation = game.threatRedrawContinuation || {
+    playerId:game.threatRedrawPlayerId, exchangeQueue:[...(game.exchangeQueue || [])]
+  };
+  if (continuation.playerId !== playerId) return false;
+  game.exchangeQueue = [...(continuation.exchangeQueue || [])];
+  delete game.threatRedrawContinuation;
+  return true;
 }
 
 function scheduleBarrowDraw(){
@@ -3451,6 +3504,7 @@ function beginNextExchange(game){
 function effectAnimationsReadyAt(game){
   const deadlines = [
     Number(game.threatDrawTransfer?.movedAt || 0) + 2700,
+    Number(game.threatRedrawTransfer?.movedAt || 0) + 3700,
     Number(game.lostCardTransfer?.movedAt || 0) + 900,
     Number(game.barrowDrawTransfer?.movedAt || 0) + 1400,
     Number(game.exchangeOfferTransfer?.movedAt || 0) + 1500,
@@ -3567,6 +3621,7 @@ async function decideThreatRedraw(redraw){
   await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
     if (game?.phase !== 'threat-redraw-selection' || game.threatRedrawPlayerId !== state.userId
         || Date.now() < Number(game.threatRedrawReadyAt || 0)) return;
+    if (!restoreThreatRedrawContinuation(game, state.userId)) return;
     if (redraw) {
       const cards = game.threatCards?.[state.userId] || [];
       const previous = cards.find(card => card.kind === 'threat');
@@ -3579,6 +3634,8 @@ async function decideThreatRedraw(redraw){
       }
       game.threatRedrawUsed = true;
     }
+    // 選択中にキューの現在地を失わないよう、ドロー直後のスナップショットから復元する。
+    // これにより、引き直した本人の交換と後続プレイヤーの効果を必ず同じ順序で再開する。
     delete game.threatRedrawPlayerId; delete game.threatRedrawReadyAt;
     beginNextExchange(game);
     return game;
@@ -3700,10 +3757,14 @@ function renderThreatChoice(){
     return;
   }
   if (isBurdenChoice) {
+    const choiceReadyAt = Number(state.game.aragornBurdenThreatChoiceReadyAt || 0);
+    const waitingForCards = Date.now() < choiceReadyAt;
     (state.game.aragornBurdenThreatChoices || []).forEach(number => {
       const button = document.createElement('button'); button.className = 'threat-choice'; button.textContent = number;
+      button.disabled = waitingForCards;
       attachTwoSecondHold(button, () => chooseAragornBurdenThreat(number)); threatChoiceGrid.append(button);
     });
+    if (waitingForCards) setTimeout(renderThreatChoice, choiceReadyAt - Date.now() + 20);
     return;
   }
   const stage = STAGES.find(item => item.number === Number(state.game.stageNumber));
@@ -3719,6 +3780,7 @@ function renderThreatChoice(){
 async function chooseAragornBurdenThreat(number){
   await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
     if (game?.phase !== 'aragorn-burden-threat-selection' || game.threatDrawPlayerId !== state.userId) return;
+    if (Date.now() < Number(game.aragornBurdenThreatChoiceReadyAt || 0)) return;
     const choices = game.aragornBurdenThreatChoices || [];
     if (!choices.includes(number)) return;
     const rejected = choices.find(value => value !== number);
@@ -3729,8 +3791,8 @@ async function chooseAragornBurdenThreat(number){
       { kind:'threat', color:'threat', name:'脅威', number, id:`${state.userId}-threat-${Date.now()}-${number}` }
     ];
     game.characterEffectThreatDrawn ||= {}; game.characterEffectThreatDrawn[state.userId] = true;
-    delete game.aragornBurdenThreatChoices; delete game.threatDrawPlayerId;
-    beginNextExchange(game); return game;
+    delete game.aragornBurdenThreatChoices; delete game.aragornBurdenThreatChoiceReadyAt; delete game.threatDrawPlayerId;
+    continueAfterThreatDraw(game, state.userId); return game;
   });
 }
 
@@ -3828,12 +3890,20 @@ function animateBarrowDraw(sourceRect, transfer){
 }
 
 async function animateThreatDraw(sourceRect, transfer, transferKey){
+  if (!transfer?.card && transfer?.cards?.length) {
+    await Promise.all(transfer.cards.map((card, index) => new Promise(resolve => {
+      setTimeout(() => animateThreatDraw(sourceRect, { ...transfer, card }, `${transferKey}:${card.id}`).finally(resolve), index * 120);
+    })));
+    landedThreatDrawTransfers.add(transferKey);
+    activeThreatDrawTransfers.delete(transferKey);
+    return;
+  }
   if (!transfer?.card) {
     if (transferKey) landedThreatDrawTransfers.add(transferKey);
     activeThreatDrawTransfers.delete(transferKey);
     return;
   }
-  const target = playerCircle.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
+  const target = document.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
   const targetRect = target?.getBoundingClientRect();
   if (!sourceRect?.width || !targetRect?.width) {
     // 初回入室・再接続などで移動元を測れない場合は演出だけを省略する。
@@ -3880,7 +3950,7 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
     ], { duration:600, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
     await new Promise(resolve => setTimeout(resolve, 1000));
     // 待機中のレイアウト変更を反映し、移動開始時点の実際の目的地へ飛ばす。
-    const latestTargetRect = playerCircle
+    const latestTargetRect = document
       .querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`)
       ?.getBoundingClientRect();
     await flight.animate([
@@ -3891,13 +3961,33 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
     // 先に着地済みへ切り替え、次の同期再描画でも到着先が再び隠れないようにする。
     landedThreatDrawTransfers.add(transferKey);
     animatingThreatCardIds.delete(transfer.card.id);
-    const destination = playerCircle.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
+    const destination = document.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
     destination?.classList.remove('threat-draw-target-hidden');
     // 実カードを表示してから飛行カードを外し、到着時に背景が見えるフレームを作らない。
     await new Promise(resolve => requestAnimationFrame(resolve));
     flight.remove();
     activeThreatDrawTransfers.delete(transferKey);
   }
+}
+
+async function animateThreatReturn(sourceRect, targetDeck, transfer, delayMs = 0){
+  const targetRect = targetDeck?.getBoundingClientRect();
+  if (!sourceRect?.width || !targetRect?.width || !transfer?.returnedCard) return;
+  const flight = document.createElement('div');
+  flight.classList.add('exchange-card-flight', 'threat-draw-flight');
+  flight.appendChild(createCardElement(transfer.returnedCard));
+  Object.assign(flight.style, {
+    left:`${sourceRect.left}px`, top:`${sourceRect.top}px`,
+    transform:`scale(${sourceRect.width / 82}) rotateY(0deg)`
+  });
+  document.body.appendChild(flight);
+  if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));
+  const latestDeckRect = targetDeck.getBoundingClientRect();
+  await flight.animate([
+    { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${sourceRect.width / 82}) rotateY(0deg)` },
+    { left:`${latestDeckRect.left}px`, top:`${latestDeckRect.top}px`, transform:`scale(${latestDeckRect.width / 82}) rotateY(180deg)` }
+  ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
+  flight.remove();
 }
 
 function captureMyHandRects(){
@@ -4173,6 +4263,9 @@ function subscribeRoom(){
     const excludedSourceRect = state.game?.excludedCard ? excludedCardSlot.getBoundingClientRect() : null;
     const barrowSourceRect = state.game?.barrowDeck?.length ? barrowDeck.getBoundingClientRect() : null;
     const threatSourceRect = state.game?.threatDeck?.length ? threatDeck.getBoundingClientRect() : null;
+    const previousThreatCardRects = new Map(Array.from(document.querySelectorAll('[data-threat-card-id]'), card => [
+      card.dataset.threatCardId, card.getBoundingClientRect()
+    ]));
     const previousMyHandRects = captureMyHandRects();
     const previousExchangePositions = captureExchangePositions();
     const previousGame = state.game;
@@ -4180,22 +4273,21 @@ function subscribeRoom(){
     state.game = state.room.game || null;
     state.hands = state.room.hands || {};
     const threatTransfer = state.game?.threatDrawTransfer;
-    const threatTransferKey = threatTransfer?.card?.id && threatTransfer?.movedAt
-      ? `${threatTransfer.card.id}:${threatTransfer.movedAt}` : null;
-    const threatDrawPlayerKey = threatTransfer?.playerId ? `${state.game?.startedAt || state.game?.stageNumber}:${threatTransfer.playerId}` : null;
-    const shouldAnimateThreatDraw = Boolean(threatTransferKey && threatDrawPlayerKey
+    const threatTransferIds = threatTransfer?.card?.id
+      || threatTransfer?.cards?.map(card => card.id).join(',');
+    const threatTransferKey = threatTransferIds && threatTransfer?.movedAt
+      ? `${threatTransferIds}:${threatTransfer.movedAt}` : null;
+    const shouldAnimateThreatDraw = Boolean(threatTransferKey
       && threatTransfer.movedAt !== lastAnimatedThreatDrawAt
       && !animatedThreatDrawTransfers.has(threatTransferKey)
-      && !animatedThreatDrawPlayers.has(threatDrawPlayerKey)
       && !activeThreatDrawTransfers.has(threatTransferKey)
       && !document.querySelector(`[data-threat-draw-transfer="${CSS.escape(threatTransferKey)}"]`));
     if (shouldAnimateThreatDraw) {
       // 再描画や重複購読が続いても、同じ転送を描画前に一度だけ確保する。
       activeThreatDrawTransfers.add(threatTransferKey);
       animatedThreatDrawTransfers.add(threatTransferKey);
-      animatedThreatDrawPlayers.add(threatDrawPlayerKey);
       lastAnimatedThreatDrawAt = threatTransfer.movedAt;
-      animatingThreatCardIds.add(threatTransfer.card.id);
+      (threatTransfer.cards || [threatTransfer.card]).filter(Boolean).forEach(card => animatingThreatCardIds.add(card.id));
     }
     const waiting = (!state.isHost && !state.room.maxPlayers);
     hostSelectingPop.classList.toggle('hidden', !waiting);
@@ -4221,7 +4313,23 @@ function subscribeRoom(){
     if (barrowTransfer?.movedAt && barrowTransfer.movedAt !== lastAnimatedBarrowDrawAt) {
       requestAnimationFrame(() => animateBarrowDraw(barrowSourceRect, barrowTransfer));
     }
-    if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey);
+    const threatRedrawTransfer = state.game?.threatRedrawTransfer;
+    const shouldAnimateThreatReturn = Boolean(threatRedrawTransfer?.movedAt
+      && threatRedrawTransfer.movedAt !== lastAnimatedThreatRedrawAt);
+    if (shouldAnimateThreatReturn) {
+      lastAnimatedThreatRedrawAt = threatRedrawTransfer.movedAt;
+      const returnSourceRect = previousThreatCardRects.get(threatRedrawTransfer.returnedCard?.id);
+      // 古い脅威カードは元の獲得位置に残し、代わりの1枚が到着してからデッキへ戻す。
+      // 戻す際は表にしたドロー位置で止めず、現在のデッキ本体まで移動させる。
+      requestAnimationFrame(async () => {
+        // 先に飛行要素を作り、新しいカードのドロー中も古いカードを元の位置に表示する。
+        const returnAnimation = animateThreatReturn(returnSourceRect, threatDeck, threatRedrawTransfer, 2700);
+        if (shouldAnimateThreatDraw) {
+          await animateThreatDraw(threatDeck.getBoundingClientRect(), threatTransfer, threatTransferKey);
+        }
+        await returnAnimation;
+      });
+    } else if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey);
     const galadrielLostTransfer = state.game?.galadrielLostTransfer;
     if (galadrielLostTransfer?.completedAt
         && galadrielLostTransfer.completedAt !== lastAnimatedGaladrielLostTransferAt) {
@@ -5433,8 +5541,8 @@ function characterCardData(character, playerId){
     'グワイヒア':{specialName:'風早彦',victory:'山がプレイされているトリックを2トリック獲得。',effect:'〈ガンダルフ〉と交換する。その後、再び〈ガンダルフ〉と交換する。',cardNumber:'2.46', rank:'黒', frameColor:'銀'},
     'ラダガスト':{specialName:'茶色の魔法使い',victory:'森がプレイされているトリックを2トリック獲得。',effect:'手札から1枚選び、表向きにして脇に置く。そのカードは最後のトリックでプレイする。その後、最初のトリックのカードをプレイする。',cardNumber:'2.48', rank:'黒', frameColor:'緑'},
     '飛蔭（とびかげ）':{specialName:'馬の王者',victory:'丘がプレイされているトリックを2トリック獲得。',effect:'手札を1枚選び、裏向きでこのカードの下に入れる。任意のタイミング、もしくは手札がなくなったとき、そのカードを手札に戻す。',cardNumber:'2.47', rank:'黒', frameColor:'金'},
-    'レゴラス':{specialName:'闇の森のエルフ',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉か〈アラゴルン〉と交換する。',cardNumber:'3.09',rank:'無し',frameColor:'緑'},
-    'ギムリ':{specialName:'ドゥリンの民',victory:'引いた脅威カードと同じ数字の山カードを獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.10',rank:'無し',frameColor:'銀'},
+    'レゴラス':{displayName:'緑葉のレゴラス',specialName:'スランドゥイルの息子',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉か〈アラゴルン〉と交換する。',cardNumber:'3.44',rank:'金',frameColor:'緑'},
+    'ギムリ':{displayName:'ギムリ\nグローインの息子',specialName:'ドゥリンの民',victory:'脅威カードと同じ数字の山カードを獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.45',rank:'金',frameColor:'銀'},
     'オロフィンとルーミル':{specialName:'ガラズリム',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ハルディア〉と交換する。最初のトリックをリードする。',cardNumber:'3.21',rank:'黒',frameColor:'緑',image:'orophin_rumil.jpg'},
     'ハルディア':{specialName:'境界守護者',victory:'トリックに勝利して、引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。最初のトリックをリードする。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'haldir.jpg'},
     'ガラドリエル':{specialName:'ロスローリエンの奥方',victory:'最も多く、もしくは最も少なくトリックを獲得する（同数は不可）。',effect:'失われしカードもしくは〈ガンダルフ〉と交換する。',cardNumber:'3.25',rank:'黒',frameColor:'金'},
@@ -5444,6 +5552,8 @@ function characterCardData(character, playerId){
     ,'メリアドク・ブランディバック':{specialName:'重荷',victory:'2トリック獲得。',effect:'このラウンド中、脅威カードを引いたプレイヤーは一度だけ引き直してもよい。〈フロド〉、〈サム〉、〈ピピン〉のいずれか1人と交換する。',cardNumber:'3.41',rank:'金',frameColor:'赤',image:'merry.jpg'}
     ,'アラソルンの息子アラゴルン':{displayName:'アラゴルン\nアラソルンの息子',specialName:'重荷',victory:'脅威カードの数字と同じ回数だけ、トリックを獲得。',effect:'脅威デッキからカードを2枚引いて、1枚手札に加える。任意のキャラクターと交換する。',cardNumber:'3.42',rank:'金',frameColor:'赤',image:'aragorn.jpg'}
     ,'デネソールの息子ボロミア':{displayName:'ボロミア\nデネソールの息子',specialName:'重荷',victory:'最後のトリックを獲得。もし〈ボロミア〉が〈指輪の1〉を獲得した場合、その章は即座に敗北となる。',effect:'〈フロド〉以外の任意のキャラクターと交換する。',cardNumber:'3.43',rank:'金',frameColor:'赤',image:'boromir.jpg'}
+    ,'緑葉のレゴラス':{displayName:'緑葉のレゴラス',specialName:'重荷',victory:'脅威カードと同じ数字の森と影カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉か〈アラゴルン〉と交換する。',cardNumber:'3.44',rank:'金',frameColor:'赤',image:'legolas.jpg'}
+    ,'グローインの息子ギムリ':{displayName:'ギムリ\nグローインの息子',specialName:'重荷',victory:'脅威カードと同じ数字の山と影カードを獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.45',rank:'金',frameColor:'赤',image:'gimli.jpg'}
   };
   const chapterEighteenBaseName = {
     boromir_denethor:'ボロミア', samwise_gamgee:'サム', aragorn_arathorn:'アラゴルン',
@@ -5452,9 +5562,6 @@ function characterCardData(character, playerId){
   const details = { ...(characterDetails[character.name] || characterDetails[chapterEighteenBaseName] || {}) };
   if (Number(state.game?.stageNumber) === 18 && character.name === 'フロド') {
     details.cardNumber = '3.37'; details.rank = '無し';
-  }
-  if (Number(state.game?.stageNumber) === 18 && ['緑葉のレゴラス', 'グローインの息子ギムリ'].includes(character.name)) {
-    details.frameColor = '赤'; details.specialName = '重荷';
   }
   if (Number(state.game?.stageNumber) === 13 && character.name === 'フロド') {
     details.cardNumber = '3.01';
@@ -6465,7 +6572,13 @@ function renderPlayerCircle(players){
       const holder = document.createElement('div'); holder.className = 'capture-card'; holder.style.setProperty('--stack-rotate', '0deg');
       holder.appendChild(createCardElement(equipmentCard)); bundle.appendChild(holder); capture.appendChild(bundle);
     });
-    const threatCards = state.game?.threatCards?.[p.id] || [];
+    const storedThreatCards = state.game?.threatCards?.[p.id] || [];
+    // 重荷アラゴルンの2枚は、数字ボタンではなくプレイヤーの脅威カード獲得位置へ運ぶ。
+    // 選択前だけ転送カードを表示用に合成し、選択後は永続データの2枚に自然に切り替える。
+    const pendingAragornThreatCards = state.game?.phase === 'aragorn-burden-threat-selection'
+      && state.game?.threatDrawPlayerId === p.id ? (state.game?.threatDrawTransfer?.cards || []) : [];
+    const threatCards = pendingAragornThreatCards.length
+      ? [...storedThreatCards, ...pendingAragornThreatCards] : storedThreatCards;
     // 脅威カードは獲得カード列の先頭（他プレイヤーは公開キャラクターの直後）へ、重ねずに並べる。
     threatCards.forEach((threatCard, threatIndex) => {
       const threatBundle = document.createElement('div');
