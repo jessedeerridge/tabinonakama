@@ -6373,9 +6373,8 @@ function renderCharacterPicker(){
   const hasYellowOne = (state.hands?.[state.userId]?.cards || [])
     .some(card => card.color === 'yellow' && card.number === 1);
   const continuationEquipment = game.continuationEquipment;
-  // 確定アイテムは獲得後に不可視化するが、枠は残して右隣の効果脅威カードを動かさない。
-  const fixedOwnerEquipmentClaimed = Boolean(continuationEquipment?.continuationOwnerName
-    && game.continuationEquipmentOwnerId);
+  // 獲得済みアイテムは不可視化するが、枠は残して右隣の効果脅威カードを動かさない。
+  const continuationEquipmentClaimed = Boolean(game.continuationEquipmentOwnerId);
   const showContinuationEquipment = Boolean(continuationEquipment);
   const challengeWasSelected = Boolean(game.continuationChallengeSelectedAt);
   const showContinuationChallenge = Boolean(game.continuationSpecialThreat && !challengeWasSelected);
@@ -6423,7 +6422,7 @@ function renderCharacterPicker(){
     const equipmentChoice = document.createElement('button');
     equipmentChoice.type = 'button';
     equipmentChoice.className = 'character-choice continuation-equipment-choice';
-    equipmentChoice.classList.toggle('chosen-placeholder', fixedOwnerEquipmentClaimed);
+    equipmentChoice.classList.toggle('chosen-placeholder', continuationEquipmentClaimed);
     const canClaim = canClaimContinuationEquipment(game, state.userId);
     equipmentChoice.classList.toggle('claimable', canClaim);
     equipmentChoice.disabled = !canClaim;
