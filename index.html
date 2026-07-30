@@ -529,6 +529,10 @@
   .my-card.yellow-one .card-number{color:var(--card-color);}
   .my-card.yellow-one .card-mark{height:18px;margin-top:-1px;}
   .my-card.yellow-one .card-name{left:3px;right:3px;padding:0 7px;box-sizing:border-box;font-size:9px;letter-spacing:-.06em;white-space:nowrap;overflow:hidden;}
+  .my-card.yellow-one-winner{animation:yellowOneWinnerGlow 1.6s ease-in-out infinite;}
+  .my-card.yellow-one-winner::before{content:'';position:absolute;inset:0;z-index:5;pointer-events:none;background:linear-gradient(115deg,transparent 15%,rgba(255,247,164,.25) 32%,rgba(255,255,255,.9) 48%,rgba(255,211,53,.38) 62%,transparent 80%);background-size:240% 100%;animation:yellowOneWinnerSweep 1.6s linear infinite;mix-blend-mode:screen;}
+  @keyframes yellowOneWinnerGlow{50%{box-shadow:0 0 10px 4px rgba(255,220,70,.9),0 0 22px 8px rgba(255,244,160,.55),inset 0 0 0 2px #fff7a8;}}
+  @keyframes yellowOneWinnerSweep{from{background-position:130% 0}to{background-position:-130% 0}}
   .character-card{
     --character-frame:#73583a;--character-panel:#fff8e8;--character-inner-frame:#fff9e9;
     --character-label-frame:color-mix(in srgb,var(--character-frame) 50%,transparent);
@@ -1514,6 +1518,7 @@ function createCardElement(cardData){
   if (cardData.kind === 'threat' && Number(state.game?.stageNumber) === 13) card.classList.add('chapter-thirteen-threat');
   const isYellowOne = cardData.kind !== 'threat' && cardData.color === 'yellow' && cardData.number === 1;
   if (isYellowOne) card.classList.add('yellow-one');
+  if (isYellowOne && state.game?.yellowOneWinningCards?.[cardData.id]) card.classList.add('yellow-one-winner');
   card.setAttribute('aria-label', cardData.kind === 'threat' && cardData.concealed
     ? '非公開の脅威カード' : `${cardData.kind === 'threat' ? '脅威 ' : ''}${cardData.name} ${cardData.number}`);
   if (cardData.id) card.dataset.cardId = cardData.id;
@@ -4916,30 +4921,73 @@ function renderYellowOneDecision(){
   yellowOneDecision.classList.toggle('hidden', !visible);
 }
 
+function nextTrickPlayer(game, room, playerId){
+  const order = game.playerOrder || [];
+  const currentIndex = order.indexOf(playerId);
+  return Array.from({ length:Math.max(0, order.length - 1) }, (_, offset) => order[(currentIndex + offset + 1) % order.length])
+    .find(id => !game.trick?.[id] && (room.hands?.[id]?.cards || []).some(card => card.kind !== 'character')) || null;
+}
+
+function completeCurrentTrick(room, yellowOneWins = false){
+  const game = room.game;
+  const order = game.playerOrder || [];
+  const entries = Object.entries(game.trick || {}).sort(([, left], [, right]) => left.order - right.order);
+  const plays = entries.map(([, play]) => play);
+  if (!plays.length) return;
+  if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3
+    && balrogOverpowersTrick(game.balrogRevealed, plays)) game.pendingBalrogFailure = true;
+  const lead = plays[0].card.color;
+  const riverPlays = Number(game.stageNumber) === 17 ? plays.filter(play => play.card.color === 'river') : [];
+  const normalWinnerPlay = riverPlays.length
+    ? riverPlays.reduce((best, play) => Number(play.card.number) > Number(best.card.number) ? play : best)
+    : plays.filter(play => play.card.color === lead).reduce((best, play) => play.card.number > best.card.number ? play : best);
+  const yellowOneEntry = entries.find(([, play]) => play.card.color === 'yellow' && Number(play.card.number) === 1);
+  const yellowOneWinsTrick = Boolean(yellowOneEntry
+    && (yellowOneWins || game.yellowOneWinningCards?.[yellowOneEntry[1].card.id]));
+  const winnerEntry = yellowOneWinsTrick
+    ? yellowOneEntry
+    : entries.find(([, play]) => play === normalWinnerPlay) || entries[0];
+  const [winnerId, winnerPlay] = winnerEntry;
+  const leadPlayerId = entries.find(([, play]) => play.order === 0)?.[0] || winnerId;
+  const oldForestWins = oldForestWinsTrick(game, plays);
+  if (!oldForestWins) {
+    game.lastWinnerId = winnerId;
+    game.tricksWon ||= {};
+    game.tricksWon[winnerId] = (game.tricksWon[winnerId] || 0) + 1;
+  }
+  const gatherAt = Date.now() + 2000;
+  game.pendingCapture = {
+    winnerId:oldForestWins ? leadPlayerId : winnerId,
+    ...(oldForestWins ? { captureOwner:'old-forest' } : {}),
+    cards:plays.map(play => play.card), winningCardId:winnerPlay.card.id,
+    trickNumber:game.trickNumber || 1,
+    remainingSuitsByPlayer:Object.fromEntries(order.map(id => [id,
+      [...new Set((room.hands?.[id]?.cards || []).filter(item => item.kind !== 'character').map(item => item.color))]
+    ])),
+    gatherAt, captureAt:gatherAt + 700
+  };
+  const winningCharacter = game.characterSelections?.[winnerId]?.name;
+  const bilboChoosesNextLeader = !oldForestWins && winningCharacter === 'ビルボ・バギンズ';
+  game.turnPlayerId = bilboChoosesNextLeader ? null : (oldForestWins ? leadPlayerId : winnerId);
+  game.trickNumber = (game.trickNumber || 1) + 1;
+  const tomPlayerId = Object.entries(game.characterSelections || {}).find(([, character]) => character.name === 'トム・ボンバディル')?.[0];
+  const ordinaryCardsRemain = id => (room.hands?.[id]?.cards || []).some(card => card.kind !== 'character');
+  game.finished = tomPlayerId ? order.some(id => id !== tomPlayerId && !ordinaryCardsRemain(id)) : order.every(id => !ordinaryCardsRemain(id));
+  if (!game.finished && bilboChoosesNextLeader) game.pendingCapture.bilboChoosesNextLeader = true;
+}
+
 async function decideYellowOne(wins){
   if (!state.roomCode) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
     const pending = room?.game?.pendingYellowOneDecision;
     if (!pending || pending.playerId !== state.userId) return;
-    const winnerId = wins ? pending.playerId : pending.normalWinnerId;
-    room.game.lastWinnerId = winnerId;
-    room.game.tricksWon ||= {};
-    room.game.tricksWon[winnerId] = (room.game.tricksWon[winnerId] || 0) + 1;
-    // 第15章は目隠しのカードが表になった時点から最低2秒間、場に残して確認できるようにする。
-    const gatherAt = Number(room.game.stageNumber) === 15
-      ? Date.now() + 2000
-      : Date.now() + 250;
-    room.game.pendingCapture = {
-      winnerId, cards:pending.cards,
-      winningCardId:wins ? pending.yellowOneCardId : pending.normalWinningCardId,
-      trickNumber:pending.trickNumber,
-      remainingSuitsByPlayer:pending.remainingSuitsByPlayer,
-      gatherAt, captureAt:gatherAt + 700
-    };
-    room.game.turnPlayerId = winnerId;
-    room.game.trickNumber = (room.game.trickNumber || 1) + 1;
-    if ((room.game.playerOrder || []).every(id => !(room.hands?.[id]?.cards || []).some(card => card.kind !== 'character'))) room.game.finished = true;
+    if (wins) {
+      room.game.yellowOneWinningCards ||= {};
+      room.game.yellowOneWinningCards[pending.yellowOneCardId] = true;
+    }
     delete room.game.pendingYellowOneDecision;
+    if (pending.trickComplete) completeCurrentTrick(room, wins);
+    else room.game.turnPlayerId = nextTrickPlayer(room.game, room, pending.playerId);
     return room;
   });
 }
@@ -5633,70 +5681,19 @@ async function playCard(cardIndex, expectedCard){
     const trickPlayers = order.filter(id => room.game.trick[id]
       || (room.hands[id]?.cards || []).some(handCard => handCard.kind !== 'character'
         && (room.game.shadowfaxReservedCard?.playerId !== id || room.game.shadowfaxReservedCard.inHand || handCard.id !== room.game.shadowfaxReservedCard.id)));
-    if (existing.length + 1 === trickPlayers.length) {
-      const plays = [...existing, room.game.trick[state.userId]];
-      if (Number(room.game.stageNumber) === 14 && Number(room.game.moriaEventIndex) === 3) {
-        if (balrogOverpowersTrick(room.game.balrogRevealed, plays)) {
-          // カード獲得演出が完了するまで結果表示を保留する。
-          room.game.pendingBalrogFailure = true;
-        }
-      }
-      const lead = plays[0].card.color;
-      // 第18章では大河も通常スートなので、切り札として扱わない。
-      const riverPlays = Number(room.game.stageNumber) === 17 ? plays.filter(play => play.card.color === 'river') : [];
-      const winnerPlay = riverPlays.length
-        ? riverPlays.reduce((best, play) => Number(play.card.number) > Number(best.card.number) ? play : best)
-        : plays.filter(p=>p.card.color===lead).reduce((best,p)=>p.card.number>best.card.number?p:best);
-      const winnerId = Object.entries(room.game.trick).find(([,p])=>p===winnerPlay)?.[0] || state.userId;
-      const leadPlayerId = Object.entries(room.game.trick).find(([, play]) => play.order === 0)?.[0] || winnerId;
-      const oldForestWins = oldForestWinsTrick(room.game, plays);
-      const yellowOneEntry = Object.entries(room.game.trick)
-        .find(([, play]) => play.card.color === 'yellow' && play.card.number === 1);
-      if (!oldForestWins && yellowOneEntry && yellowOneEntry[0] !== winnerId) {
-        // 通常判定では黄1が勝てない場合だけ、所持者の選択まで回収を保留する。
-        room.game.pendingYellowOneDecision = {
-          playerId:yellowOneEntry[0], normalWinnerId:winnerId,
-          cards:plays.map(p => p.card), normalWinningCardId:winnerPlay.card.id,
-          yellowOneCardId:yellowOneEntry[1].card.id, requestedAt:Date.now(),
-          trickNumber:room.game.trickNumber || 1,
-          remainingSuitsByPlayer:Object.fromEntries(order.map(id => [id,
-            [...new Set((room.hands[id]?.cards || []).filter(item => item.kind !== 'character').map(item => item.color))]
-          ]))
-        };
-        room.game.turnPlayerId = null;
-      } else {
-        if (!oldForestWins) {
-          room.game.lastWinnerId = winnerId;
-          room.game.tricksWon ||= {};
-          room.game.tricksWon[winnerId] = (room.game.tricksWon[winnerId] || 0) + 1;
-        }
-        const gatherAt = Date.now() + 2000;
-        room.game.pendingCapture = {
-          winnerId:oldForestWins ? leadPlayerId : winnerId,
-          ...(oldForestWins ? { captureOwner:'old-forest' } : {}),
-          cards:plays.map(p => p.card), winningCardId:winnerPlay.card.id,
-          trickNumber:room.game.trickNumber || 1,
-          remainingSuitsByPlayer:Object.fromEntries(order.map(id => [id,
-            [...new Set((room.hands[id]?.cards || []).filter(item => item.kind !== 'character').map(item => item.color))]
-          ])),
-          gatherAt, captureAt:gatherAt + 700
-        };
-        const winningCharacter = room.game.characterSelections?.[winnerId]?.name;
-        const bilboChoosesNextLeader = !oldForestWins && winningCharacter === 'ビルボ・バギンズ';
-        room.game.turnPlayerId = bilboChoosesNextLeader ? null : (oldForestWins ? leadPlayerId : winnerId);
-        room.game.trickNumber = (room.game.trickNumber || 1) + 1;
-        const tomPlayerId = Object.entries(room.game.characterSelections || {})
-          .find(([, character]) => character.name === 'トム・ボンバディル')?.[0];
-        const ordinaryCardsRemain = id => (room.hands[id]?.cards || []).some(card => card.kind !== 'character');
-        room.game.finished = tomPlayerId
-          ? order.some(id => id !== tomPlayerId && !ordinaryCardsRemain(id))
-          : order.every(id => !ordinaryCardsRemain(id));
-        if (!room.game.finished && bilboChoosesNextLeader) room.game.pendingCapture.bilboChoosesNextLeader = true;
-      }
+    const trickComplete = existing.length + 1 === trickPlayers.length;
+    const isYellowOne = card.color === 'yellow' && Number(card.number) === 1;
+    if (isYellowOne) {
+      // 黄1を出した本人が選び終えるまで次プレイヤーの手番（パルスを含む）を開始しない。
+      room.game.pendingYellowOneDecision = {
+        playerId:state.userId, yellowOneCardId:card.id,
+        trickNumber:room.game.trickNumber || 1, trickComplete, requestedAt:Date.now()
+      };
+      room.game.turnPlayerId = null;
+    } else if (trickComplete) {
+      completeCurrentTrick(room, false);
     } else {
-      const currentIndex = order.indexOf(state.userId);
-      room.game.turnPlayerId = Array.from({ length: order.length - 1 }, (_, offset) => order[(currentIndex + offset + 1) % order.length])
-        .find(id => !room.game.trick[id] && (room.hands[id]?.cards || []).some(handCard => handCard.kind !== 'character'));
+      room.game.turnPlayerId = nextTrickPlayer(room.game, room, state.userId);
     }
     return room;
   });
