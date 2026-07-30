@@ -2516,7 +2516,11 @@ function createThreatConditionIcon(playerId, threatName){
   const squareColor = restriction.name === '恐怖' ? 'orange' : restriction.name === 'モルグルの刃' ? 'yellow' : '';
   square.className = `victory-condition-square${squareColor ? ` ${squareColor}` : ''}`;
   if (restriction.name === '黒の息') {
-    icon.append('✕', square);
+    const fail = document.createElement('span');
+    fail.className = 'victory-condition-fail';
+    fail.textContent = '✕';
+    square.classList.add('black');
+    icon.append(fail, square);
     square.textContent = '8';
     icon.setAttribute('aria-label', '8を獲得してはいけない');
   } else {
@@ -4726,6 +4730,8 @@ async function chooseGlorfindelExchangeCard(cardId, droppedTargetId){
     const targetId = isSource ? droppedTargetId : state.userId;
     if (!pending.candidates?.includes(targetId) || (!isSource && droppedTargetId !== pending.sourceId)) return;
     pending.sourceCards ||= {}; pending.targetCards ||= {};
+    // 小馬のビルとの同時交換では、小馬がその相手へ先に札を送るまで相手側は返送できない。
+    if (!isSource && pending.characterName === '小馬のビル' && !pending.sourceCards[targetId]) return;
     if ((isSource && pending.sourceCards[targetId]) || (!isSource && pending.targetCards[targetId])) return;
     const hand = room.hands?.[state.userId]?.cards || [];
     const cardIndex = hand.findIndex(card => card.id === cardId && card.kind !== 'character');
@@ -5131,7 +5137,8 @@ function renderMyHand(){
   const canChooseGlorfindelCard = state.game?.phase === 'glorfindel-exchange-selection' && glorfindelExchange
     && (glorfindelExchange.sourceId === myId
       ? (glorfindelExchange.candidates || []).some(id => !glorfindelExchange.sourceCards?.[id])
-      : (glorfindelExchange.candidates || []).includes(myId) && !glorfindelExchange.targetCards?.[myId]);
+      : (glorfindelExchange.candidates || []).includes(myId) && !glorfindelExchange.targetCards?.[myId]
+        && (glorfindelExchange.characterName !== '小馬のビル' || glorfindelExchange.sourceCards?.[myId]));
   const darknessOutgoingPending = state.game?.phase === 'darkness-exchange-selection'
     && darknessExchange?.sources?.includes(myId) && !darknessExchange.offers?.[myId];
   const darknessReturnPending = state.game?.phase === 'darkness-exchange-selection'
@@ -5451,7 +5458,8 @@ function beginExchangeCardDrag(event, cardData, source){
     : isDarknessExchange ? [...new Set([...darknessOutgoingTargets, ...darknessReturnTargets])]
     : isGlorfindelExchange ? (glorfindelExchange.sourceId === state.userId
       ? (glorfindelExchange.candidates || []).filter(id => !glorfindelExchange.sourceCards?.[id])
-      : [glorfindelExchange.sourceId])
+      : (glorfindelExchange.characterName !== '小馬のビル' || glorfindelExchange.sourceCards?.[state.userId]
+        ? [glorfindelExchange.sourceId] : []))
     : exchange?.sourceId === state.userId ? (exchange.targetId ? [exchange.targetId] : exchange.candidates || [])
       : [exchange?.sourceId].filter(Boolean);
   const targets = targetIds.map(playerId => {
@@ -6559,7 +6567,8 @@ function renderPlayerCircle(players){
     const choosingGlorfindelCard = state.game?.phase === 'glorfindel-exchange-selection' && pendingGlorfindel
       && (pendingGlorfindel.sourceId === state.userId
         ? (pendingGlorfindel.candidates || []).some(id => !pendingGlorfindel.sourceCards?.[id])
-        : pendingGlorfindel.candidates?.includes(state.userId) && !pendingGlorfindel.targetCards?.[state.userId]);
+        : pendingGlorfindel.candidates?.includes(state.userId) && !pendingGlorfindel.targetCards?.[state.userId]
+          && (pendingGlorfindel.characterName !== '小馬のビル' || pendingGlorfindel.sourceCards?.[state.userId]));
     const darknessOutgoingTargets = state.game?.phase === 'darkness-exchange-selection'
       && pendingDarkness?.sources?.includes(state.userId) && !pendingDarkness.offers?.[state.userId]
       ? exchangeCandidates(state.game, state.userId) : [];
@@ -6573,7 +6582,8 @@ function renderPlayerCircle(players){
       : state.game?.phase === 'darkness-exchange-selection' ? [...new Set([...darknessOutgoingTargets, ...darknessReturnTargets])]
       : choosingGlorfindelCard ? (pendingGlorfindel.sourceId === state.userId
         ? pendingGlorfindel.candidates.filter(id => !pendingGlorfindel.sourceCards?.[id])
-        : [pendingGlorfindel.sourceId])
+        : (pendingGlorfindel.characterName !== '小馬のビル' || pendingGlorfindel.sourceCards?.[state.userId]
+          ? [pendingGlorfindel.sourceId] : []))
       : pendingExchange?.sourceId === state.userId ? (pendingExchange.targetId ? [pendingExchange.targetId] : pendingExchange.candidates || [])
         : state.game?.phase === 'galadriel-lost-selection' && state.game?.specialSelectionPlayerId === state.userId
           ? exchangeCandidates(state.game, state.userId)
@@ -6606,6 +6616,10 @@ function renderPlayerCircle(players){
       receivedCard.className = 'exchange-received-card';
       receivedCard.dataset.cardId = heldCard.id;
       receivedCard.setAttribute('aria-label', 'エルロンドの効果で受け取った保留カード');
+      if (p.id === state.userId) {
+        receivedCard.classList.add('face-up');
+        receivedCard.appendChild(createCardElement(heldCard));
+      }
       tag.appendChild(receivedCard);
     }
     const simultaneousExchange = state.game?.pendingGlorfindelExchange;
@@ -6621,8 +6635,8 @@ function renderPlayerCircle(players){
       receivedCard.style.setProperty('--received-offset-y', `${heldIndex * 3}px`);
       receivedCard.style.setProperty('--received-tilt', `${(heldIndex - (heldSimultaneousCards.length - 1) / 2) * 4}deg`);
       receivedCard.setAttribute('aria-label', `${simultaneousExchange.characterName || 'グロルフィンデル'}の同時交換で受け取る保留カード`);
-      // グロルフィンデルから相手へ渡された札は表向き、グロルフィンデルが受け取る札は裏向きで待機する。
-      if (simultaneousExchange.sourceId !== p.id) {
+      // 受信者本人だけが表を確認できる。複数枚を受け取る交換元（小馬／グロルフィンデル）の保留札は本人にも裏向き。
+      if (simultaneousExchange.sourceId !== p.id && p.id === state.userId) {
         receivedCard.classList.add('face-up');
         receivedCard.appendChild(createCardElement(heldGlorfindelCard));
       }
