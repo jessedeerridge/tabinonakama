@@ -2401,7 +2401,11 @@ function darknessThreatIsRevealed(room, playerId, character){
 
 function skipsCharacterThreatDraw(game, characterName){
   // 〈バーリンの墓所〉はイベントカード自体がギムリの脅威となるため、通常の脅威ドローを行わない。
-  return Number(game?.stageNumber) === 14 && Number(game?.moriaEventIndex) === 1 && characterName === 'ギムリ';
+  const moriaTombGimli = Number(game?.stageNumber) === 14
+    && Number(game?.moriaEventIndex) === 1 && characterName === 'ギムリ';
+  // 続の章の重荷キャラクターは、効果に脅威ドローがあっても数値脅威を引かない。
+  const continuationBurden = Boolean(game?.continuation && characterName === game.continuationBurdenName);
+  return moriaTombGimli || continuationBurden;
 }
 
 const CHARACTER_EFFECT_THREAT_DRAWERS = new Set([
@@ -6101,13 +6105,10 @@ function finishCharacterSelection(room){
       && room.game.continuationSpecialThreat && !room.game.continuationSpecialThreatAssigned) {
     const invisible = room.game.continuationSpecialThreat.name === '見えざる者';
     const threatDrawers = Object.entries(room.game.characterSelections)
-      .filter(([, selected]) => characterDrawsThreat(selected.name)).map(([id]) => id);
+      .filter(([, selected]) => characterDrawsThreat(selected.name)
+        && !skipsCharacterThreatDraw(room.game, selected.name)).map(([id]) => id);
     const specialCandidates = invisible ? threatDrawers : [...room.game.playerOrder];
     const targetId = specialCandidates[Math.floor(Math.random() * specialCandidates.length)];
-    const burdenPlayerId = Object.entries(room.game.characterSelections)
-      .find(([, selected]) => selected.name === room.game.continuationBurdenName)?.[0];
-    const numberCandidates = room.game.playerOrder.filter(id => id !== burdenPlayerId);
-    const numberTargetId = numberCandidates[Math.floor(Math.random() * numberCandidates.length)];
     room.game.threatCards ||= {};
     if (targetId) {
       room.game.threatCards[targetId] ||= [];
@@ -6117,17 +6118,7 @@ function finishCharacterSelection(room){
       });
       room.game.continuationSpecialThreatPlayerId = targetId;
     }
-    if (numberTargetId) {
-      // 追加の数値脅威はキャラクターの効果ターンを待たず、ゲーム開始前に直接配布する。
-      room.game.threatCards[numberTargetId] ||= [];
-      room.game.threatCards[numberTargetId].push({
-        kind:'threat', color:'threat', name:'脅威', number:room.game.continuationChallengeThreatNumber,
-        id:`${numberTargetId}-continuation-number-threat-${Date.now()}`,
-        numberRevealedAt:Date.now() + 3500
-      });
-      room.game.continuationChallengeThreatPlayerId = numberTargetId;
-    }
-    room.game.continuationChallengeActive = Boolean(targetId && numberTargetId);
+    room.game.continuationChallengeActive = Boolean(targetId);
     room.game.continuationSpecialThreatAssigned = true;
   }
   if (Number(room.game.stageNumber) === 15) {
@@ -7410,7 +7401,7 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     const specialThreat = CONTINUATION_THREATS[Math.floor(Math.random() * CONTINUATION_THREATS.length)];
     continuationSetup = {
       equipment:{ ...equipment },
-      burdenName:CHARACTER_NAMES[burdenCode], challengeThreatNumber:Math.floor(Math.random() * 7) + 1,
+      burdenName:CHARACTER_NAMES[burdenCode],
       specialThreat:{ ...specialThreat }
     };
   }
@@ -7480,7 +7471,6 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
         continuation:true,
         continuationEquipment:continuationSetup.equipment,
         continuationBurdenName:continuationSetup.burdenName,
-        continuationChallengeThreatNumber:continuationSetup.challengeThreatNumber,
         continuationSpecialThreat:continuationSetup.specialThreat
       } : {}),
       ...(excludedCard ? { excludedCard, excludedCardTilt:excludedCardTilts[0] } : {}),
