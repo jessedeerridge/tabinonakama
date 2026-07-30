@@ -622,6 +622,9 @@
   .character-choice.continuation-equipment-choice{cursor:default;}
   .character-choice.continuation-equipment-choice.claimable{cursor:pointer;animation:ringRequiredPulse 1.05s ease-in-out infinite;}
   .character-choice.continuation-equipment-choice.claimed{filter:brightness(.62);}
+  .character-choice.continuation-challenge-choice{cursor:pointer;}
+  .character-choice.continuation-challenge-achieved{cursor:not-allowed;}
+  .character-choice.continuation-challenge-achieved>.my-card{outline:2px solid #102b50;outline-offset:2px;}
   .character-choice.long-chapter-achieved>.character-card{outline:1.5px solid #102b50;outline-offset:2px;}
   @keyframes ringRequiredPulse{50%{transform:translateY(-7px) scale(1.06)}}
   /* 全員の目的達成後は、章完了演出に視線を集めるためカードのパルスを止める。 */
@@ -1503,6 +1506,10 @@ function canClaimContinuationEquipment(game, playerId){
   if (!equipment || !characterName || game.continuationEquipmentOwnerId) return false;
   if (equipment.name === '折れたる剣') return characterDrawsThreat(characterName);
   return equipment.name === 'ゴンドールの角笛';
+}
+
+function continuationChallengeAchieved(room, threatName){
+  return Boolean(threatName && room?.longChapterProgress?.continuationThreats?.[threatName]);
 }
 
 function ignoresFollowSuit(game, playerId){
@@ -3929,6 +3936,20 @@ async function claimContinuationEquipment(){
   });
 }
 
+async function selectContinuationChallenge(){
+  if (!state.roomCode || state.game?.phase !== 'character-selection'
+      || state.game.continuationChallengeSelectedAt
+      || continuationChallengeAchieved(state.room, state.game.continuationSpecialThreat?.name)) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const game = room?.game;
+    if (game?.phase !== 'character-selection' || !game.continuationSpecialThreat
+        || game.continuationChallengeSelectedAt
+        || continuationChallengeAchieved(room, game.continuationSpecialThreat.name)) return;
+    game.continuationChallengeSelectedAt = Date.now();
+    return room;
+  });
+}
+
 continuationEquipmentDecision.querySelector('[data-equipment-decision="yes"]')
   .addEventListener('click', event => event.preventDefault());
 attachTwoSecondHold(
@@ -6215,19 +6236,36 @@ async function chooseCharacter(characterName, source){
     }
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
-      if (room.game.continuationSpecialThreat && !room.game.continuationSpecialThreatAssigned) {
+      if (room.game.continuationChallengeSelectedAt
+          && room.game.continuationSpecialThreat && !room.game.continuationSpecialThreatAssigned) {
         const invisible = room.game.continuationSpecialThreat.name === '見えざる者';
         const threatDrawers = Object.entries(room.game.characterSelections)
           .filter(([, selected]) => characterDrawsThreat(selected.name)).map(([id]) => id);
-        const targetId = invisible && threatDrawers.length
-          ? threatDrawers[Math.floor(Math.random() * threatDrawers.length)]
-          : room.game.continuationSpecialThreatFallbackPlayerId;
+        const specialCandidates = invisible ? threatDrawers : [...room.game.playerOrder];
+        const targetId = specialCandidates[Math.floor(Math.random() * specialCandidates.length)];
+        const burdenPlayerId = Object.entries(room.game.characterSelections)
+          .find(([, selected]) => selected.name === room.game.continuationBurdenName)?.[0];
+        const numberCandidates = room.game.playerOrder.filter(id => id !== burdenPlayerId);
+        const numberTargetId = numberCandidates[Math.floor(Math.random() * numberCandidates.length)];
         room.game.threatCards ||= {};
-        room.game.threatCards[targetId] ||= [];
-        room.game.threatCards[targetId].unshift({
-          kind:'special-threat', color:'threat', ...room.game.continuationSpecialThreat,
-          id:`${targetId}-continuation-threat-${Date.now()}`
-        });
+        if (targetId) {
+          room.game.threatCards[targetId] ||= [];
+          room.game.threatCards[targetId].unshift({
+            kind:'special-threat', color:'threat', ...room.game.continuationSpecialThreat,
+            id:`${targetId}-continuation-special-threat-${Date.now()}`
+          });
+          room.game.continuationSpecialThreatPlayerId = targetId;
+        }
+        if (numberTargetId) {
+          room.game.threatCards[numberTargetId] ||= [];
+          room.game.threatCards[numberTargetId].push({
+            kind:'threat', color:'threat', name:'脅威', number:room.game.continuationChallengeThreatNumber,
+            id:`${numberTargetId}-continuation-number-threat-${Date.now()}`,
+            numberRevealedAt:Date.now() + 3500
+          });
+          room.game.continuationChallengeThreatPlayerId = numberTargetId;
+        }
+        room.game.continuationChallengeActive = Boolean(targetId && numberTargetId);
         room.game.continuationSpecialThreatAssigned = true;
       }
       if (Number(room.game.stageNumber) === 15) {
@@ -6315,7 +6353,10 @@ function renderCharacterPicker(){
   const hasYellowOne = (state.hands?.[state.userId]?.cards || [])
     .some(card => card.color === 'yellow' && card.number === 1);
   const continuationEquipment = game.continuationEquipment;
-  const displayedChoiceCount = allCharacters.length + (continuationEquipment ? 1 : 0);
+  const challengeWasSelected = Boolean(game.continuationChallengeSelectedAt);
+  const showContinuationChallenge = Boolean(game.continuationSpecialThreat && !challengeWasSelected);
+  const displayedChoiceCount = allCharacters.length + (continuationEquipment ? 1 : 0)
+    + (showContinuationChallenge ? 2 : 0);
   if (displayedChoiceCount >= 5) {
     characterPickerRow.classList.add('two-rows');
     const rowCount = displayedChoiceCount > 10 ? 3 : 2;
@@ -6373,6 +6414,33 @@ function renderCharacterPicker(){
       openContinuationEquipmentPrompt();
     });
     characterPickerRow.appendChild(equipmentChoice);
+  }
+  if (showContinuationChallenge) {
+    const challengeAchieved = continuationChallengeAchieved(state.room, game.continuationSpecialThreat.name);
+    const addChallengeChoice = (cardData, label) => {
+      const choice = document.createElement('button');
+      choice.type = 'button';
+      choice.className = 'character-choice continuation-challenge-choice';
+      choice.classList.toggle('continuation-challenge-achieved', challengeAchieved);
+      choice.disabled = challengeAchieved || game.phase !== 'character-selection';
+      choice.setAttribute('aria-label', label);
+      const card = createCardElement(cardData);
+      card.style.pointerEvents = 'none';
+      choice.appendChild(card);
+      choice.addEventListener('click', event => {
+        event.stopPropagation();
+        selectContinuationChallenge();
+      });
+      characterPickerRow.appendChild(choice);
+    };
+    addChallengeChoice(
+      { kind:'special-threat', color:'threat', ...game.continuationSpecialThreat },
+      `追加脅威 ${game.continuationSpecialThreat.name}`
+    );
+    addChallengeChoice({
+      kind:'threat', color:'threat', name:'脅威', number:game.continuationChallengeThreatNumber,
+      concealed:true
+    }, '裏向きの追加脅威カード');
   }
   if (continuationEquipmentPromptOpen && !canClaimContinuationEquipment(game, state.userId)) {
     continuationEquipmentPromptOpen = false;
@@ -7337,7 +7405,8 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     const specialThreat = CONTINUATION_THREATS[Math.floor(Math.random() * CONTINUATION_THREATS.length)];
     continuationSetup = {
       equipment:{ ...equipment },
-      specialThreat:{ ...specialThreat }, specialThreatFallbackPlayerId:playerOrder[Math.floor(Math.random() * playerOrder.length)]
+      burdenName:CHARACTER_NAMES[burdenCode], challengeThreatNumber:Math.floor(Math.random() * 4) + 1,
+      specialThreat:{ ...specialThreat }
     };
   }
   const fellowshipGroups = Number(stageNumber) === 18 ? {
@@ -7405,8 +7474,9 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
       ...(continuationSetup ? {
         continuation:true,
         continuationEquipment:continuationSetup.equipment,
-        continuationSpecialThreat:continuationSetup.specialThreat,
-        continuationSpecialThreatFallbackPlayerId:continuationSetup.specialThreatFallbackPlayerId
+        continuationBurdenName:continuationSetup.burdenName,
+        continuationChallengeThreatNumber:continuationSetup.challengeThreatNumber,
+        continuationSpecialThreat:continuationSetup.specialThreat
       } : {}),
       ...(excludedCard ? { excludedCard, excludedCardTilt:excludedCardTilts[0] } : {}),
       ...(isOldForest && excludedCards.length ? { excludedCards, excludedCardTilts } : {}),
@@ -7436,6 +7506,10 @@ chapterContinueBtn.addEventListener('click', async () => {
               room.longChapterProgress.characters[character.name] = true;
             }
           });
+          if (room.game.continuationChallengeActive && room.game.continuationSpecialThreat?.name) {
+            room.longChapterProgress.continuationThreats ||= {};
+            room.longChapterProgress.continuationThreats[room.game.continuationSpecialThreat.name] = true;
+          }
         }
       }
       room.game.continueClaim = claim;
