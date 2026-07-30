@@ -370,6 +370,7 @@
   .event-card-title{position:absolute;left:13%;right:13%;top:calc(8% - 6px);height:16%;display:grid;place-items:center;text-align:center;font-size:10px;font-weight:900;line-height:1.05;}
   .event-card-text{position:absolute;left:50%;top:58%;width:95px;height:112px;transform:translate(-50%,-50%) translateY(-2px);display:block;padding:2px;box-sizing:border-box;overflow:hidden;white-space:pre-line;text-align:left;font-size:10px;line-height:1.08;}
   .event-card-text strong{display:block;margin-bottom:2px;font-weight:900;}
+  .event-card-text .burden-character{display:inline;margin:0;color:#b51f24;font-weight:900;}
   .event-card-gap{display:block;height:3px;}
   /* 12章の二つ目の見出しだけ、章5・6の段落間隔を参考に手前を少し広く空ける。 */
   .event-card-gap.before-secondary-heading{height:5px;}
@@ -1365,11 +1366,12 @@ defineStage(18, {
   characters: ['frodo*,boromir_denethor,samwise_gamgee,aragorn_arathorn', 'meriadoc_brandybuck,peregrin_took,legolas_greenleaf,gimli_gloin'],
   threats: [{ name:'脅威', min:1, max:7 }],
   winCondition: 'long', goal: 'groupwin',
-  additionalElements: '〈イベント：アンドゥイン〉にしたがって、〈大河〉カードをメインデッキに加える。ただし、〈大河〉は通常のスートとして扱う。〈イベント：一行の離散〉にしたがう。',
+  additionalElements: '〈大河〉（1～8）を配る（3人なら1～6）。ただし、〈大河〉は通常のスートとして扱う。〈イベント：一行の離散〉にしたがう。',
   eventCards: [
     {
       title:'一行の離散', heading:'イベント：一行の離散', hammer:true,
-      text:'キャラクターたちは、2つのグループに分ける。赤字のキャラクターは重荷の面を使用する。\n\nグループ1：フロド*、デネソールの息子ボロミア、サムワイズ・ギャムジー、アラソルンの息子アラゴルン\n\nグループ2：メリアドク・ブランディバック、ペレグリン・トゥック、緑葉のレゴラス、グローインの息子ギムリ\n\n各ラウンド、〈指輪の1〉を持つプレイヤーがグループを選び、最初にキャラクターを選ぶ。'
+      text:'キャラクターたちは、2つのグループに分ける。赤字のキャラクターは重荷の面を使用する。\n\nグループ1：フロド*、デネソールの息子ボロミア、サムワイズ・ギャムジー、アラソルンの息子アラゴルン\n\nグループ2：メリアドク・ブランディバック、ペレグリン・トゥック、緑葉のレゴラス、グローインの息子ギムリ\n\n各ラウンド、〈指輪の1〉を持つプレイヤーがグループと、最初にキャラクターを選ぶ。',
+      burdenCharacters:['デネソールの息子ボロミア','サムワイズ・ギャムジー','アラソルンの息子アラゴルン','メリアドク・ブランディバック','ペレグリン・トゥック','緑葉のレゴラス','グローインの息子ギムリ']
     },
     {
       title:'一行の離散',
@@ -1549,9 +1551,21 @@ function populateEventCardElement(card, eventCard, { playerCount, eventIndex = -
   }
   if (eventCard?.text) {
     const value = eventIndex === 1 ? eventCard.text.replace(/\r?\n/g, '') : eventCard.text;
+    const appendEventText = value => {
+      const names = eventCard.burdenCharacters || [];
+      if (!names.length) { text.appendChild(document.createTextNode(value)); return; }
+      const pattern = new RegExp(`(${names.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'g');
+      value.split(pattern).filter(Boolean).forEach(part => {
+        if (!names.includes(part)) { text.appendChild(document.createTextNode(part)); return; }
+        const name = document.createElement('strong');
+        name.className = 'burden-character';
+        name.textContent = part;
+        text.appendChild(name);
+      });
+    };
     value.split(/\r?\n\r?\n/).forEach((part, index) => {
       if (index) { const gap = document.createElement('span'); gap.className = 'event-card-gap'; text.appendChild(gap); }
-      text.appendChild(document.createTextNode(part));
+      appendEventText(part);
     });
   }
   const playerText = typeof eventCard?.playerText === 'string' ? eventCard.playerText : eventCard?.playerText?.[Number(playerCount)];
@@ -2921,7 +2935,7 @@ function renderStageInformation(){
   const cards = Array.from(centerLowerCardArea.querySelectorAll('.center-lower-card'));
   const previousRects = cards.map(card => card.getBoundingClientRect());
   centerLowerCardArea.classList.toggle('hidden', !stage);
-  const isCharacterSelection = state.game?.phase === 'character-selection';
+  const isCharacterSelection = ['fellowship-group-selection', 'character-selection'].includes(state.game?.phase);
   centerLowerCardArea.classList.toggle('character-selection-layout', isCharacterSelection);
   centerLowerCardArea.classList.toggle('event-stage-layout', Boolean(stage?.eventCards?.length));
   centerLowerCardArea.classList.toggle('chapter-fourteen', isChapterFourteen);
@@ -3074,24 +3088,26 @@ function renderStageInformation(){
   const title = document.createElement('strong');
   title.className = 'stage-title';
   title.textContent = stage.title;
-  const characterHeading = document.createElement('strong');
-  characterHeading.className = 'character-heading';
-  characterHeading.textContent = 'キャラクター：';
-  info.append(heading, document.createElement('br'), title, characterHeading);
-  stage.characters.forEach(characterLine => {
-    const line = document.createElement('span');
-    line.className = 'character-line';
-    characterLine.split(',').forEach((characterCode, index) => {
-      const required = characterCode.endsWith('*');
-      const code = characterCode.replace(/\*+$/, '');
-      if (index) line.append(document.createTextNode(','));
-      const name = document.createElement(Number(stage.number) === 18 && code !== 'frodo' ? 'strong' : 'span');
-      name.classList.toggle('burden-character', Number(stage.number) === 18 && code !== 'frodo');
-      name.textContent = `${CHARACTER_NAMES[code] || code}${required ? '*' : ''}`;
-      line.append(name);
+  info.append(heading, document.createElement('br'), title);
+  if (Number(stage.number) !== 18) {
+    const characterHeading = document.createElement('strong');
+    characterHeading.className = 'character-heading';
+    characterHeading.textContent = 'キャラクター：';
+    info.append(characterHeading);
+    stage.characters.forEach(characterLine => {
+      const line = document.createElement('span');
+      line.className = 'character-line';
+      characterLine.split(',').forEach((characterCode, index) => {
+        const required = characterCode.endsWith('*');
+        const code = characterCode.replace(/\*+$/, '');
+        if (index) line.append(document.createTextNode(','));
+        const name = document.createElement('span');
+        name.textContent = `${CHARACTER_NAMES[code] || code}${required ? '*' : ''}`;
+        line.append(name);
+      });
+      info.append(line);
     });
-    info.append(line);
-  });
+  }
   if (stage.threats?.length) {
     const threatHeading = document.createElement('strong');
     threatHeading.className = 'character-heading';
@@ -4294,11 +4310,11 @@ fellowshipGroupDecision.querySelectorAll('.hold-decision').forEach(button => {
 
 function renderFellowshipGroupDecision(){
   const active = Number(state.game?.stageNumber) === 18
-    && state.game?.phase === 'fellowship-group-selection';
+    && state.game?.phase === 'fellowship-group-selection'
+    && state.game?.groupChooserPlayerId === state.userId;
   fellowshipGroupDecision.classList.toggle('hidden', !active);
-  fellowshipGroupDecision.classList.toggle('read-only', active && state.game?.groupChooserPlayerId !== state.userId);
   fellowshipGroupDecision.querySelectorAll('button').forEach(button => {
-    button.disabled = !active || state.game?.groupChooserPlayerId !== state.userId;
+    button.disabled = !active;
   });
 }
 
