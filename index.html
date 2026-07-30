@@ -619,6 +619,9 @@
   .required-character-dot{position:absolute;right:-6px;bottom:-6px;width:28px;height:28px;box-sizing:border-box;border:2px solid #10233f;border-radius:50%;background:transparent url('definitechara.jpg') center/cover no-repeat;z-index:5;pointer-events:none;}
   .character-choice.required-raised{transform:translateY(-5px);}
   .character-choice.ring-required-pulse{animation:ringRequiredPulse 1.05s ease-in-out infinite;}
+  .character-choice.continuation-equipment-choice{cursor:default;}
+  .character-choice.continuation-equipment-choice.claimable{cursor:pointer;animation:ringRequiredPulse 1.05s ease-in-out infinite;}
+  .character-choice.continuation-equipment-choice.claimed{filter:brightness(.62);}
   .character-choice.long-chapter-achieved>.character-card{outline:1.5px solid #102b50;outline-offset:2px;}
   @keyframes ringRequiredPulse{50%{transform:translateY(-7px) scale(1.06)}}
   /* 全員の目的達成後は、章完了演出に視線を集めるためカードのパルスを止める。 */
@@ -986,6 +989,15 @@
   <div class="yellow-one-note">＊2秒長押しで決定。</div>
 </section>
 
+<section id="continuationEquipmentDecision" class="yellow-one-decision hidden" aria-live="assertive">
+  <div class="yellow-one-question">このアイテムを獲得しますか。</div>
+  <div class="yellow-one-actions">
+    <button class="btn hold-decision" type="button" data-equipment-decision="yes"><span>はい</span></button>
+    <button class="btn hold-decision" type="button" data-equipment-decision="no"><span>いいえ</span></button>
+  </div>
+  <div class="yellow-one-note">＊「はい」は2秒長押しで決定。</div>
+</section>
+
 <div id="chapterCompleteBanner" class="chapter-complete-banner hidden" role="status" aria-live="assertive">
   <div id="chapterCompleteMessage" class="chapter-complete-message"></div>
   <button id="chapterContinueBtn" class="chapter-continue-btn" type="button">続ける</button>
@@ -1107,6 +1119,7 @@ const shadowfaxDecision = document.getElementById('shadowfaxDecision');
 const mithrilDecision = document.getElementById('mithrilDecision');
 const fellowshipGroupDecision = document.getElementById('fellowshipGroupDecision');
 const threatRedrawDecision = document.getElementById('threatRedrawDecision');
+const continuationEquipmentDecision = document.getElementById('continuationEquipmentDecision');
 
 const CHARACTER_NAMES = {
   frodo: 'フロド',
@@ -1449,7 +1462,7 @@ const STAGE_ELEVEN_EQUIPMENT = {
 const MITHRIL_COAT = {
   name:'ミスリルの胴着', specialName:'鋼よりも堅い',
   effect:'ラウンド終了時、キャラクター1人の目的が未達成なら、このカードを捨て札にして達成したものとして扱う。',
-  cardNumber:'3.11', rank:'黒', image:'mithril.jpg'
+  cardNumber:'3.11', rank:'黒', image:'mithril.jpg', continuationOwnerName:'フロド'
 };
 
 const TSURANUKIMARU = {
@@ -1482,6 +1495,14 @@ const CONTINUATION_THREATS = Object.values(STAGE_NINE_THREATS);
 
 function playerHasEquipment(game, playerId, equipmentName){
   return (game?.equipmentCards?.[playerId] || []).some(card => card.name === equipmentName);
+}
+
+function canClaimContinuationEquipment(game, playerId){
+  const equipment = game?.continuationEquipment;
+  const characterName = game?.characterSelections?.[playerId]?.name;
+  if (!equipment || !characterName || game.continuationEquipmentOwnerId) return false;
+  if (equipment.name === '折れたる剣') return characterDrawsThreat(characterName);
+  return equipment.name === 'ゴンドールの角笛';
 }
 
 function ignoresFollowSuit(game, playerId){
@@ -3883,6 +3904,42 @@ threatRedrawDecision.querySelectorAll('.hold-decision').forEach(button => {
   attachTwoSecondHold(button, () => decideThreatRedraw(button.dataset.threatRedraw === 'yes'));
 });
 
+let continuationEquipmentPromptOpen = false;
+
+function openContinuationEquipmentPrompt(){
+  if (!canClaimContinuationEquipment(state.game, state.userId)) return;
+  continuationEquipmentPromptOpen = true;
+  continuationEquipmentDecision.classList.remove('hidden');
+}
+
+async function claimContinuationEquipment(){
+  continuationEquipmentPromptOpen = false;
+  continuationEquipmentDecision.classList.add('hidden');
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    if (!canClaimContinuationEquipment(game, state.userId)) return;
+    game.equipmentCards ||= {};
+    game.equipmentCards[state.userId] ||= [];
+    game.equipmentCards[state.userId].push({
+      kind:'equipment', ...game.continuationEquipment,
+      id:`${state.userId}-continuation-equipment-${Date.now()}`
+    });
+    game.continuationEquipmentOwnerId = state.userId;
+    return game;
+  });
+}
+
+continuationEquipmentDecision.querySelector('[data-equipment-decision="yes"]')
+  .addEventListener('click', event => event.preventDefault());
+attachTwoSecondHold(
+  continuationEquipmentDecision.querySelector('[data-equipment-decision="yes"]'),
+  claimContinuationEquipment
+);
+continuationEquipmentDecision.querySelector('[data-equipment-decision="no"]').addEventListener('click', () => {
+  continuationEquipmentPromptOpen = false;
+  continuationEquipmentDecision.classList.add('hidden');
+});
+
 function renderThreatRedrawDecision(){
   const eligible = state.game?.phase === 'threat-redraw-selection'
     && state.game?.threatRedrawPlayerId === state.userId;
@@ -6146,28 +6203,18 @@ async function chooseCharacter(characterName, source){
       // 通常プレイのスタピーは、この後カード効果から別途決定する。
       room.game.effectStartingPlayerId = state.userId;
     }
+    if (room.game.continuation && room.game.continuationEquipment?.continuationOwnerName === characterName
+        && !room.game.continuationEquipmentOwnerId) {
+      room.game.equipmentCards ||= {};
+      room.game.equipmentCards[state.userId] ||= [];
+      room.game.equipmentCards[state.userId].push({
+        kind:'equipment', ...room.game.continuationEquipment,
+        id:`${state.userId}-continuation-equipment-${Date.now()}`
+      });
+      room.game.continuationEquipmentOwnerId = state.userId;
+    }
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
-      if (room.game.continuation && !room.game.continuationEquipmentAssigned) {
-        const selectedCharacters = Object.entries(room.game.characterSelections);
-        const selectedNames = new Set(selectedCharacters.map(([, selected]) => selected.name));
-        // 続の章のアイテムはキャラクター選択後に抽選する。グラムドリングは
-        // 渡す相手となるガンダルフが実際に選ばれた場合だけ候補に加える。
-        const equipmentCandidates = CONTINUATION_EQUIPMENT.filter(equipment =>
-          equipment.name !== 'グラムドリング' || selectedNames.has('ガンダルフ'));
-        const equipment = equipmentCandidates[Math.floor(Math.random() * equipmentCandidates.length)];
-        const designatedOwnerId = equipment.continuationOwnerName
-          ? selectedCharacters.find(([, selected]) => selected.name === equipment.continuationOwnerName)?.[0]
-          : null;
-        const ownerId = designatedOwnerId
-          || room.game.playerOrder[Math.floor(Math.random() * room.game.playerOrder.length)];
-        room.game.equipmentCards ||= {};
-        room.game.equipmentCards[ownerId] ||= [];
-        room.game.equipmentCards[ownerId].push({
-          kind:'equipment', ...equipment, id:`${ownerId}-continuation-equipment-${Date.now()}`
-        });
-        room.game.continuationEquipmentAssigned = true;
-      }
       if (room.game.continuationSpecialThreat && !room.game.continuationSpecialThreatAssigned) {
         const invisible = room.game.continuationSpecialThreat.name === '見えざる者';
         const threatDrawers = Object.entries(room.game.characterSelections)
@@ -6239,7 +6286,11 @@ function renderCharacterPicker(){
       requestAnimationFrame(() => animateCharacterSelection(playerId, character, sourceRect));
     }
   });
-  const canShowPicker = game?.phase === 'character-selection' && state.seatedTable !== null;
+  const manualContinuationEquipmentWaiting = Boolean(game?.continuationEquipment
+    && ['折れたる剣', 'ゴンドールの角笛'].includes(game.continuationEquipment.name)
+    && !game.continuationEquipmentOwnerId);
+  const canShowPicker = state.seatedTable !== null
+    && (game?.phase === 'character-selection' || manualContinuationEquipmentWaiting);
   characterPicker.classList.toggle('hidden', !canShowPicker);
   if (!canShowPicker) {
     characterPickerRow.replaceChildren();
@@ -6263,10 +6314,12 @@ function renderCharacterPicker(){
   const mustChooseRequired = remainingRequiredCount > 0 && remainingRequiredCount >= remainingPlayerCount;
   const hasYellowOne = (state.hands?.[state.userId]?.cards || [])
     .some(card => card.color === 'yellow' && card.number === 1);
-  if (allCharacters.length >= 5) {
+  const continuationEquipment = game.continuationEquipment;
+  const displayedChoiceCount = allCharacters.length + (continuationEquipment ? 1 : 0);
+  if (displayedChoiceCount >= 5) {
     characterPickerRow.classList.add('two-rows');
-    const rowCount = allCharacters.length > 10 ? 3 : 2;
-    characterPickerRow.style.setProperty('--choice-columns', Math.ceil(allCharacters.length / rowCount));
+    const rowCount = displayedChoiceCount > 10 ? 3 : 2;
+    characterPickerRow.style.setProperty('--choice-columns', Math.ceil(displayedChoiceCount / rowCount));
   }
   // 選択済みカードも不可視の枠として残し、誰かが取っても残りのカードを動かさない。
   allCharacters.forEach(character => {
@@ -6301,6 +6354,30 @@ function renderCharacterPicker(){
     choice.addEventListener('click', event => { event.stopPropagation(); chooseCharacter(character.name, choice); });
     characterPickerRow.appendChild(choice);
   });
+  if (continuationEquipment) {
+    const equipmentChoice = document.createElement('button');
+    equipmentChoice.type = 'button';
+    equipmentChoice.className = 'character-choice continuation-equipment-choice';
+    const isClaimed = Boolean(game.continuationEquipmentOwnerId);
+    const isManualEquipment = ['折れたる剣', 'ゴンドールの角笛'].includes(continuationEquipment.name);
+    const canClaim = canClaimContinuationEquipment(game, state.userId);
+    equipmentChoice.classList.toggle('claimable', isManualEquipment && !isClaimed);
+    equipmentChoice.classList.toggle('claimed', isClaimed);
+    equipmentChoice.disabled = !canClaim;
+    equipmentChoice.setAttribute('aria-label', `${continuationEquipment.name}${isClaimed ? '（獲得済み）' : ''}`);
+    const equipmentCard = createEquipmentCardElement(continuationEquipment);
+    equipmentCard.style.pointerEvents = 'none';
+    equipmentChoice.appendChild(equipmentCard);
+    equipmentChoice.addEventListener('click', event => {
+      event.stopPropagation();
+      openContinuationEquipmentPrompt();
+    });
+    characterPickerRow.appendChild(equipmentChoice);
+  }
+  if (continuationEquipmentPromptOpen && !canClaimContinuationEquipment(game, state.userId)) {
+    continuationEquipmentPromptOpen = false;
+    continuationEquipmentDecision.classList.add('hidden');
+  }
   // 全候補を配置して各ボタンの幅が確定してから一括計算する。追加途中で測ると、
   // Flexboxの再配分前後で左右のカードに異なる倍率が残ってしまう。
   updateCharacterChoiceScales();
@@ -7256,8 +7333,10 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     stageCharacters = ['frodo','gandalf', burdenCode, ...normalGoldCodes, ...blackCodes].map(code => ({
       code, name:CHARACTER_NAMES[code], required:code === 'frodo'
     }));
+    const equipment = CONTINUATION_EQUIPMENT[Math.floor(Math.random() * CONTINUATION_EQUIPMENT.length)];
     const specialThreat = CONTINUATION_THREATS[Math.floor(Math.random() * CONTINUATION_THREATS.length)];
     continuationSetup = {
+      equipment:{ ...equipment },
       specialThreat:{ ...specialThreat }, specialThreatFallbackPlayerId:playerOrder[Math.floor(Math.random() * playerOrder.length)]
     };
   }
@@ -7325,6 +7404,7 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
       ringCircleOn: false,
       ...(continuationSetup ? {
         continuation:true,
+        continuationEquipment:continuationSetup.equipment,
         continuationSpecialThreat:continuationSetup.specialThreat,
         continuationSpecialThreatFallbackPlayerId:continuationSetup.specialThreatFallbackPlayerId
       } : {}),
