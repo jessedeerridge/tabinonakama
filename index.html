@@ -6356,7 +6356,7 @@ function renderCharacterPicker(){
   const challengeWasSelected = Boolean(game.continuationChallengeSelectedAt);
   const showContinuationChallenge = Boolean(game.continuationSpecialThreat && !challengeWasSelected);
   const displayedChoiceCount = allCharacters.length + (continuationEquipment ? 1 : 0)
-    + (showContinuationChallenge ? 2 : 0);
+    + (showContinuationChallenge ? 1 : 0);
   if (displayedChoiceCount >= 5) {
     characterPickerRow.classList.add('two-rows');
     const rowCount = displayedChoiceCount > 10 ? 3 : 2;
@@ -6437,10 +6437,6 @@ function renderCharacterPicker(){
       { kind:'special-threat', color:'threat', ...game.continuationSpecialThreat },
       `追加脅威 ${game.continuationSpecialThreat.name}`
     );
-    addChallengeChoice({
-      kind:'threat', color:'threat', name:'脅威', number:game.continuationChallengeThreatNumber,
-      concealed:true
-    }, '裏向きの追加脅威カード');
   }
   if (continuationEquipmentPromptOpen && !canClaimContinuationEquipment(game, state.userId)) {
     continuationEquipmentPromptOpen = false;
