@@ -3284,16 +3284,8 @@ function offerThreatRedraw(game, playerId){
   const hasMerryBurden = Object.values(game.characterSelections || {})
     .some(character => character.name === 'メリアドク・ブランディバック');
   if (!hasMerryBurden || game.threatRedrawUsed) return false;
-  // 引き直しの確認中も、現在のキャラクターは効果キューの先頭に残る。
-  // RTDBで空配列が消えたり、複数クライアントの再描画が重なっても復帰できるよう、
-  // 進行位置を選択ダイアログと同じトランザクションに保存する。
-  const resumeQueue = [...(game.exchangeQueue || [])];
-  if (!resumeQueue.includes(playerId)) resumeQueue.unshift(playerId);
-  game.threatRedrawContinuation = {
-    playerId,
-    exchangeQueue:resumeQueue,
-    createdAt:Date.now()
-  };
+  // exchangeQueue の先頭はまだこのプレイヤーのままなので、確認中も変更しない。
+  // 引き直し専用の複製キューを作ると、復元時に現在の交換ターンを失うため保存しない。
   game.phase = 'threat-redraw-selection';
   game.threatRedrawPlayerId = playerId;
   game.threatRedrawReadyAt = Date.now() + 1000;
@@ -3302,16 +3294,6 @@ function offerThreatRedraw(game, playerId){
 
 function continueAfterThreatDraw(game, playerId){
   if (!offerThreatRedraw(game, playerId)) beginNextExchange(game);
-}
-
-function restoreThreatRedrawContinuation(game, playerId){
-  const continuation = game.threatRedrawContinuation || {
-    playerId:game.threatRedrawPlayerId, exchangeQueue:[...(game.exchangeQueue || [])]
-  };
-  if (continuation.playerId !== playerId) return false;
-  game.exchangeQueue = [...(continuation.exchangeQueue || [])];
-  delete game.threatRedrawContinuation;
-  return true;
 }
 
 function scheduleBarrowDraw(){
@@ -3621,7 +3603,6 @@ async function decideThreatRedraw(redraw){
   await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
     if (game?.phase !== 'threat-redraw-selection' || game.threatRedrawPlayerId !== state.userId
         || Date.now() < Number(game.threatRedrawReadyAt || 0)) return;
-    if (!restoreThreatRedrawContinuation(game, state.userId)) return;
     if (redraw) {
       const cards = game.threatCards?.[state.userId] || [];
       const previous = cards.find(card => card.kind === 'threat');
@@ -3634,8 +3615,7 @@ async function decideThreatRedraw(redraw){
       }
       game.threatRedrawUsed = true;
     }
-    // 選択中にキューの現在地を失わないよう、ドロー直後のスナップショットから復元する。
-    // これにより、引き直した本人の交換と後続プレイヤーの効果を必ず同じ順序で再開する。
+    // 保持していた exchangeQueue の同じ先頭から再開し、交換処理を飛ばさない。
     delete game.threatRedrawPlayerId; delete game.threatRedrawReadyAt;
     beginNextExchange(game);
     return game;
@@ -3970,9 +3950,8 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
   }
 }
 
-async function animateThreatReturn(sourceRect, targetDeck, transfer, delayMs = 0){
-  const targetRect = targetDeck?.getBoundingClientRect();
-  if (!sourceRect?.width || !targetRect?.width || !transfer?.returnedCard) return;
+async function animateThreatReturn(sourceRect, deckRect, transfer, drawReplacement){
+  if (!sourceRect?.width || !deckRect?.width || !transfer?.returnedCard) return;
   const flight = document.createElement('div');
   flight.classList.add('exchange-card-flight', 'threat-draw-flight');
   flight.appendChild(createCardElement(transfer.returnedCard));
@@ -3981,11 +3960,15 @@ async function animateThreatReturn(sourceRect, targetDeck, transfer, delayMs = 0
     transform:`scale(${sourceRect.width / 82}) rotateY(0deg)`
   });
   document.body.appendChild(flight);
-  if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));
-  const latestDeckRect = targetDeck.getBoundingClientRect();
+  // 古い札の飛行要素を獲得位置に残したまま、代わりの札をその手前へ着地させる。
+  // 時間指定ではなくドロー演出の完了を待つことで、低速端末でも古い札が先に戻らない。
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  if (drawReplacement) await drawReplacement();
+  // 更新後のDOMは山札が空になったり次フェーズへ移ったりするため参照しない。
+  // 更新を受ける直前に計測した山札そのものの座標を、返却先として最後まで固定する。
   await flight.animate([
     { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${sourceRect.width / 82}) rotateY(0deg)` },
-    { left:`${latestDeckRect.left}px`, top:`${latestDeckRect.top}px`, transform:`scale(${latestDeckRect.width / 82}) rotateY(180deg)` }
+    { left:`${deckRect.left}px`, top:`${deckRect.top}px`, transform:`scale(${deckRect.width / 82}) rotateY(180deg)` }
   ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
   flight.remove();
 }
@@ -4322,12 +4305,11 @@ function subscribeRoom(){
       // 古い脅威カードは元の獲得位置に残し、代わりの1枚が到着してからデッキへ戻す。
       // 戻す際は表にしたドロー位置で止めず、現在のデッキ本体まで移動させる。
       requestAnimationFrame(async () => {
-        // 先に飛行要素を作り、新しいカードのドロー中も古いカードを元の位置に表示する。
-        const returnAnimation = animateThreatReturn(returnSourceRect, threatDeck, threatRedrawTransfer, 2700);
-        if (shouldAnimateThreatDraw) {
-          await animateThreatDraw(threatDeck.getBoundingClientRect(), threatTransfer, threatTransferKey);
-        }
-        await returnAnimation;
+        // 古いカードを後ろに保持し、2枚目の着地完了後に古いカードをデッキ本体へ戻す。
+        await animateThreatReturn(returnSourceRect, threatSourceRect, threatRedrawTransfer,
+          shouldAnimateThreatDraw
+            ? () => animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey)
+            : null);
       });
     } else if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey);
     const galadrielLostTransfer = state.game?.galadrielLostTransfer;
