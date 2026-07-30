@@ -115,6 +115,8 @@
     box-sizing:border-box;overflow:hidden;color:#27231f;
     box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px rgba(0,0,0,.62);
   }
+  /* 各欄との交点では内枠を最前面に保つ。 */
+  .my-card::after{content:'';position:absolute;inset:0;border:2px solid rgba(0,0,0,.62);border-radius:6px;box-sizing:border-box;pointer-events:none;z-index:4;}
   /* 手札全体へ継承するカスタムプロパティのアニメーションは、複雑なカードの全子要素を
      毎フレーム再計算させてしまう。合成可能な transform を対象カードだけに適用する。 */
   .my-hand.has-playable-cards .my-card.playable{animation:playableCardsPulse 1.05s ease-in-out infinite;}
@@ -142,7 +144,7 @@
   .capture-card .my-card{transform:scale(.46);transform-origin:top left;}
   /* 脅威カードは、画像を見せながら左端の黒い矢印欄だけに情報を置く。 */
   .threat-card{--card-color:#4a2f20;--detail-color:#050505;background:#302f2c url('kyoi.jpg') center/cover no-repeat;}
-  .threat-card::after{content:'';position:absolute;inset:2px;border:1px solid rgba(255,244,220,.72);border-radius:6px;pointer-events:none;}
+  .threat-card::after{content:'';position:absolute;inset:0;border:2px solid rgba(255,244,220,.72);border-radius:6px;box-sizing:border-box;pointer-events:none;z-index:4;}
   .threat-card .card-badge{top:5px;left:0;width:31px;height:23px;padding-right:6px;box-sizing:border-box;background:#4a2f20;clip-path:polygon(0 0,72% 0,100% 50%,72% 100%,0 100%);display:grid;place-items:center;text-align:center;}
   .threat-card .card-badge::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,72% 0,100% 50%,72% 100%,0 100%);}
   .threat-card .card-badge.right{display:none;}
@@ -158,10 +160,10 @@
   .capture-card.owner-concealed{transform:rotate(180deg);}
   .threat-draw-flight .threat-card.owner-concealed{transform:rotate(180deg);transform-origin:center;}
   /* character-card の共通規則より詳細度を上げ、通常の脅威カードと同じ茶枠・黒塗りを保つ。 */
-  .character-card.special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505;}
-  .character-card.special-threat-card .character-label{left:-4px;right:auto;width:max-content;min-width:0;max-width:calc(100% + 4px);height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
+  .character-card.special-threat-card{--character-frame:#4a2f20;--character-panel:#050505;--character-inner-frame:#050505;border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;color:#fff;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505;}
+  .character-card.special-threat-card .character-label{left:0;right:auto;width:max-content;min-width:0;max-width:100%;height:15px;padding:0 12px 0 6px;color:#fff;text-align:left;justify-content:flex-start;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .character-card.special-threat-card .character-label::before{background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
-  .character-card.special-threat-card .character-special{left:-4px;right:auto;top:17px;width:max-content;max-width:calc(100% + 4px);padding:2px 12px 2px 6px;text-align:left;}
+  .character-card.special-threat-card .character-special{left:0;right:auto;top:17px;width:max-content;max-width:100%;padding:2px 12px 2px 6px;text-align:left;}
   .character-card.special-threat-card .character-effect{min-height:44px;padding:11px 5px 3px;color:#27231f;}
   .character-card.special-threat-card .character-effect::before{background:#fff8e8;}
   .character-card.special-threat-card .character-effect-icon{color:#111;}
@@ -169,6 +171,8 @@
   .character-card.special-threat-card.concealed>*{display:none;}
   /* 獲得イベント札も中央のイベント札を82/112倍した同一比率で組版する。 */
   .equipment-card.event-equipment-card{border:0;background:center/100% 100% no-repeat;color:#27231f;cursor:pointer;box-shadow:0 4px 12px rgba(40,51,65,.25);}
+  /* アイテム札も画像内の枠を最前面で描き、欄との接続部分を枠で覆う。 */
+  .equipment-card.event-equipment-card::after{content:'';position:absolute;inset:4px;border:1px solid rgba(40,51,65,.72);border-radius:6px;box-sizing:border-box;pointer-events:none;z-index:4;}
   .event-equipment-card .event-card-title{font-size:7.32px;}
   .event-equipment-card .event-card-text{width:69.55px;height:82px;padding:1.46px;font-size:7.32px;line-height:1.08;}
   .event-equipment-card .event-card-heading{margin-bottom:1.46px;}
@@ -501,7 +505,7 @@
   .my-card.card-orange{background-image:url('oka.jpg');}
   .my-card.card-yellow{background-image:url('yubiwa.jpg');}
   .my-card.card-gray{background-image:url('yama.jpg');}
-  .card-badge{position:absolute;top:-4px;left:4px;width:22px;height:43px;background:var(--detail-color);clip-path:polygon(0 0,100% 0,100% 73%,50% 100%,0 73%);z-index:3;text-align:center;}
+  .card-badge{position:absolute;top:0;left:4px;width:22px;height:43px;background:var(--detail-color);clip-path:polygon(0 0,100% 0,100% 73%,50% 100%,0 73%);z-index:3;text-align:center;}
   .card-badge.right{left:auto;right:4px;}
   .card-badge::before{content:'';position:absolute;inset:2px;bottom:3px;background:var(--panel-fill);clip-path:polygon(0 0,100% 0,100% 72%,50% 100%,0 72%);z-index:-1;}
   .card-number{display:block;padding-top:2px;font:700 18px/19px system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--card-color);}
@@ -516,7 +520,7 @@
   .my-card.yellow-one .card-mark{height:18px;margin-top:-1px;}
   .my-card.yellow-one .card-name{left:3px;right:3px;padding:0 7px;box-sizing:border-box;font-size:9px;letter-spacing:-.06em;white-space:nowrap;overflow:hidden;}
   .character-card{
-    --character-frame:#73583a;--character-panel:#fff8e8;
+    --character-frame:#73583a;--character-panel:#fff8e8;--character-inner-frame:#fff9e9;
     --character-label-frame:color-mix(in srgb,var(--character-frame) 50%,transparent);
     --character-label-panel:color-mix(in srgb,var(--character-panel) 50%,transparent);
     border-color:var(--character-frame);background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;
@@ -524,20 +528,21 @@
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-synthesis:none;
     -webkit-text-size-adjust:none;text-size-adjust:none;
   }
+  /* 内枠は名前・特殊名の欄より前に重ね、欄が枠の下へ自然につながって見えるようにする。 */
+  .character-card::after{content:'';position:absolute;inset:0;border:2px solid var(--character-inner-frame);border-radius:6px;box-sizing:border-box;pointer-events:none;z-index:4;}
   .character-card.character-gold{
-    --character-frame:#d5a313;
+    --character-frame:#d5a313;--character-inner-frame:#ffe477;
     border-color:#d5a313;box-shadow:0 4px 12px rgba(91,63,0,.28),inset 0 0 0 2px #ffe477;
   }
   .character-card.character-silver{
-    --character-frame:#aeb8c5;
+    --character-frame:#aeb8c5;--character-inner-frame:#eef3f8;
     border-color:#aeb8c5;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;
   }
-  .character-card.character-green{--character-frame:#559344;border-color:#559344;box-shadow:0 4px 12px rgba(30,80,30,.25),inset 0 0 0 2px #d9efcf;}
-  .character-card.character-light-green{--character-frame:#9bc875;border-color:#9bc875;box-shadow:0 4px 12px rgba(50,90,35,.22),inset 0 0 0 2px #eff9df;}
-  .character-card.character-red{--character-frame:#c94c47;border-color:#c94c47;box-shadow:0 4px 12px rgba(100,25,25,.25),inset 0 0 0 2px #f7d4cf;}
+  .character-card.character-green{--character-frame:#559344;--character-inner-frame:#d9efcf;border-color:#559344;box-shadow:0 4px 12px rgba(30,80,30,.25),inset 0 0 0 2px #d9efcf;}
+  .character-card.character-light-green{--character-frame:#9bc875;--character-inner-frame:#eff9df;border-color:#9bc875;box-shadow:0 4px 12px rgba(50,90,35,.22),inset 0 0 0 2px #eff9df;}
+  .character-card.character-red{--character-frame:#c94c47;--character-inner-frame:#f7d4cf;border-color:#c94c47;box-shadow:0 4px 12px rgba(100,25,25,.25),inset 0 0 0 2px #f7d4cf;}
   .character-card .character-label{
-    /* 名前欄はカードの外枠まで伸ばさず、内側の細枠を右端にする。 */
-    position:absolute;left:auto;right:2px;top:1px;width:max-content;min-width:0;max-width:calc(100% - 2px);padding:0 4.5px 0 16px;
+    position:absolute;left:auto;right:0;top:1px;width:max-content;min-width:0;max-width:100%;padding:0 4.5px 0 16px;
     box-sizing:border-box;background:var(--character-label-frame);color:#3f3021;font-size:9px;font-weight:900;isolation:isolate;
     line-height:1.1;text-align:right;white-space:nowrap;overflow:hidden;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);
     display:flex;align-items:center;justify-content:flex-end;
@@ -549,7 +554,7 @@
   .character-card .character-label:not(.character-special){height:15.3px;}
   .character-card .character-label.multiline-name{height:25px;white-space:pre-line;line-height:1.05;font-size:6.5px;}
   .character-card .character-label.multiline-name+.character-special{top:27px;}
-  .character-card .character-special{left:auto;right:-4px;top:17px;width:max-content;max-width:43px;padding:2.4px 4px 2.4px 18px;font-size:6px;line-height:1.2;display:block;}
+  .character-card .character-special{left:auto;right:0;top:17px;width:max-content;max-width:43px;padding:2.4px 4px 2.4px 18px;font-size:6px;line-height:1.2;display:block;}
   .character-card .character-special.wide{width:48px;max-width:48px;}
   .character-card .character-effect{
     position:absolute;left:-4px;right:-4px;bottom:-4px;min-height:64px;padding:12px 5px 6px;
