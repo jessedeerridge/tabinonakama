@@ -3296,7 +3296,9 @@ function offerThreatRedraw(game, playerId){
   };
   game.phase = 'threat-redraw-selection';
   game.threatRedrawPlayerId = playerId;
-  game.threatRedrawReadyAt = Date.now() + 1000;
+  // ドローは「めくる600ms + 表示1000ms + 獲得位置へ移動900ms」で完了する。
+  // 描画の余裕を含む到着時刻（2700ms）のさらに1秒後まで、確認ポップを表示しない。
+  game.threatRedrawReadyAt = Date.now() + 3700;
   return true;
 }
 
@@ -3647,12 +3649,16 @@ threatRedrawDecision.querySelectorAll('.hold-decision').forEach(button => {
 });
 
 function renderThreatRedrawDecision(){
-  const visible = state.game?.phase === 'threat-redraw-selection'
+  const eligible = state.game?.phase === 'threat-redraw-selection'
     && state.game?.threatRedrawPlayerId === state.userId;
-  threatRedrawDecision.classList.toggle('hidden', !visible);
   const waiting = Date.now() < Number(state.game?.threatRedrawReadyAt || 0);
-  threatRedrawDecision.querySelectorAll('button').forEach(button => { button.disabled = !visible || waiting; });
-  if (visible && waiting) setTimeout(renderThreatRedrawDecision, Number(state.game.threatRedrawReadyAt) - Date.now() + 20);
+  // 新しい脅威カードが獲得位置へ着地し、その絵を1秒見せ終わるまではポップ自体を隠す。
+  const visible = eligible && !waiting;
+  threatRedrawDecision.classList.toggle('hidden', !visible);
+  threatRedrawDecision.querySelectorAll('button').forEach(button => { button.disabled = !visible; });
+  if (eligible && waiting) {
+    setTimeout(renderThreatRedrawDecision, Number(state.game.threatRedrawReadyAt) - Date.now() + 20);
+  }
 }
 
 function beginCharacterEffectTurns(game){
