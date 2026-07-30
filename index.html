@@ -1851,8 +1851,8 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     if (!Number.isFinite(threat)) return { status:'pending' };
     const hasRequiredCards = cards => cards.some(card => card.color === threatSuitGoal.suit && Number(card.number) === threat)
       && (!threatSuitGoal.requiresShadow || cards.some(card => card.color === 'red' && Number(card.number) === threat));
-    if (capturedTricks.some(trick => hasRequiredCards(trick.cards || []))) return { status:'achieved' };
-    const stillAvailable = hasRequiredCards(remainingCards);
+    if (hasRequiredCards(capturedCards)) return { status:'achieved' };
+    const stillAvailable = hasRequiredCards([...capturedCards, ...remainingCards]);
     return { status:!isFinished && stillAvailable ? 'pending' : 'failed' };
   }
 
@@ -5454,8 +5454,8 @@ function characterCardData(character, playerId){
     'グワイヒア':{specialName:'風早彦',victory:'山がプレイされているトリックを2トリック獲得。',effect:'〈ガンダルフ〉と交換する。その後、再び〈ガンダルフ〉と交換する。',cardNumber:'2.46', rank:'黒', frameColor:'銀'},
     'ラダガスト':{specialName:'茶色の魔法使い',victory:'森がプレイされているトリックを2トリック獲得。',effect:'手札から1枚選び、表向きにして脇に置く。そのカードは最後のトリックでプレイする。その後、最初のトリックのカードをプレイする。',cardNumber:'2.48', rank:'黒', frameColor:'緑'},
     '飛蔭（とびかげ）':{specialName:'馬の王者',victory:'丘がプレイされているトリックを2トリック獲得。',effect:'手札を1枚選び、裏向きでこのカードの下に入れる。任意のタイミング、もしくは手札がなくなったとき、そのカードを手札に戻す。',cardNumber:'2.47', rank:'黒', frameColor:'金'},
-    'レゴラス':{displayName:'緑葉のレゴラス',specialName:'スランドゥイルの息子',victory:'引いた脅威カードと同じ数字の森カードを勝利して獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉か〈アラゴルン〉と交換する。',cardNumber:'3.44',rank:'金',frameColor:'緑'},
-    'ギムリ':{displayName:'ギムリ\nグローインの息子',specialName:'ドゥリンの民',victory:'引いた脅威カードと同じ数字の山カードを勝利して獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.45',rank:'金',frameColor:'銀'},
+    'レゴラス':{displayName:'緑葉のレゴラス',specialName:'スランドゥイルの息子',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉か〈アラゴルン〉と交換する。',cardNumber:'3.44',rank:'金',frameColor:'緑'},
+    'ギムリ':{displayName:'ギムリ\nグローインの息子',specialName:'ドゥリンの民',victory:'脅威カードと同じ数字の山カードを獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.45',rank:'金',frameColor:'銀'},
     'オロフィンとルーミル':{specialName:'ガラズリム',victory:'脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ハルディア〉と交換する。最初のトリックをリードする。',cardNumber:'3.21',rank:'黒',frameColor:'緑',image:'orophin_rumil.jpg'},
     'ハルディア':{specialName:'境界守護者',victory:'トリックに勝利して、引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。最初のトリックをリードする。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'haldir.jpg'},
     'ガラドリエル':{specialName:'ロスローリエンの奥方',victory:'最も多く、もしくは最も少なくトリックを獲得する（同数は不可）。',effect:'失われしカードもしくは〈ガンダルフ〉と交換する。',cardNumber:'3.25',rank:'黒',frameColor:'金'},
@@ -5465,8 +5465,8 @@ function characterCardData(character, playerId){
     ,'メリアドク・ブランディバック':{specialName:'重荷',victory:'2トリック獲得。',effect:'このラウンド中、脅威カードを引いたプレイヤーは一度だけ引き直してもよい。〈フロド〉、〈サム〉、〈ピピン〉のいずれか1人と交換する。',cardNumber:'3.41',rank:'金',frameColor:'赤',image:'merry.jpg'}
     ,'アラソルンの息子アラゴルン':{displayName:'アラゴルン\nアラソルンの息子',specialName:'重荷',victory:'脅威カードの数字と同じ回数だけ、トリックを獲得。',effect:'脅威デッキからカードを2枚引いて、1枚手札に加える。任意のキャラクターと交換する。',cardNumber:'3.42',rank:'金',frameColor:'赤',image:'aragorn.jpg'}
     ,'デネソールの息子ボロミア':{displayName:'ボロミア\nデネソールの息子',specialName:'重荷',victory:'最後のトリックを獲得。もし〈ボロミア〉が〈指輪の1〉を獲得した場合、その章は即座に敗北となる。',effect:'〈フロド〉以外の任意のキャラクターと交換する。',cardNumber:'3.43',rank:'金',frameColor:'赤',image:'boromir.jpg'}
-    ,'緑葉のレゴラス':{displayName:'緑葉のレゴラス',specialName:'重荷',victory:'引いた脅威カードと同じ数字の森と影のカードでトリックに勝利し、それを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉か〈アラゴルン〉と交換する。',cardNumber:'3.44',rank:'金',frameColor:'赤',image:'legolas.jpg'}
-    ,'グローインの息子ギムリ':{displayName:'ギムリ\nグローインの息子',specialName:'重荷',victory:'引いた脅威カードと同じ数字の山と影のカードでトリックに勝利し、それを獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.45',rank:'金',frameColor:'赤',image:'gimli.jpg'}
+    ,'緑葉のレゴラス':{displayName:'緑葉のレゴラス',specialName:'重荷',victory:'脅威カードと同じ数字の森と影カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉か〈アラゴルン〉と交換する。',cardNumber:'3.44',rank:'金',frameColor:'赤',image:'legolas.jpg'}
+    ,'グローインの息子ギムリ':{displayName:'ギムリ\nグローインの息子',specialName:'重荷',victory:'脅威カードと同じ数字の山と影カードを獲得する。',effect:'脅威カードを1枚引く。〈レゴラス〉か〈アラゴルン〉と交換する。',cardNumber:'3.45',rank:'金',frameColor:'赤',image:'gimli.jpg'}
   };
   const chapterEighteenBaseName = {
     boromir_denethor:'ボロミア', samwise_gamgee:'サム', aragorn_arathorn:'アラゴルン',
