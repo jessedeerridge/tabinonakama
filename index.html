@@ -419,6 +419,7 @@
   .hold-decision>span{position:relative;z-index:1;}
   .yellow-one-note{position:absolute;right:10px;bottom:6px;font-size:10px;font-weight:700;}
   .yellow-one-decision.read-only .hold-decision:disabled{color:#fff;opacity:1;cursor:default;filter:none;}
+  #continuationEquipmentDecision{z-index:320;}
   .exchange-dialog{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:315;width:max-content;max-width:calc(100vw - 24px);box-sizing:border-box;padding:10px 12px 24px;border:1px solid #bbb;border-radius:12px;background:#fff;color:#111;box-shadow:0 12px 28px rgba(0,0,0,.28);text-align:center;}
   .exchange-dialog.hidden{display:none;}
   .strider-choice-dialog.hidden{display:none;}
@@ -621,7 +622,6 @@
   .character-choice.ring-required-pulse{animation:ringRequiredPulse 1.05s ease-in-out infinite;}
   .character-choice.continuation-equipment-choice{cursor:default;}
   .character-choice.continuation-equipment-choice.claimable{cursor:pointer;animation:ringRequiredPulse 1.05s ease-in-out infinite;}
-  .character-choice.continuation-equipment-choice.claimed{filter:brightness(.62);}
   .character-choice.continuation-challenge-choice{cursor:pointer;}
   .character-choice.continuation-challenge-achieved{cursor:not-allowed;}
   .character-choice.continuation-challenge-achieved>.my-card{outline:2px solid #102b50;outline-offset:2px;}
@@ -6353,9 +6353,10 @@ function renderCharacterPicker(){
   const hasYellowOne = (state.hands?.[state.userId]?.cards || [])
     .some(card => card.color === 'yellow' && card.number === 1);
   const continuationEquipment = game.continuationEquipment;
+  const showContinuationEquipment = Boolean(continuationEquipment && !game.continuationEquipmentOwnerId);
   const challengeWasSelected = Boolean(game.continuationChallengeSelectedAt);
   const showContinuationChallenge = Boolean(game.continuationSpecialThreat && !challengeWasSelected);
-  const displayedChoiceCount = allCharacters.length + (continuationEquipment ? 1 : 0)
+  const displayedChoiceCount = allCharacters.length + (showContinuationEquipment ? 1 : 0)
     + (showContinuationChallenge ? 1 : 0);
   if (displayedChoiceCount >= 5) {
     characterPickerRow.classList.add('two-rows');
@@ -6395,17 +6396,14 @@ function renderCharacterPicker(){
     choice.addEventListener('click', event => { event.stopPropagation(); chooseCharacter(character.name, choice); });
     characterPickerRow.appendChild(choice);
   });
-  if (continuationEquipment) {
+  if (showContinuationEquipment) {
     const equipmentChoice = document.createElement('button');
     equipmentChoice.type = 'button';
     equipmentChoice.className = 'character-choice continuation-equipment-choice';
-    const isClaimed = Boolean(game.continuationEquipmentOwnerId);
-    const isManualEquipment = ['折れたる剣', 'ゴンドールの角笛'].includes(continuationEquipment.name);
     const canClaim = canClaimContinuationEquipment(game, state.userId);
-    equipmentChoice.classList.toggle('claimable', isManualEquipment && !isClaimed);
-    equipmentChoice.classList.toggle('claimed', isClaimed);
+    equipmentChoice.classList.toggle('claimable', canClaim);
     equipmentChoice.disabled = !canClaim;
-    equipmentChoice.setAttribute('aria-label', `${continuationEquipment.name}${isClaimed ? '（獲得済み）' : ''}`);
+    equipmentChoice.setAttribute('aria-label', continuationEquipment.name);
     const equipmentCard = createEquipmentCardElement(continuationEquipment);
     equipmentCard.style.pointerEvents = 'none';
     equipmentChoice.appendChild(equipmentCard);
