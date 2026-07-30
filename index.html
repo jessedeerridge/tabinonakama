@@ -2401,11 +2401,8 @@ function darknessThreatIsRevealed(room, playerId, character){
 
 function skipsCharacterThreatDraw(game, characterName){
   // 〈バーリンの墓所〉はイベントカード自体がギムリの脅威となるため、通常の脅威ドローを行わない。
-  const moriaTombGimli = Number(game?.stageNumber) === 14
+  return Number(game?.stageNumber) === 14
     && Number(game?.moriaEventIndex) === 1 && characterName === 'ギムリ';
-  // 続の章の重荷キャラクターは、効果に脅威ドローがあっても数値脅威を引かない。
-  const continuationBurden = Boolean(game?.continuation && characterName === game.continuationBurdenName);
-  return moriaTombGimli || continuationBurden;
 }
 
 const CHARACTER_EFFECT_THREAT_DRAWERS = new Set([
@@ -6104,10 +6101,13 @@ function finishCharacterSelection(room){
   if (room.game.continuationChallengeSelectedAt
       && room.game.continuationSpecialThreat && !room.game.continuationSpecialThreatAssigned) {
     const invisible = room.game.continuationSpecialThreat.name === '見えざる者';
+    const burdenPlayerId = Object.entries(room.game.characterSelections)
+      .find(([, selected]) => selected.name === room.game.continuationBurdenName)?.[0];
+    // 重荷キャラクターは数値脅威を通常どおり引くが、追加の効果脅威カードの対象にはしない。
+    const effectThreatCandidates = room.game.playerOrder.filter(id => id !== burdenPlayerId);
     const threatDrawers = Object.entries(room.game.characterSelections)
-      .filter(([, selected]) => characterDrawsThreat(selected.name)
-        && !skipsCharacterThreatDraw(room.game, selected.name)).map(([id]) => id);
-    const specialCandidates = invisible ? threatDrawers : [...room.game.playerOrder];
+      .filter(([id, selected]) => id !== burdenPlayerId && characterDrawsThreat(selected.name)).map(([id]) => id);
+    const specialCandidates = invisible ? threatDrawers : effectThreatCandidates;
     const targetId = specialCandidates[Math.floor(Math.random() * specialCandidates.length)];
     room.game.threatCards ||= {};
     if (targetId) {
