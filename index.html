@@ -3969,7 +3969,8 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
   }
 }
 
-async function animateThreatReturn(sourceRect, targetRect, transfer){
+async function animateThreatReturn(sourceRect, targetDeck, transfer){
+  const targetRect = targetDeck?.getBoundingClientRect();
   if (!sourceRect?.width || !targetRect?.width || !transfer?.returnedCard) return;
   const flight = document.createElement('div');
   flight.classList.add('exchange-card-flight', 'threat-draw-flight');
@@ -3979,9 +3980,10 @@ async function animateThreatReturn(sourceRect, targetRect, transfer){
     transform:`scale(${sourceRect.width / 82}) rotateY(0deg)`
   });
   document.body.appendChild(flight);
+  const latestDeckRect = targetDeck.getBoundingClientRect();
   await flight.animate([
     { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${sourceRect.width / 82}) rotateY(0deg)` },
-    { left:`${targetRect.left}px`, top:`${targetRect.top}px`, transform:`scale(${targetRect.width / 82}) rotateY(180deg)` }
+    { left:`${latestDeckRect.left}px`, top:`${latestDeckRect.top}px`, transform:`scale(${latestDeckRect.width / 82}) rotateY(180deg)` }
   ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
   flight.remove();
 }
@@ -4314,7 +4316,8 @@ function subscribeRoom(){
     if (threatRedrawTransfer?.movedAt && threatRedrawTransfer.movedAt !== lastAnimatedThreatRedrawAt) {
       lastAnimatedThreatRedrawAt = threatRedrawTransfer.movedAt;
       const returnSourceRect = previousThreatCardRects.get(threatRedrawTransfer.returnedCard?.id);
-      requestAnimationFrame(() => animateThreatReturn(returnSourceRect, threatSourceRect, threatRedrawTransfer));
+      // ドロー開始時に保存した座標ではなく、現在の脅威デッキ本体を着地先にする。
+      requestAnimationFrame(() => animateThreatReturn(returnSourceRect, threatDeck, threatRedrawTransfer));
     }
     const galadrielLostTransfer = state.game?.galadrielLostTransfer;
     if (galadrielLostTransfer?.completedAt
