@@ -1072,6 +1072,13 @@ const CHARACTER_NAMES = {
   haldir: 'ハルディア',
   galadriel: 'ガラドリエル',
   celeborn: 'ケレボルン'
+  ,samwise_gamgee:'サムワイズ・ギャムジー'
+  ,peregrin_took:'ペレグリン・トゥック'
+  ,meriadoc_brandybuck:'メリアドク・ブランディバック'
+  ,aragorn_arathorn:'アラゴルン アラソルンの息子'
+  ,boromir_denethor:'ボロミア デネソールの息子'
+  ,legolas_greenleaf:'緑葉のレゴラス'
+  ,gimli_gloin:'グローインの息子ギムリ'
 };
 const CHARACTER_IMAGE_FILES = {
   frodo: 'frodo.jpg',
@@ -1103,11 +1110,15 @@ const CHARACTER_IMAGE_FILES = {
   haldir: 'haldir.jpg',
   galadriel: 'galadriel.jpg',
   celeborn: 'celeborn.jpg'
+  ,samwise_gamgee:'sam.jpg', peregrin_took:'pippin.jpg', meriadoc_brandybuck:'merry.jpg'
+  ,aragorn_arathorn:'aragorn.jpg', boromir_denethor:'boromir.jpg'
+  ,legolas_greenleaf:'legolas.jpg', gimli_gloin:'gimli.jpg'
 };
-const WIN_LENGTH_LABELS = { short: '短い', long: '長い' };
+const WIN_LENGTH_LABELS = { short: '短い', long: '長い', special:'特殊' };
 const WIN_GOAL_LABELS = {
   allwin: '「選んだキャラクターの目的をすべて達成」',
   everywin: '「すべてのキャラクターの目的を達成」'
+  ,groupwin:'「各グループの選んだキャラクターの目的をすべて達成」'
 };
 
 function toKanjiNumber(number){
@@ -1119,7 +1130,7 @@ function toKanjiNumber(number){
   return `${tens > 1 ? numerals[tens] : ''}${tens ? '十' : ''}${numerals[ones]}`;
 }
 
-const STAGES = Array.from({ length: 17 }, (_, index) => ({
+const STAGES = Array.from({ length: 18 }, (_, index) => ({
   number: index + 1,
   chapterLabel: `第${toKanjiNumber(index + 1)}章`,
   title: 'xxx',
@@ -1312,6 +1323,25 @@ defineStage(17, {
       title:'アンドゥイン',
       text:'「おーい、アラゴルン！」ボロミアは、自らの舟が先頭の船にぶつかりながら叫んだ。「これは無茶だ！ 夜にこの急流に挑むことなどできん！ それに、昼であろうと夜であろうと、サルン・ゲビルの早瀬を生き延びた船などないぞ！」'
     }
+  ]
+});
+
+defineStage(18, {
+  title: '一行の離散',
+  story: 'フロドとサムは、務めの最後の旅路へと二人で漕ぎ出した。フロドが岸から離れるように漕ぐと、川の流れはすぐに二人を乗せてすばやく運んでいった。西の支流を下り、切り立ったトル・ブランディルの断崖を越えていく。やがて、大瀑布の轟音が近づいてきた。サムの助けがあったとはいえ、島の南端の流れを越え、東の遥か彼方の岸へと舟を向かわせるのは、ひどく骨の折れる作業だった。',
+  characters: ['frodo*,boromir_denethor,samwise_gamgee,aragorn_arathorn', 'meriadoc_brandybuck,peregrin_took,legolas_greenleaf,gimli_gloin'],
+  characterGroups: [
+    ['frodo','boromir_denethor','samwise_gamgee','aragorn_arathorn'],
+    ['meriadoc_brandybuck','peregrin_took','legolas_greenleaf','gimli_gloin']
+  ],
+  threats: [{ name:'脅威', min:1, max:7 }],
+  winCondition:'special', goal:'groupwin',
+  additionalElements:'〈イベント：アンドゥイン〉にしたがって、〈大河〉カードをメインデッキに加える。ただし、〈大河〉は通常のスートとして扱う。〈イベント：一行の離散〉にしたがう。',
+  eventCards: [
+    { title:'一行の離散', heading:'イベント：一行の離散', hammer:true,
+      text:'キャラクターたちは、2つのグループに分ける。赤字のキャラクターは重荷の面を使用する。\n\nグループ1：フロド*、デネソールの息子ボロミア、サムワイズ・ギャムジー、アラソルンの息子アラゴルン\n\nグループ2：メリアドク・ブランディバック、ペレグリン・トゥック、緑葉のレゴラス、グローインの息子ギムリ',
+      afterText:'各ラウンド、〈指輪の1〉を持つプレイヤーがグループを選び、最初にキャラクターを選ぶ。' },
+    { title:'一行の離散', text:'返事はなかった。フロドには、自分の呼びさえ聞こえなかった。すでに遠くへと駆け、丘の頂へと続く道を、何も見ずにただひたすらに登っていた。\n頭の中には、狂気に満ちたボロミアの険しい顔と、燃え上がるようなその瞳が浮かび、恐怖と悲しみに震えた。' }
   ]
 });
 
@@ -1718,6 +1748,39 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     .filter(card => card?.kind !== 'character');
   const cardsOfSuit = (cards, color) => cards.filter(card => card.color === color).length;
   const possibleTricks = trickCount + remainingRounds;
+
+  if (Number(game.stageNumber) === 18) {
+    if (character.name === 'サムワイズ・ギャムジー') {
+      const threat = Number(threatNumberForPlayer(game, playerId));
+      if (!Number.isFinite(threat)) return { status:'pending' };
+      if (capturedCards.some(card => card.color === 'orange' && Number(card.number) === threat)) return { status:'achieved' };
+      return { status:!isFinished && remainingCards.some(card => card.color === 'orange' && Number(card.number) === threat) ? 'pending' : 'failed' };
+    }
+    if (character.name === 'ペレグリン・トゥック') {
+      if (character.burden) {
+        if (trickCount > 0) return { status:'failed' };
+        if (!isFinished) return { status:'pending' };
+        return { status:otherIds.every(id => (game.capturedTricks?.[id] || []).length >= 1) ? 'achieved' : 'failed' };
+      }
+      const least = Math.min(...playerIds.map(id => (game.capturedTricks?.[id] || []).length));
+      return { status:isFinished ? (trickCount === least ? 'achieved' : 'failed') : 'pending' };
+    }
+    if (character.name === 'メリアドク・ブランディバック') {
+      const min = character.burden ? 2 : 1;
+      if (trickCount > 2 || possibleTricks < min) return { status:'failed' };
+      return { status:isFinished ? (trickCount >= min && trickCount <= 2 ? 'achieved' : 'failed') : 'pending' };
+    }
+    if (character.name === 'アラゴルン アラソルンの息子') {
+      const target = Number(threatNumberForPlayer(game, playerId));
+      if (!Number.isFinite(target)) return { status:'pending' };
+      if (trickCount > target || possibleTricks < target) return { status:'failed' };
+      return { status:isFinished ? (trickCount === target ? 'achieved' : 'failed') : 'pending' };
+    }
+    if (character.name === 'ボロミア デネソールの息子') {
+      if (capturedCards.some(card => card.color === 'yellow' && Number(card.number) === 1)) return { status:'failed' };
+      return { status:isFinished ? (game.lastWinnerId === playerId ? 'achieved' : 'failed') : 'pending' };
+    }
+  }
 
   if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 0 && character.name === 'ガンダルフ') {
     const requiredSuits = ['orange', 'gray', 'green'];
@@ -2153,7 +2216,7 @@ function skipsCharacterThreatDraw(game, characterName){
 
 const CHARACTER_EFFECT_THREAT_DRAWERS = new Set([
   '農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ',
-  'オロフィンとルーミル', 'ハルディア'
+  'オロフィンとルーミル', 'ハルディア', 'サムワイズ・ギャムジー'
 ]);
 
 function characterDrawsThreat(characterName){
@@ -3072,7 +3135,9 @@ function exchangeCandidates(game, sourceId){
       .filter(name => name && name !== 'ギムリ' && name !== 'ハルディア')
     : characterName === 'ケレボルン' ? (game.playerOrder || []).map(id => game.characterSelections?.[id]?.name)
       .filter(name => name && name !== 'ケレボルン')
-    : characterName === 'ボロミア' ? (game.playerOrder || []).map(id => game.characterSelections?.[id]?.name).filter(name => name !== 'フロド')
+    : ['ボロミア','ボロミア デネソールの息子'].includes(characterName) ? (game.playerOrder || []).map(id => game.characterSelections?.[id]?.name).filter(name => name !== 'フロド')
+    : ['アラゴルン アラソルンの息子','ペレグリン・トゥック'].includes(characterName) ? (game.playerOrder || []).map(id => game.characterSelections?.[id]?.name).filter(name => name !== characterName)
+    : ['サムワイズ・ギャムジー','メリアドク・ブランディバック'].includes(characterName) ? ['フロド','サムワイズ・ギャムジー','ペレグリン・トゥック'].filter(name => name !== characterName)
     : characterName === 'グワイヒア' ? ['ガンダルフ']
     : null;
   return (game?.playerOrder || []).filter(playerId => playerId !== sourceId
@@ -3093,7 +3158,9 @@ function exchangeRequirement(game, sourceId){
   if (name === 'グワイヒア') return { mode:'exchange', count:2 };
   const singleExchangeNames = new Set(['ガンダルフ','トム・ボンバディル','馳夫','ピピン','サム','メリー',
     'バーリマン・バタバー','グローイン','アルウェン','アラゴルン','ボロミア','レゴラス','ギムリ',
-    'オロフィンとルーミル','ハルディア','ケレボルン']);
+    'オロフィンとルーミル','ハルディア','ケレボルン','サムワイズ・ギャムジー',
+    'ペレグリン・トゥック','メリアドク・ブランディバック','アラゴルン アラソルンの息子',
+    'ボロミア デネソールの息子']);
   return { mode:'exchange', count:singleExchangeNames.has(name) && exchangeCandidates(game, sourceId).length ? 1 : 0 };
 }
 
@@ -3130,7 +3197,12 @@ function scheduleThreatDraw(){
       delete game.pendingThreatDrawAt;
       delete game.threatDrawPlayerId;
       delete game.threatDrawRequestId;
-      beginNextExchange(game);
+      const merryBurdenIsPresent = Number(game.stageNumber) === 18
+        && Object.values(game.characterSelections || {}).some(character => character.name === 'メリアドク・ブランディバック' && character.burden);
+      if (merryBurdenIsPresent && !game.threatRedrawOffered?.[playerId]) {
+        game.phase = 'threat-redraw-choice';
+        game.threatRedrawPlayerId = playerId;
+      } else beginNextExchange(game);
       return game;
     });
   }, Math.max(0, drawAt - Date.now()) + 20);
@@ -3273,7 +3345,7 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'アラゴルン'
+    if (['アラゴルン','アラゴルン アラソルンの息子'].includes(characterName)
       && !(game.threatCards?.[sourceId] || []).some(card => card.kind === 'threat')
       && !game.equipmentChoices?.[sourceId]) {
       game.phase = 'aragorn-threat-selection';
@@ -3415,7 +3487,7 @@ function oldForestWinsTrick(game, plays){
 function drawThreatForCharacterEffect(game, playerId){
   const characterName = game.characterSelections?.[playerId]?.name;
   if (skipsCharacterThreatDraw(game, characterName)
-      || !(characterDrawsThreat(characterName) || characterName === 'アラゴルン')) return false;
+      || !(characterDrawsThreat(characterName) || ['アラゴルン','アラゴルン アラソルンの息子'].includes(characterName))) return false;
   game.threatCards ||= {};
   if (game.characterEffectThreatDrawn?.[playerId]
       || (game.threatCards[playerId] || []).some(card => card.kind === 'threat')) return false;
@@ -3521,11 +3593,20 @@ async function takeExcludedCardAsGlorfindel(){
 }
 
 function renderThreatChoice(){
-  const visible = state.game?.phase === 'aragorn-threat-selection' && state.game?.threatDrawPlayerId === state.userId;
+  const isRedrawChoice = state.game?.phase === 'threat-redraw-choice' && state.game?.threatRedrawPlayerId === state.userId;
+  const visible = (state.game?.phase === 'aragorn-threat-selection' && state.game?.threatDrawPlayerId === state.userId) || isRedrawChoice;
   threatChoiceDialog.classList.toggle('hidden', !visible);
   threatChoiceGrid.replaceChildren();
   threatChoiceGrid.classList.remove('equipment-range-grid');
   if (!visible) return;
+  if (isRedrawChoice) {
+    threatChoiceMessage.textContent = '脅威カードを引き直しますか。';
+    [['はい', true], ['いいえ', false]].forEach(([label, redraw]) => {
+      const button = document.createElement('button'); button.className = 'threat-choice'; button.textContent = label;
+      attachTwoSecondHold(button, () => chooseMerryThreatRedraw(redraw)); threatChoiceGrid.append(button);
+    });
+    return;
+  }
   const isEquipmentChoice = Number(state.game?.stageNumber) === 11;
   threatChoiceMessage.textContent = isEquipmentChoice ? '目的となる数字範囲を選んでください。' : '脅威カードを選んでください。';
   if (isEquipmentChoice) {
@@ -3538,12 +3619,40 @@ function renderThreatChoice(){
   }
   const stage = STAGES.find(item => item.number === Number(state.game.stageNumber));
   const threat = stage?.threats?.[0] || { min:1, max:4 };
-  for (let number = threat.min; number <= threat.max; number += 1) {
+  const burdenAragorn = Number(state.game.stageNumber) === 18
+    && state.game.characterSelections?.[state.userId]?.name === 'アラゴルン アラソルンの息子';
+  const choices = burdenAragorn
+    ? (state.game.threatDeck || []).slice(0, 2)
+    : Array.from({ length:threat.max - threat.min + 1 }, (_, index) => threat.min + index);
+  if (burdenAragorn) threatChoiceMessage.textContent = '脅威カードを2枚引きました。どちらを選びますか。';
+  for (const number of choices) {
     const button = document.createElement('button');
     button.className = 'threat-choice'; button.textContent = number;
     attachTwoSecondHold(button, () => chooseAragornThreat(number));
     threatChoiceGrid.append(button);
   }
+}
+
+async function chooseMerryThreatRedraw(redraw){
+  await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    if (game?.phase !== 'threat-redraw-choice' || game.threatRedrawPlayerId !== state.userId) return;
+    game.threatRedrawOffered ||= {}; game.threatRedrawOffered[state.userId] = true;
+    if (redraw && game.threatDeck?.length) {
+      const cards = game.threatCards?.[state.userId] || [];
+      const oldIndex = cards.findIndex(card => card.kind === 'threat');
+      if (oldIndex >= 0) {
+        const oldCard = cards[oldIndex];
+        const rank = game.threatDeck.shift();
+        const newCard = { ...oldCard, number:rank, id:`${state.userId}-threat-${Date.now()}-${rank}` };
+        cards[oldIndex] = newCard;
+        game.threatDeck.push(Number(oldCard.number));
+        game.threatRedrawTransfer = { playerId:state.userId, oldCard, card:newCard, movedAt:Date.now() };
+      }
+    }
+    delete game.threatRedrawPlayerId;
+    beginNextExchange(game);
+    return game;
+  });
 }
 
 async function chooseAragornEquipmentRange(min, max){
@@ -3564,7 +3673,14 @@ async function chooseAragornThreat(number){
     if (number < threat.min || number > threat.max) return;
     game.threatCards ||= {};
     game.threatCards[state.userId] = [{ kind:'threat', color:'threat', name:threat.name, number, id:`${state.userId}-threat-${Date.now()}-${number}` }];
-    if (game.threatDeck) game.threatDeck = game.threatDeck.filter(rank => Number(rank) !== Number(number));
+    if (game.threatDeck) {
+      const burdenAragorn = Number(game.stageNumber) === 18
+        && game.characterSelections?.[state.userId]?.name === 'アラゴルン アラソルンの息子';
+      const drawn = burdenAragorn ? game.threatDeck.slice(0, 2) : [number];
+      if (!drawn.some(rank => Number(rank) === Number(number))) return;
+      game.threatDeck = game.threatDeck.filter(rank => !drawn.some(drawnRank => Number(drawnRank) === Number(rank)));
+      if (burdenAragorn) game.discardedThreatCards = [...(game.discardedThreatCards || []), ...drawn.filter(rank => Number(rank) !== Number(number))];
+    }
     delete game.threatDrawPlayerId;
     beginNextExchange(game);
     return game;
@@ -5220,6 +5336,11 @@ function characterCardData(character, playerId){
     'ハルディア':{specialName:'境界守護者',victory:'トリックに勝利して、引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。最初のトリックをリードする。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'haldir.jpg'},
     'ガラドリエル':{specialName:'ロスローリエンの奥方',victory:'最も多く、もしくは最も少なくトリックを獲得する（同数は不可）。',effect:'失われしカードもしくは〈ガンダルフ〉と交換する。',cardNumber:'3.25',rank:'黒',frameColor:'金'},
     'ケレボルン':{specialName:'ロスローリエンの殿',victory:'同じ数字のカードを3枚獲得する。',effect:'任意のキャラクターと交換する。',cardNumber:'3.26',rank:'黒',frameColor:'銀'}
+    ,'サムワイズ・ギャムジー':{specialName:'重荷',victory:'脅威カードと同じ数字の丘カードを獲得する。\n〈サム〉が勝利して獲得した指輪カードは、〈フロド〉の目的として数える。',effect:'脅威カードを1枚引く。',cardNumber:'3.39',rank:'金',frameColor:'赤'}
+    ,'ペレグリン・トゥック':{specialName:'重荷',victory:'トリックに1回も勝利しない。他のキャラクターは最低1回以上勝利する。',effect:'任意のキャラクターと交換する。',cardNumber:'3.40',rank:'金',frameColor:'赤'}
+    ,'メリアドク・ブランディバック':{specialName:'重荷',victory:'2トリック獲得。',effect:'このラウンド中、脅威カードを引いたプレイヤーは一度だけ引き直してもよい。〈フロド〉、〈サム〉、〈ピピン〉のいずれか1人と交換する。',cardNumber:'3.41',rank:'金',frameColor:'赤'}
+    ,'アラゴルン アラソルンの息子':{displayName:'アラゴルン\nアラソルンの息子',specialName:'重荷',victory:'脅威カードの数字と同じ回数だけ、トリックを獲得。',effect:'脅威デッキからカードを2枚引いて、1枚手札に加える。任意のキャラクターと交換する。',cardNumber:'3.42',rank:'金',frameColor:'赤'}
+    ,'ボロミア デネソールの息子':{displayName:'ボロミア\nデネソールの息子',specialName:'重荷',victory:'最後のトリックを獲得。もし〈ボロミア〉が〈指輪の1〉を獲得した場合、その章は即座に敗北となる。',effect:'〈フロド〉以外の任意のキャラクターと交換する。',cardNumber:'3.43',rank:'金',frameColor:'赤'}
   };
   const details = { ...(characterDetails[character.name] || {}) };
   if (Number(state.game?.stageNumber) === 13 && character.name === 'フロド') {
@@ -5244,6 +5365,7 @@ function characterCardData(character, playerId){
   const effect = [details.effect, exchangeEffect].filter(Boolean).join('\n');
   return {
     kind:'character', code:character.code, name:character.name, required:character.required === true,
+    ...(character.burden ? { burden:true } : {}),
     ...(details.variant ? { variant:details.variant } : {}),
     ...(details.image ? { image:details.image } : {}),
     ...(details.displayName ? { displayName:details.displayName } : {}),
@@ -5307,17 +5429,31 @@ async function chooseCharacter(characterName, source){
     if (!character || Object.values(room.game.characterSelections).some(item => item.name === characterName)) return;
     const hasYellowOne = (room.hands?.[state.userId]?.cards || [])
       .some(card => card.color === 'yellow' && card.number === 1);
+    if (Number(room.game.stageNumber) === 18) {
+      const stage = STAGES.find(item => item.number === 18);
+      const selectedCount = Object.keys(room.game.characterSelections).length;
+      // 一行の離散では指輪の1の所持者がグループを決め、必ず最初に選ぶ。
+      if (!selectedCount && !hasYellowOne) return;
+      const groupIndex = (stage.characterGroups || []).findIndex(group => group.includes(character.code));
+      if (groupIndex < 0 || (room.game.selectedCharacterGroup != null && Number(room.game.selectedCharacterGroup) !== groupIndex)) return;
+      if (!selectedCount) room.game.selectedCharacterGroup = groupIndex;
+    }
     const hasFrodoCharacter = (room.game.availableCharacters || [])
       .some(item => item.name === 'フロド');
     // フロドが登場する章だけ、黄1の所持者とフロドを対応させる。
-    const stageNineOptionalFrodo = Number(room.game.stageNumber) === 9;
+    const stageNineOptionalFrodo = [9, 18].includes(Number(room.game.stageNumber));
     if (hasFrodoCharacter && (characterName === 'フロド') !== hasYellowOne
       && !(stageNineOptionalFrodo && hasYellowOne && characterName !== 'フロド')) return;
     const selectedNames = new Set(Object.values(room.game.characterSelections).map(item => item.name));
     const moriaRequiredName = moriaRequiredCharacterName(room.game);
-    const characterIsRequired = character.required || character.name === moriaRequiredName;
+    const selectedStage = STAGES.find(stage => stage.number === Number(room.game.stageNumber));
+    const selectedGroupCodes = Number(room.game.stageNumber) === 18
+      ? selectedStage?.characterGroups?.[Number(room.game.selectedCharacterGroup)] : null;
+    const characterIsRequired = character.required || character.name === moriaRequiredName
+      || Boolean(selectedGroupCodes?.includes(character.code));
     const remainingRequiredCount = (room.game.availableCharacters || [])
-      .filter(item => (item.required || item.name === moriaRequiredName) && !selectedNames.has(item.name)).length;
+      .filter(item => (selectedGroupCodes ? selectedGroupCodes.includes(item.code) : (item.required || item.name === moriaRequiredName))
+        && !selectedNames.has(item.name)).length;
     const remainingPlayerCount = (room.game.playerOrder || []).length - Object.keys(room.game.characterSelections).length;
     // 残り人数と必須カード数が同じなら、任意カードを選んで必須カードを残すことはできない。
     if (remainingRequiredCount >= remainingPlayerCount && !characterIsRequired) return;
@@ -5484,7 +5620,11 @@ function renderCharacterPicker(){
   const hasFrodoCharacter = allCharacters.some(character => character.name === 'フロド');
   const remainingCharacters = allCharacters.filter(character => !chosenNames.has(character.name));
   const moriaRequiredName = moriaRequiredCharacterName(game);
-  const remainingRequiredCount = remainingCharacters.filter(character => character.required || character.name === moriaRequiredName).length;
+  const pickerStage = STAGES.find(stage => stage.number === Number(game.stageNumber));
+  const pickerGroup = Number(game.stageNumber) === 18 && game.selectedCharacterGroup != null
+    ? pickerStage?.characterGroups?.[Number(game.selectedCharacterGroup)] : null;
+  const remainingRequiredCount = remainingCharacters.filter(character => pickerGroup
+    ? pickerGroup.includes(character.code) : (character.required || character.name === moriaRequiredName)).length;
   const remainingPlayerCount = (game.playerOrder || []).length - Object.keys(selections).length;
   const mustChooseRequired = remainingRequiredCount > 0 && remainingRequiredCount >= remainingPlayerCount;
   const hasYellowOne = (state.hands?.[state.userId]?.cards || [])
@@ -5499,12 +5639,19 @@ function renderCharacterPicker(){
     choice.type = 'button';
     choice.className = 'character-choice';
     const isChosen = chosenNames.has(character.name);
-    const isRequired = character.required || character.name === moriaRequiredCharacterName(game);
+    const isRequired = character.required || character.name === moriaRequiredCharacterName(game)
+      || Boolean(pickerGroup?.includes(character.code));
     choice.classList.toggle('chosen-placeholder', isChosen);
-    const stageNineOptionalFrodo = Number(game.stageNumber) === 9;
+    const stageNineOptionalFrodo = [9, 18].includes(Number(game.stageNumber));
     const violatesRingRule = hasFrodoCharacter
       && (character.name === 'フロド' ? !hasYellowOne : hasYellowOne);
-    const unavailable = (violatesRingRule && !(stageNineOptionalFrodo && hasYellowOne && character.name !== 'フロド'))
+    const stage18 = STAGES.find(stage => stage.number === 18);
+    const selectedGroup = Number(game.stageNumber) === 18 && game.selectedCharacterGroup != null
+      ? stage18?.characterGroups?.[Number(game.selectedCharacterGroup)] : null;
+    const mustWaitForRingHolder = Number(game.stageNumber) === 18 && !Object.keys(selections).length && !hasYellowOne;
+    const outsideSelectedGroup = Boolean(selectedGroup && !selectedGroup.includes(character.code));
+    const unavailable = mustWaitForRingHolder || outsideSelectedGroup
+      || (violatesRingRule && !(stageNineOptionalFrodo && hasYellowOne && character.name !== 'フロド'))
       || (mustChooseRequired && !isRequired);
     choice.disabled = isChosen || alreadyChose || unavailable;
     // 選択できない場合も、フロドは暗くせず黄1との対応を見分けやすくする。
@@ -6388,7 +6535,7 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
   // 第五章では森1～8を通常の手札へ混ぜず、柳じじいを加えた専用山札にする。
   const isOldForest = Number(stageNumber) === 5;
   const isBarrow = Number(stageNumber) === 6;
-  const isAnduin = Number(stageNumber) === 17;
+  const isAnduin = [17, 18].includes(Number(stageNumber));
   const deck = CARD_DECK.filter(card => !isOldForest || card.color !== 'green').map(card => ({ ...card }));
   if (isAnduin) deck.push(...riverCardsForPlayerCount(seatedPlayers.length));
   for (let i = deck.length - 1; i > 0; i--){
@@ -6444,7 +6591,8 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     .filter(name => name && name !== 'xxx')
     .map(label => {
       const code = label.replace(/\*+$/, '');
-      return { code, name: CHARACTER_NAMES[code] || code, required: /\*+$/.test(label) };
+      return { code, name: CHARACTER_NAMES[code] || code, required: /\*+$/.test(label),
+        ...(Number(stageNumber) === 18 && code !== 'frodo' ? { burden:true } : {}) };
     });
   if (Number(stageNumber) === 16) {
     shuffleInPlace(stageCharacters);
