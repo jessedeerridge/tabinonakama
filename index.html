@@ -484,6 +484,7 @@
   .winningcondition-half.right .goal-type,
   .winningcondition-half.right .additional-elements{font-size:inherit;}
   .winningcondition-half.left .character-line{white-space:normal;overflow-wrap:anywhere;}
+  .burden-character{color:#b51f24;font-weight:900;}
   @media (max-width:520px){
     .center-lower-card-area{width:calc(100vw - 24px);}
   }
@@ -493,6 +494,7 @@
   .my-card.card-yellow{--card-color:#f2c94c;}
   .my-card.card-gray{--card-color:#a9aca8;}
   .my-card.card-river{--card-color:#67c7e8;background-image:url('river.jpg');}
+  .my-card.rejected-threat-card{opacity:.42;filter:saturate(.35);}
   .my-card.card-red{background-image:url('shadow.jpg');}
   .my-card.card-green{background-image:url('mori.jpg');}
   .my-card.card-green.card-nine{background-image:url('yanagi9.jpg');}
@@ -924,6 +926,24 @@
   <div class="yellow-one-note">＊2秒長押しで決定。</div>
 </section>
 
+<section id="fellowshipGroupDecision" class="yellow-one-decision hidden" aria-live="assertive">
+  <div class="yellow-one-question">どちらのグループを選びますか。</div>
+  <div class="yellow-one-actions">
+    <button class="btn hold-decision" type="button" data-fellowship-group="1"><span>グループ1</span></button>
+    <button class="btn hold-decision" type="button" data-fellowship-group="2"><span>グループ2</span></button>
+  </div>
+  <div class="yellow-one-note">＊2秒長押しで決定。</div>
+</section>
+
+<section id="threatRedrawDecision" class="yellow-one-decision hidden" aria-live="assertive">
+  <div class="yellow-one-question">脅威カードを引き直しますか。</div>
+  <div class="yellow-one-actions">
+    <button class="btn hold-decision" type="button" data-threat-redraw="yes"><span>はい</span></button>
+    <button class="btn hold-decision" type="button" data-threat-redraw="no"><span>いいえ</span></button>
+  </div>
+  <div class="yellow-one-note">＊2秒長押しで決定。</div>
+</section>
+
 <div id="chapterCompleteBanner" class="chapter-complete-banner hidden" role="status" aria-live="assertive">
   <div id="chapterCompleteMessage" class="chapter-complete-message"></div>
   <button id="chapterContinueBtn" class="chapter-continue-btn" type="button">続ける</button>
@@ -1039,6 +1059,8 @@ const threatChoiceMessage = document.getElementById('threatChoiceMessage');
 const threatChoiceGrid = document.getElementById('threatChoiceGrid');
 const shadowfaxDecision = document.getElementById('shadowfaxDecision');
 const mithrilDecision = document.getElementById('mithrilDecision');
+const fellowshipGroupDecision = document.getElementById('fellowshipGroupDecision');
+const threatRedrawDecision = document.getElementById('threatRedrawDecision');
 
 const CHARACTER_NAMES = {
   frodo: 'フロド',
@@ -1072,6 +1094,13 @@ const CHARACTER_NAMES = {
   haldir: 'ハルディア',
   galadriel: 'ガラドリエル',
   celeborn: 'ケレボルン'
+  ,boromir_denethor: 'デネソールの息子ボロミア'
+  ,samwise_gamgee: 'サムワイズ・ギャムジー'
+  ,aragorn_arathorn: 'アラソルンの息子アラゴルン'
+  ,meriadoc_brandybuck: 'メリアドク・ブランディバック'
+  ,peregrin_took: 'ペレグリン・トゥック'
+  ,legolas_greenleaf: '緑葉のレゴラス'
+  ,gimli_gloin: 'グローインの息子ギムリ'
 };
 const CHARACTER_IMAGE_FILES = {
   frodo: 'frodo.jpg',
@@ -1103,11 +1132,19 @@ const CHARACTER_IMAGE_FILES = {
   haldir: 'haldir.jpg',
   galadriel: 'galadriel.jpg',
   celeborn: 'celeborn.jpg'
+  ,boromir_denethor: 'boromir.jpg'
+  ,samwise_gamgee: 'sam.jpg'
+  ,aragorn_arathorn: 'aragorn.jpg'
+  ,meriadoc_brandybuck: 'merry.jpg'
+  ,peregrin_took: 'pippin.jpg'
+  ,legolas_greenleaf: 'legolas.jpg'
+  ,gimli_gloin: 'gimli.jpg'
 };
 const WIN_LENGTH_LABELS = { short: '短い', long: '長い' };
 const WIN_GOAL_LABELS = {
   allwin: '「選んだキャラクターの目的をすべて達成」',
-  everywin: '「すべてのキャラクターの目的を達成」'
+  everywin: '「すべてのキャラクターの目的を達成」',
+  groupwin: '「各グループの選んだキャラクターの目的をすべて達成」'
 };
 
 function toKanjiNumber(number){
@@ -1119,7 +1156,7 @@ function toKanjiNumber(number){
   return `${tens > 1 ? numerals[tens] : ''}${tens ? '十' : ''}${numerals[ones]}`;
 }
 
-const STAGES = Array.from({ length: 17 }, (_, index) => ({
+const STAGES = Array.from({ length: 18 }, (_, index) => ({
   number: index + 1,
   chapterLabel: `第${toKanjiNumber(index + 1)}章`,
   title: 'xxx',
@@ -1315,6 +1352,25 @@ defineStage(17, {
   ]
 });
 
+defineStage(18, {
+  title: '一行の離散',
+  story: 'フロドとサムは、務めの最後の旅路へと二人で漕ぎ出した。フロドが岸から離れるように漕ぐと、川の流れはすぐに二人を乗せてすばやく運んでいった。西の支流を下り、切り立ったトル・ブランディルの断崖を越えていく。やがて、大瀑布の轟音が近づいてきた。サムの助けがあったとはいえ、島の南端の流れを越え、東の遥か彼方の岸へと舟を向かわせるのは、ひどく骨の折れる作業だった。',
+  characters: ['frodo*,boromir_denethor,samwise_gamgee,aragorn_arathorn', 'meriadoc_brandybuck,peregrin_took,legolas_greenleaf,gimli_gloin'],
+  threats: [{ name:'脅威', min:1, max:7 }],
+  winCondition: 'long', goal: 'groupwin',
+  additionalElements: '〈イベント：アンドゥイン〉にしたがって、〈大河〉カードをメインデッキに加える。ただし、〈大河〉は通常のスートとして扱う。〈イベント：一行の離散〉にしたがう。',
+  eventCards: [
+    {
+      title:'一行の離散', heading:'イベント：一行の離散', hammer:true,
+      text:'キャラクターたちは、2つのグループに分ける。赤字のキャラクターは重荷の面を使用する。\n\nグループ1：フロド*、デネソールの息子ボロミア、サムワイズ・ギャムジー、アラソルンの息子アラゴルン\n\nグループ2：メリアドク・ブランディバック、ペレグリン・トゥック、緑葉のレゴラス、グローインの息子ギムリ\n\n各ラウンド、〈指輪の1〉を持つプレイヤーがグループを選び、最初にキャラクターを選ぶ。'
+    },
+    {
+      title:'一行の離散',
+      text:'返事はなかった。フロドには、自分の呼びさえ聞こえなかった。すでに遠くへと駆け、丘の頂へと続く道を、何も見ずにただひたすらに登っていた。\n頭の中には、狂気に満ちたボロミアの険しい顔と、燃え上がるようなその瞳が浮かび、恐怖と悲しみに震えた。'
+    }
+  ]
+});
+
 /* ★ 追加：ヘルプUI参照 */
 const helpBtn = document.getElementById('helpBtn');
 const helpBackdrop = document.getElementById('helpBackdrop');
@@ -1419,7 +1475,8 @@ function createCardElement(cardData){
   const card = document.createElement('div');
   card.className = `my-card card-${cardData.color}`;
   if (cardData.color === 'green' && Number(cardData.number) === 9) card.classList.add('card-nine');
-  if (cardData.kind === 'threat') card.classList.add('threat-card');
+  if (['threat', 'rejected-threat'].includes(cardData.kind)) card.classList.add('threat-card');
+  if (cardData.kind === 'rejected-threat') card.classList.add('rejected-threat-card');
   if (cardData.kind === 'balrog-shadow' && cardData.name === 'バルログ' && Number(cardData.number) === 5) card.classList.add('balrog-five');
   if (cardData.kind === 'threat' && cardData.concealed) card.classList.add('concealed');
   if (cardData.kind === 'threat' && Number(state.game?.stageNumber) === 13) card.classList.add('chapter-thirteen-threat');
@@ -1719,6 +1776,12 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   const cardsOfSuit = (cards, color) => cards.filter(card => card.color === color).length;
   const possibleTricks = trickCount + remainingRounds;
 
+  if (character.name === 'ペレグリン・トゥック') {
+    if (trickCount > 0) return { status:'failed' };
+    if (!isFinished) return { status:'pending' };
+    return { status:otherIds.every(id => (game.capturedTricks?.[id] || []).length >= 1) ? 'achieved' : 'failed' };
+  }
+
   if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 0 && character.name === 'ガンダルフ') {
     const requiredSuits = ['orange', 'gray', 'green'];
     const capturedSuits = new Set(capturedCards.map(card => card.color));
@@ -1934,8 +1997,14 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
 
   if (victory.includes('指輪')) {
     const target = Number(victory.match(/\d+/)?.[0] || 1);
-    const count = capturedTricks.reduce((total, trick) => total
+    let count = capturedTricks.reduce((total, trick) => total
       + (trick.cards || []).filter(card => card.color === 'yellow').length, 0);
+    if (Number(game.stageNumber) === 18 && character.name === 'フロド') {
+      const samId = Object.entries(game.characterSelections || {})
+        .find(([, selected]) => selected.name === 'サムワイズ・ギャムジー')?.[0];
+      count += (game.capturedTricks?.[samId] || []).reduce((total, trick) => total
+        + (trick.cards || []).filter(card => card.color === 'yellow').length, 0);
+    }
     if (count >= target) return { status:'achieved' };
     const remainingRings = Object.values(room.hands || {}).reduce((total, hand) => total
       + (hand?.cards || []).filter(card => card.color === 'yellow').length, 0);
@@ -2153,7 +2222,8 @@ function skipsCharacterThreatDraw(game, characterName){
 
 const CHARACTER_EFFECT_THREAT_DRAWERS = new Set([
   '農夫マゴット', 'サム', '馳夫', 'レゴラス', 'ギムリ',
-  'オロフィンとルーミル', 'ハルディア'
+  'オロフィンとルーミル', 'ハルディア', 'サムワイズ・ギャムジー', 'アラソルンの息子アラゴルン',
+  '緑葉のレゴラス', 'グローインの息子ギムリ'
 ]);
 
 function characterDrawsThreat(characterName){
@@ -3003,11 +3073,15 @@ function renderStageInformation(){
   stage.characters.forEach(characterLine => {
     const line = document.createElement('span');
     line.className = 'character-line';
-    line.textContent = characterLine.split(',').map(characterCode => {
+    characterLine.split(',').forEach((characterCode, index) => {
       const required = characterCode.endsWith('*');
       const code = characterCode.replace(/\*+$/, '');
-      return `${CHARACTER_NAMES[code] || code}${required ? '*' : ''}`;
-    }).join(',');
+      if (index) line.append(document.createTextNode(','));
+      const name = document.createElement(Number(stage.number) === 18 && code !== 'frodo' ? 'strong' : 'span');
+      name.classList.toggle('burden-character', Number(stage.number) === 18 && code !== 'frodo');
+      name.textContent = `${CHARACTER_NAMES[code] || code}${required ? '*' : ''}`;
+      line.append(name);
+    });
     info.append(line);
   });
   if (stage.threats?.length) {
@@ -3074,6 +3148,10 @@ function exchangeCandidates(game, sourceId){
       .filter(name => name && name !== 'ケレボルン')
     : characterName === 'ボロミア' ? (game.playerOrder || []).map(id => game.characterSelections?.[id]?.name).filter(name => name !== 'フロド')
     : characterName === 'グワイヒア' ? ['ガンダルフ']
+    : ['サムワイズ・ギャムジー', 'メリアドク・ブランディバック'].includes(characterName)
+      ? ['フロド', 'メリアドク・ブランディバック', 'ペレグリン・トゥック', 'サムワイズ・ギャムジー']
+    : characterName === 'デネソールの息子ボロミア'
+      ? (game.playerOrder || []).map(id => game.characterSelections?.[id]?.name).filter(name => name !== 'フロド')
     : null;
   return (game?.playerOrder || []).filter(playerId => playerId !== sourceId
     && !hasSpecialThreat(game, playerId, '幽鬼')
@@ -3093,7 +3171,9 @@ function exchangeRequirement(game, sourceId){
   if (name === 'グワイヒア') return { mode:'exchange', count:2 };
   const singleExchangeNames = new Set(['ガンダルフ','トム・ボンバディル','馳夫','ピピン','サム','メリー',
     'バーリマン・バタバー','グローイン','アルウェン','アラゴルン','ボロミア','レゴラス','ギムリ',
-    'オロフィンとルーミル','ハルディア','ケレボルン']);
+    'オロフィンとルーミル','ハルディア','ケレボルン','サムワイズ・ギャムジー',
+    'メリアドク・ブランディバック','ペレグリン・トゥック','アラソルンの息子アラゴルン',
+    'デネソールの息子ボロミア']);
   return { mode:'exchange', count:singleExchangeNames.has(name) && exchangeCandidates(game, sourceId).length ? 1 : 0 };
 }
 
@@ -3124,13 +3204,28 @@ function scheduleThreatDraw(){
         || (game.threatDrawRequestId && game.threatDrawRequestId !== requestId) || game.completedThreatDrawIds?.[requestId]
         || Date.now() < drawAt) return;
       const playerId = game.threatDrawPlayerId;
-      drawThreatForCharacterEffect(game, playerId);
+      const isBurdenAragorn = game.characterSelections?.[playerId]?.name === 'アラソルンの息子アラゴルン';
+      if (isBurdenAragorn && (game.threatDeck || []).length >= 2) {
+        game.aragornBurdenThreatChoices = game.threatDeck.splice(0, 2);
+        game.phase = 'aragorn-burden-threat-selection';
+        game.threatDrawPlayerId = playerId;
+        game.threatDrawTransfer = { playerId, cards:game.aragornBurdenThreatChoices.map(number => ({
+          kind:'threat', color:'threat', name:'脅威', number, id:`${playerId}-threat-choice-${Date.now()}-${number}`
+        })), movedAt:Date.now() };
+      } else drawThreatForCharacterEffect(game, playerId);
       game.completedThreatDrawIds ||= {};
       game.completedThreatDrawIds[requestId] = Date.now();
       delete game.pendingThreatDrawAt;
-      delete game.threatDrawPlayerId;
+      if (!isBurdenAragorn) delete game.threatDrawPlayerId;
       delete game.threatDrawRequestId;
-      beginNextExchange(game);
+      const hasMerryBurden = Object.values(game.characterSelections || {})
+        .some(character => character.name === 'メリアドク・ブランディバック');
+      if (isBurdenAragorn) return game;
+      if (hasMerryBurden && !game.threatRedrawUsed) {
+        game.phase = 'threat-redraw-selection';
+        game.threatRedrawPlayerId = playerId;
+        game.threatRedrawReadyAt = Date.now() + 1000;
+      } else beginNextExchange(game);
       return game;
     });
   }, Math.max(0, drawAt - Date.now()) + 20);
@@ -3438,6 +3533,41 @@ function drawThreatForCharacterEffect(game, playerId){
   return true;
 }
 
+async function decideThreatRedraw(redraw){
+  await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    if (game?.phase !== 'threat-redraw-selection' || game.threatRedrawPlayerId !== state.userId
+        || Date.now() < Number(game.threatRedrawReadyAt || 0)) return;
+    if (redraw) {
+      const cards = game.threatCards?.[state.userId] || [];
+      const previous = cards.find(card => card.kind === 'threat');
+      if (previous && game.threatDeck?.length) {
+        game.threatDeck.push(previous.number);
+        game.threatCards[state.userId] = cards.filter(card => card !== previous);
+        delete game.characterEffectThreatDrawn?.[state.userId];
+        drawThreatForCharacterEffect(game, state.userId);
+        game.threatRedrawTransfer = { playerId:state.userId, returnedCard:previous, movedAt:Date.now() };
+      }
+      game.threatRedrawUsed = true;
+    }
+    delete game.threatRedrawPlayerId; delete game.threatRedrawReadyAt;
+    beginNextExchange(game);
+    return game;
+  });
+}
+
+threatRedrawDecision.querySelectorAll('.hold-decision').forEach(button => {
+  attachTwoSecondHold(button, () => decideThreatRedraw(button.dataset.threatRedraw === 'yes'));
+});
+
+function renderThreatRedrawDecision(){
+  const visible = state.game?.phase === 'threat-redraw-selection'
+    && state.game?.threatRedrawPlayerId === state.userId;
+  threatRedrawDecision.classList.toggle('hidden', !visible);
+  const waiting = Date.now() < Number(state.game?.threatRedrawReadyAt || 0);
+  threatRedrawDecision.querySelectorAll('button').forEach(button => { button.disabled = !visible || waiting; });
+  if (visible && waiting) setTimeout(renderThreatRedrawDecision, Number(state.game.threatRedrawReadyAt) - Date.now() + 20);
+}
+
 function beginCharacterEffectTurns(game){
   const order = game.playerOrder || [];
   const effectsStartAfterFrodo = (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 2)
@@ -3521,18 +3651,28 @@ async function takeExcludedCardAsGlorfindel(){
 }
 
 function renderThreatChoice(){
-  const visible = state.game?.phase === 'aragorn-threat-selection' && state.game?.threatDrawPlayerId === state.userId;
+  const visible = ['aragorn-threat-selection', 'aragorn-burden-threat-selection'].includes(state.game?.phase)
+    && state.game?.threatDrawPlayerId === state.userId;
   threatChoiceDialog.classList.toggle('hidden', !visible);
   threatChoiceGrid.replaceChildren();
   threatChoiceGrid.classList.remove('equipment-range-grid');
   if (!visible) return;
   const isEquipmentChoice = Number(state.game?.stageNumber) === 11;
-  threatChoiceMessage.textContent = isEquipmentChoice ? '目的となる数字範囲を選んでください。' : '脅威カードを選んでください。';
+  const isBurdenChoice = state.game?.phase === 'aragorn-burden-threat-selection';
+  threatChoiceMessage.textContent = isEquipmentChoice ? '目的となる数字範囲を選んでください。'
+    : isBurdenChoice ? 'どちらを選びますか。' : '脅威カードを選んでください。';
   if (isEquipmentChoice) {
     threatChoiceGrid.classList.add('equipment-range-grid');
     [[1,2],[3,4],[5,6]].forEach(([min,max]) => {
       const button = document.createElement('button'); button.className = 'threat-choice'; button.textContent = `${min}～${max}`;
       attachTwoSecondHold(button, () => chooseAragornEquipmentRange(min, max)); threatChoiceGrid.append(button);
+    });
+    return;
+  }
+  if (isBurdenChoice) {
+    (state.game.aragornBurdenThreatChoices || []).forEach(number => {
+      const button = document.createElement('button'); button.className = 'threat-choice'; button.textContent = number;
+      attachTwoSecondHold(button, () => chooseAragornBurdenThreat(number)); threatChoiceGrid.append(button);
     });
     return;
   }
@@ -3544,6 +3684,24 @@ function renderThreatChoice(){
     attachTwoSecondHold(button, () => chooseAragornThreat(number));
     threatChoiceGrid.append(button);
   }
+}
+
+async function chooseAragornBurdenThreat(number){
+  await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    if (game?.phase !== 'aragorn-burden-threat-selection' || game.threatDrawPlayerId !== state.userId) return;
+    const choices = game.aragornBurdenThreatChoices || [];
+    if (!choices.includes(number)) return;
+    const rejected = choices.find(value => value !== number);
+    game.threatCards ||= {};
+    game.threatCards[state.userId] = [
+      { kind:'rejected-threat', color:'threat', name:'脅威', number:rejected, rejected:true,
+        id:`${state.userId}-rejected-threat-${Date.now()}-${rejected}` },
+      { kind:'threat', color:'threat', name:'脅威', number, id:`${state.userId}-threat-${Date.now()}-${number}` }
+    ];
+    game.characterEffectThreatDrawn ||= {}; game.characterEffectThreatDrawn[state.userId] = true;
+    delete game.aragornBurdenThreatChoices; delete game.threatDrawPlayerId;
+    beginNextExchange(game); return game;
+  });
 }
 
 async function chooseAragornEquipmentRange(min, max){
@@ -4106,6 +4264,34 @@ function attachTwoSecondHold(button, action){
   button.addEventListener('pointerup', cancel);
   button.addEventListener('pointercancel', cancel);
   button.addEventListener('lostpointercapture', cancel);
+}
+
+async function chooseFellowshipGroup(groupNumber){
+  if (!state.roomCode || ![1, 2].includes(groupNumber)) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const game = room?.game;
+    if (Number(game?.stageNumber) !== 18 || game.phase !== 'fellowship-group-selection'
+        || game.groupChooserPlayerId !== state.userId) return;
+    const groups = game.fellowshipGroups || {};
+    game.selectedFellowshipGroup = groupNumber;
+    game.availableCharacters = groups[groupNumber] || [];
+    game.phase = 'character-selection';
+    return room;
+  });
+}
+
+fellowshipGroupDecision.querySelectorAll('.hold-decision').forEach(button => {
+  attachTwoSecondHold(button, () => chooseFellowshipGroup(Number(button.dataset.fellowshipGroup)));
+});
+
+function renderFellowshipGroupDecision(){
+  const active = Number(state.game?.stageNumber) === 18
+    && state.game?.phase === 'fellowship-group-selection';
+  fellowshipGroupDecision.classList.toggle('hidden', !active);
+  fellowshipGroupDecision.classList.toggle('read-only', active && state.game?.groupChooserPlayerId !== state.userId);
+  fellowshipGroupDecision.querySelectorAll('button').forEach(button => {
+    button.disabled = !active || state.game?.groupChooserPlayerId !== state.userId;
+  });
 }
 
 async function chooseStriderComparison(choice){
@@ -5100,6 +5286,7 @@ async function playCard(cardIndex, expectedCard){
         }
       }
       const lead = plays[0].card.color;
+      // 第18章では大河も通常スートなので、切り札として扱わない。
       const riverPlays = Number(room.game.stageNumber) === 17 ? plays.filter(play => play.card.color === 'river') : [];
       const winnerPlay = riverPlays.length
         ? riverPlays.reduce((best, play) => Number(play.card.number) > Number(best.card.number) ? play : best)
@@ -5152,6 +5339,8 @@ async function playCard(cardIndex, expectedCard){
 }
 function renderHands(){
   renderCharacterPicker();
+  renderFellowshipGroupDecision();
+  renderThreatRedrawDecision();
   renderMyHand();
   if (latestPlayers.length) renderPlayerCircle(latestPlayers);
 }
@@ -5220,8 +5409,23 @@ function characterCardData(character, playerId){
     'ハルディア':{specialName:'境界守護者',victory:'トリックに勝利して、引いた脅威カードと同じ数字の森カードを獲得する。',effect:'脅威カードを1枚引く。〈ギムリ〉以外の任意のキャラクター1人と交換する。最初のトリックをリードする。',cardNumber:'3.22',rank:'黒',frameColor:'緑',image:'haldir.jpg'},
     'ガラドリエル':{specialName:'ロスローリエンの奥方',victory:'最も多く、もしくは最も少なくトリックを獲得する（同数は不可）。',effect:'失われしカードもしくは〈ガンダルフ〉と交換する。',cardNumber:'3.25',rank:'黒',frameColor:'金'},
     'ケレボルン':{specialName:'ロスローリエンの殿',victory:'同じ数字のカードを3枚獲得する。',effect:'任意のキャラクターと交換する。',cardNumber:'3.26',rank:'黒',frameColor:'銀'}
+    ,'サムワイズ・ギャムジー':{specialName:'重荷',victory:'脅威カードと同じ数字の丘カードを獲得する。\n〈サム〉が勝利して獲得した指輪カードは、〈フロド〉の目的として数える。',effect:'脅威カードを1枚引く。',cardNumber:'3.39',rank:'金',frameColor:'赤',image:'sam.jpg'}
+    ,'ペレグリン・トゥック':{specialName:'重荷',victory:'トリックに1回も勝利しない。他のキャラクターは最低1回以上勝利する。',effect:'任意のキャラクターと交換する。',cardNumber:'3.40',rank:'金',frameColor:'赤',image:'pippin.jpg'}
+    ,'メリアドク・ブランディバック':{specialName:'重荷',victory:'2トリック獲得。',effect:'このラウンド中、脅威カードを引いたプレイヤーは一度だけ引き直してもよい。〈フロド〉、〈サム〉、〈ピピン〉のいずれか1人と交換する。',cardNumber:'3.41',rank:'金',frameColor:'赤',image:'merry.jpg'}
+    ,'アラソルンの息子アラゴルン':{displayName:'アラゴルン\nアラソルンの息子',specialName:'重荷',victory:'脅威カードの数字と同じ回数だけ、トリックを獲得。',effect:'脅威デッキからカードを2枚引いて、1枚手札に加える。任意のキャラクターと交換する。',cardNumber:'3.42',rank:'金',frameColor:'赤',image:'aragorn.jpg'}
+    ,'デネソールの息子ボロミア':{displayName:'ボロミア\nデネソールの息子',specialName:'重荷',victory:'最後のトリックを獲得。もし〈ボロミア〉が〈指輪の1〉を獲得した場合、その章は即座に敗北となる。',effect:'〈フロド〉以外の任意のキャラクターと交換する。',cardNumber:'3.43',rank:'金',frameColor:'赤',image:'boromir.jpg'}
   };
-  const details = { ...(characterDetails[character.name] || {}) };
+  const chapterEighteenBaseName = {
+    boromir_denethor:'ボロミア', samwise_gamgee:'サム', aragorn_arathorn:'アラゴルン',
+    meriadoc_brandybuck:'メリー', peregrin_took:'ピピン', legolas_greenleaf:'レゴラス', gimli_gloin:'ギムリ'
+  }[character.code];
+  const details = { ...(characterDetails[character.name] || characterDetails[chapterEighteenBaseName] || {}) };
+  if (Number(state.game?.stageNumber) === 18 && character.name === 'フロド') {
+    details.cardNumber = '3.37'; details.rank = '無し';
+  }
+  if (Number(state.game?.stageNumber) === 18 && ['緑葉のレゴラス', 'グローインの息子ギムリ'].includes(character.name)) {
+    details.frameColor = '赤'; details.specialName = '重荷';
+  }
   if (Number(state.game?.stageNumber) === 13 && character.name === 'フロド') {
     details.cardNumber = '3.01';
     details.rank = '無し';
@@ -6242,7 +6446,8 @@ function renderPlayerCircle(players){
       if (animatingThreatCardIds.has(threatCard.id)) {
         threatBundle.classList.add('threat-draw-target-hidden');
       }
-      threatBundle.style.left = `${(characterOffsetCount + equipmentCards.length + threatIndex) * 40}px`;
+      const aragornBurdenPair = threatCards.some(card => card.kind === 'rejected-threat');
+      threatBundle.style.left = `${(characterOffsetCount + equipmentCards.length) * 40 + threatIndex * (aragornBurdenPair ? 19 : 40)}px`;
       threatBundle.style.zIndex = String(characterOffsetCount + threatIndex + 1);
       const holder = document.createElement('div');
       holder.className = 'capture-card';
@@ -6388,7 +6593,7 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
   // 第五章では森1～8を通常の手札へ混ぜず、柳じじいを加えた専用山札にする。
   const isOldForest = Number(stageNumber) === 5;
   const isBarrow = Number(stageNumber) === 6;
-  const isAnduin = Number(stageNumber) === 17;
+  const isAnduin = [17, 18].includes(Number(stageNumber));
   const deck = CARD_DECK.filter(card => !isOldForest || card.color !== 'green').map(card => ({ ...card }));
   if (isAnduin) deck.push(...riverCardsForPlayerCount(seatedPlayers.length));
   for (let i = deck.length - 1; i > 0; i--){
@@ -6446,6 +6651,9 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
       const code = label.replace(/\*+$/, '');
       return { code, name: CHARACTER_NAMES[code] || code, required: /\*+$/.test(label) };
     });
+  const fellowshipGroups = Number(stageNumber) === 18 ? {
+    1:stageCharacters.slice(0, 4), 2:stageCharacters.slice(4, 8)
+  } : null;
   if (Number(stageNumber) === 16) {
     shuffleInPlace(stageCharacters);
     const mirrorDeck = shuffleInPlace(CARD_DECK.map(card => ({ ...card })));
@@ -6497,7 +6705,12 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
       : {}),
     game: {
       playerOrder, turnPlayerId: null, trickNumber: 1, stageNumber, startedAt:Date.now(),
-      phase: 'character-selection', availableCharacters: stageCharacters,
+      phase: Number(stageNumber) === 18 ? 'fellowship-group-selection' : 'character-selection',
+      availableCharacters: Number(stageNumber) === 18 ? [] : stageCharacters,
+      ...(fellowshipGroups ? {
+        fellowshipGroups,
+        groupChooserPlayerId:playerOrder.find(id => hands[id].cards.some(card => card.color === 'yellow' && Number(card.number) === 1)) || playerOrder[0]
+      } : {}),
       characterSelections: {},
       ringCircleOn: false,
       ...(excludedCard ? { excludedCard, excludedCardTilt:excludedCardTilts[0] } : {}),
@@ -6536,8 +6749,11 @@ chapterContinueBtn.addEventListener('click', async () => {
     const room = result.snapshot.val();
     if (!result.committed || room?.game?.continueClaim !== claim) return;
     const stage = STAGES.find(item => item.number === Number(room.game.stageNumber));
+    const longChapterCharacters = Number(stage?.number) === 18
+      ? Object.values(room.game.fellowshipGroups || {}).flat()
+      : (room.game.availableCharacters || []);
     const allLongCharactersAchieved = stage?.winCondition === 'long'
-      && (room.game.availableCharacters || []).every(character =>
+      && longChapterCharacters.every(character =>
         ((Number(stage.number) === 13 && character.name === '小馬のビル')
           || (Number(stage.number) === 17 && character.name === 'ケレボルン'))
         || room.longChapterProgress?.characters?.[character.name]);
