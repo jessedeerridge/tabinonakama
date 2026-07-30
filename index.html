@@ -257,6 +257,9 @@
   .stage-grid{display:grid;grid-template-columns:repeat(4,36px);justify-content:center;gap:10px;}
   .stage-tab{width:36px;height:36px;padding:0;border:1px solid #111;border-radius:50%;background:#fff;font-size:12px;font-weight:800;cursor:pointer;}
   .stage-tab:hover,.stage-tab:focus-visible{background:#111;color:#fff;}
+  .stage-tab.stage-sequel{background:#142b4a;color:#d8b85a;border-color:#142b4a;font-family:serif;font-size:17px;}
+  .stage-tab.stage-sequel:hover,.stage-tab.stage-sequel:focus-visible{background:#0a1b31;color:#f4d878;}
+  .center-lower-card-area.sequel-stage-layout #arasujisquare{display:none;}
   .center-lower-card-area.hidden{display:none;}
   .center-lower-card-area{
     position:fixed;left:16px;top:calc(68% - 101px);transform:translateY(-80px);
@@ -971,6 +974,12 @@
   <div class="yellow-one-note">＊2秒長押しで決定。</div>
 </section>
 
+<section id="lostCardOwnerDialog" class="exchange-dialog hidden" aria-live="assertive">
+  <div class="exchange-message">誰が失われしカードを取りますか。</div>
+  <div id="lostCardOwnerTargets" class="exchange-targets"></div>
+  <div class="exchange-note">＊2秒長押しで決定。</div>
+</section>
+
 <div id="chapterCompleteBanner" class="chapter-complete-banner hidden" role="status" aria-live="assertive">
   <div id="chapterCompleteMessage" class="chapter-complete-message"></div>
   <button id="chapterContinueBtn" class="chapter-continue-btn" type="button">続ける</button>
@@ -1090,6 +1099,8 @@ const shadowfaxDecision = document.getElementById('shadowfaxDecision');
 const mithrilDecision = document.getElementById('mithrilDecision');
 const fellowshipGroupDecision = document.getElementById('fellowshipGroupDecision');
 const threatRedrawDecision = document.getElementById('threatRedrawDecision');
+const lostCardOwnerDialog = document.getElementById('lostCardOwnerDialog');
+const lostCardOwnerTargets = document.getElementById('lostCardOwnerTargets');
 
 const CHARACTER_NAMES = {
   frodo: 'フロド',
@@ -1185,7 +1196,7 @@ function toKanjiNumber(number){
   return `${tens > 1 ? numerals[tens] : ''}${tens ? '十' : ''}${numerals[ones]}`;
 }
 
-const STAGES = Array.from({ length: 18 }, (_, index) => ({
+const STAGES = Array.from({ length: 19 }, (_, index) => ({
   number: index + 1,
   chapterLabel: `第${toKanjiNumber(index + 1)}章`,
   title: 'xxx',
@@ -1194,6 +1205,7 @@ const STAGES = Array.from({ length: 18 }, (_, index) => ({
   winCondition: 'xxx',
   goal: 'xxx'
 }));
+STAGES[18].chapterLabel = '続';
 function defineStage(number, stageData){
   const stage = STAGES.find(item => item.number === number);
   if (!stage) throw new RangeError(`ステージ${number}は定義範囲外です。`);
@@ -1404,6 +1416,11 @@ defineStage(18, {
   ]
 });
 
+defineStage(19, {
+  chapterLabel:'続', title:'続の章', story:'', characters:['frodo*', 'gandalf'],
+  threats:[{ name:'脅威', min:1, max:7 }], winCondition:'long', goal:'everywin', sequel:true
+});
+
 /* ★ 追加：ヘルプUI参照 */
 const helpBtn = document.getElementById('helpBtn');
 const helpBackdrop = document.getElementById('helpBackdrop');
@@ -1427,6 +1444,16 @@ const MITHRIL_COAT = {
   effect:'ラウンド終了時、キャラクター1人の目的が未達成なら、このカードを捨て札にして達成したものとして扱う。',
   cardNumber:'3.11', rank:'黒', image:'mithril.jpg'
 };
+const SEQUEL_EQUIPMENT = [...Object.values(STAGE_ELEVEN_EQUIPMENT), MITHRIL_COAT];
+const SEQUEL_GOLD_CHARACTERS = [
+  ['sam','samwise_gamgee'], ['pippin','peregrin_took'], ['merry','meriadoc_brandybuck'],
+  ['aragorn','aragorn_arathorn'], ['boromir','boromir_denethor'],
+  ['legolas','legolas_greenleaf'], ['gimli','gimli_gloin']
+];
+const SEQUEL_BLACK_CHARACTER_CODES = [
+  'farmer_maggot','gildor','fatty_bolger','tom_bombadil','goldberry','barliman','glorfindel','bill',
+  'elrond','gloin','arwen','bilbo_baggins','gwaihir','radagast','shadowfax','orophin_rumil','haldir','galadriel','celeborn'
+];
 
 function hasSpecialThreat(game, playerId, name){
   return (game?.threatCards?.[playerId] || []).some(card => card.kind === 'special-threat' && card.name === name);
@@ -3019,6 +3046,7 @@ function renderStageInformation(){
   const isCharacterSelection = ['fellowship-group-selection', 'character-selection'].includes(state.game?.phase);
   centerLowerCardArea.classList.toggle('character-selection-layout', isCharacterSelection);
   centerLowerCardArea.classList.toggle('event-stage-layout', Boolean(stage?.eventCards?.length));
+  centerLowerCardArea.classList.toggle('sequel-stage-layout', Boolean(stage?.sequel));
   centerLowerCardArea.classList.toggle('chapter-fourteen', isChapterFourteen);
   eventCardModalRow.classList.toggle('chapter-fourteen', isChapterFourteen);
   if (isCharacterSelection || !stage?.eventCards?.length) setEventCardsExpanded(false);
@@ -3175,7 +3203,10 @@ function renderStageInformation(){
     characterHeading.className = 'character-heading';
     characterHeading.textContent = 'キャラクター：';
     info.append(characterHeading);
-    stage.characters.forEach(characterLine => {
+    const characterLines = stage.sequel
+      ? (state.game?.availableCharacters || []).map(character => `${character.code}${character.required ? '*' : ''}`)
+      : stage.characters;
+    characterLines.forEach(characterLine => {
       const line = document.createElement('span');
       line.className = 'character-line';
       characterLine.split(',').forEach((characterCode, index) => {
@@ -3434,6 +3465,18 @@ function scheduleBarrowDraw(){
 
 function beginNextExchange(game){
   game.exchangeQueue ||= [...(game.effectOrder || game.playerOrder || [])];
+  if (Number(game.stageNumber) === 19 && !game.lostCardOwnerDecision && game.excludedCard) {
+    const eligibleIds = (game.effectOrder || game.playerOrder || []).filter(playerId =>
+      ['ガンダルフ', 'トム・ボンバディル', 'グロルフィンデル']
+        .includes(game.characterSelections?.[playerId]?.name));
+    if (eligibleIds.length > 1) {
+      game.phase = 'lost-card-owner-selection';
+      game.pendingLostCardOwner = { chooserId:eligibleIds[0], eligibleIds, requestedAt:Date.now() };
+      game.turnPlayerId = null;
+      return;
+    }
+    if (eligibleIds.length === 1) game.lostCardOwnerDecision = { ownerId:eligibleIds[0] };
+  }
   // 〈長き暗闇〉だけは通常の「1人の効果を最後まで処理して次へ」という進行にしない。
   // 先にフロドの次から全脅威ドローを席順で完了し、その後の交換を全員同時に保留する。
   if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 2) {
@@ -3513,13 +3556,15 @@ function beginNextExchange(game){
       return;
     }
     const bridgeHasLostCard = Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3 && game.excludedCards?.length;
-    if (characterName === 'ガンダルフ' && (game.excludedCard || bridgeHasLostCard) && !game.gandalfEffectCompleted) {
+    const canTakeSequelLostCard = Number(game.stageNumber) !== 19
+      || !game.lostCardOwnerDecision || game.lostCardOwnerDecision.ownerId === sourceId;
+    if (characterName === 'ガンダルフ' && canTakeSequelLostCard && (game.excludedCard || bridgeHasLostCard) && !game.gandalfEffectCompleted) {
       game.phase = 'gandalf-selection';
       game.gandalfPlayerId = sourceId;
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'トム・ボンバディル' && game.excludedCards?.length && !game.tomEffectCompleted) {
+    if (characterName === 'トム・ボンバディル' && canTakeSequelLostCard && (game.excludedCards?.length || game.excludedCard) && !game.tomEffectCompleted) {
       game.phase = 'tom-selection';
       game.tomPlayerId = sourceId;
       game.turnPlayerId = null;
@@ -3532,7 +3577,7 @@ function beginNextExchange(game){
       game.turnPlayerId = null;
       return;
     }
-    if (characterName === 'グロルフィンデル' && game.excludedCard && !game.glorfindelEffectCompleted) {
+    if (characterName === 'グロルフィンデル' && canTakeSequelLostCard && game.excludedCard && !game.glorfindelEffectCompleted) {
       game.phase = 'glorfindel-selection';
       game.glorfindelPlayerId = sourceId;
       game.turnPlayerId = null;
@@ -3819,15 +3864,18 @@ async function takeExcludedCardsAsTom(){
   if (!state.roomCode || state.game?.phase !== 'tom-selection' || state.game?.tomPlayerId !== state.userId) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
     const game = room?.game;
-    if (!game?.excludedCards?.length || game.phase !== 'tom-selection' || game.tomPlayerId !== state.userId) return;
+    const recoveredCards = game?.excludedCards?.length ? [...game.excludedCards]
+      : game?.excludedCard ? [game.excludedCard] : [];
+    if (!recoveredCards.length || game.phase !== 'tom-selection' || game.tomPlayerId !== state.userId) return;
     room.hands ||= {};
     room.hands[state.userId] ||= { cards:[] };
     room.hands[state.userId].cards ||= [];
-    const recoveredCards = [...game.excludedCards];
     room.hands[state.userId].cards.push(...recoveredCards);
     game.lostCardTransfer = { cards:recoveredCards, playerId:state.userId, movedAt:Date.now() };
     delete game.excludedCards;
     delete game.excludedCardTilts;
+    delete game.excludedCard;
+    delete game.excludedCardTilt;
     delete game.tomPlayerId;
     game.tomEffectCompleted = true;
     beginNextExchange(game);
@@ -4451,6 +4499,7 @@ function subscribeRoom(){
     renderStriderChoice();
     renderThreatChoice();
     renderBilboLeadChoice();
+    renderLostCardOwnerChoice();
     renderChapterComplete();
     renderMithrilDecision();
     if (Number(previousGame?.stageNumber) === 16 || Number(state.game?.stageNumber) === 16) {
@@ -4572,6 +4621,46 @@ function renderBilboLeadChoice(){
     button.textContent = playerName(playerId);
     attachTwoSecondHold(button, () => chooseBilboLeadPlayer(playerId));
     bilboLeadChoiceTargets.append(button);
+  });
+}
+
+function renderLostCardOwnerChoice(){
+  const choice = state.game?.pendingLostCardOwner;
+  const visible = state.game?.phase === 'lost-card-owner-selection' && choice?.chooserId === state.userId;
+  lostCardOwnerDialog.classList.toggle('hidden', !visible);
+  lostCardOwnerTargets.replaceChildren();
+  if (!visible) return;
+  choice.eligibleIds.forEach(playerId => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn hold-decision';
+    button.textContent = playerName(playerId);
+    attachTwoSecondHold(button, () => chooseLostCardOwner(playerId));
+    lostCardOwnerTargets.append(button);
+  });
+}
+
+async function chooseLostCardOwner(playerId){
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+    const game = room?.game;
+    const choice = game?.pendingLostCardOwner;
+    if (game?.phase !== 'lost-card-owner-selection' || choice?.chooserId !== state.userId
+        || !choice.eligibleIds?.includes(playerId)) return;
+    game.lostCardOwnerDecision = { ownerId:playerId, chosenBy:state.userId, chosenAt:Date.now() };
+    delete game.pendingLostCardOwner;
+    if (playerId === state.userId && game.excludedCard) {
+      room.hands ||= {}; room.hands[playerId] ||= { cards:[] }; room.hands[playerId].cards ||= [];
+      room.hands[playerId].cards.push(game.excludedCard);
+      game.lostCardTransfer = { cardId:game.excludedCard.id, playerId, movedAt:Date.now() };
+      delete game.excludedCard; delete game.excludedCardTilt;
+      const characterName = game.characterSelections?.[playerId]?.name;
+      if (characterName === 'ガンダルフ') game.gandalfEffectCompleted = true;
+      if (characterName === 'トム・ボンバディル') game.tomEffectCompleted = true;
+      if (characterName === 'グロルフィンデル') game.glorfindelEffectCompleted = true;
+    }
+    beginNextExchange(game);
+    return room;
   });
 }
 
@@ -6015,6 +6104,29 @@ async function chooseCharacter(characterName, source){
     }
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
+      if (Number(room.game.stageNumber) === 19 && room.game.sequelSetup && !room.game.sequelSetup.assigned) {
+        const playerIds = room.game.playerOrder || [];
+        const equipmentOwnerId = playerIds[Math.floor(Math.random() * playerIds.length)];
+        const specialThreat = room.game.sequelSetup.specialThreat;
+        const threatEligibleIds = specialThreat?.name === '見えざる者'
+          ? playerIds.filter(id => characterDrawsThreat(room.game.characterSelections?.[id]?.name))
+          : playerIds;
+        const threatOwnerPool = threatEligibleIds.length ? threatEligibleIds : playerIds;
+        const threatOwnerId = threatOwnerPool[Math.floor(Math.random() * threatOwnerPool.length)];
+        room.game.equipmentCards ||= {}; room.game.equipmentCards[equipmentOwnerId] ||= [];
+        room.game.equipmentCards[equipmentOwnerId].push({
+          kind:'equipment', ...room.game.sequelSetup.equipment,
+          id:`${equipmentOwnerId}-sequel-equipment-${Date.now()}`
+        });
+        room.game.threatCards ||= {}; room.game.threatCards[threatOwnerId] ||= [];
+        room.game.threatCards[threatOwnerId].unshift({
+          kind:'special-threat', color:'threat', ...specialThreat,
+          id:`${threatOwnerId}-sequel-threat-${Date.now()}`
+        });
+        room.game.sequelSetup.assigned = true;
+        room.game.sequelSetup.equipmentOwnerId = equipmentOwnerId;
+        room.game.sequelSetup.threatOwnerId = threatOwnerId;
+      }
       if (Number(room.game.stageNumber) === 15) {
         const gimliId = Object.entries(room.game.characterSelections)
           .find(([, selected]) => selected.name === 'ギムリ')?.[0];
@@ -7064,7 +7176,7 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     const j = Math.floor(Math.random() * (i + 1));
     [threatDeck[i], threatDeck[j]] = [threatDeck[j], threatDeck[i]];
   }
-  const stageCharacters = (stage?.characters || [])
+  let stageCharacters = (stage?.characters || [])
     .flatMap(line => line.split(/[、,]/))
     .map(name => name.trim())
     .filter(name => name && name !== 'xxx')
@@ -7072,6 +7184,28 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
       const code = label.replace(/\*+$/, '');
       return { code, name: CHARACTER_NAMES[code] || code, required: /\*+$/.test(label) };
     });
+  let sequelSetup = null;
+  if (stage?.sequel) {
+    const goldCount = [2, 3].includes(playerOrder.length) ? 4 : 5;
+    const blackCount = [2, 3].includes(playerOrder.length) ? 3 : 6;
+    const goldPairs = shuffleInPlace(SEQUEL_GOLD_CHARACTERS.map(pair => [...pair])).slice(0, goldCount);
+    const burdenIndex = Math.floor(Math.random() * goldPairs.length);
+    const goldCharacters = goldPairs.map(([normalCode, burdenCode], index) => {
+      const code = index === burdenIndex ? burdenCode : normalCode;
+      return { code, name:CHARACTER_NAMES[code], required:false };
+    });
+    const blackCharacters = shuffleInPlace(SEQUEL_BLACK_CHARACTER_CODES.slice()).slice(0, blackCount)
+      .map(code => ({ code, name:CHARACTER_NAMES[code], required:false }));
+    stageCharacters = [
+      { code:'frodo', name:'フロド', required:true },
+      { code:'gandalf', name:'ガンダルフ', required:false },
+      ...goldCharacters, ...blackCharacters
+    ];
+    sequelSetup = {
+      equipment:SEQUEL_EQUIPMENT[Math.floor(Math.random() * SEQUEL_EQUIPMENT.length)],
+      specialThreat:Object.values(STAGE_NINE_THREATS)[Math.floor(Math.random() * Object.keys(STAGE_NINE_THREATS).length)]
+    };
+  }
   const fellowshipGroups = Number(stageNumber) === 18 ? {
     1:stageCharacters.slice(0, 4), 2:stageCharacters.slice(4, 8)
   } : null;
@@ -7134,6 +7268,7 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
       } : {}),
       characterSelections: {},
       ringCircleOn: false,
+      ...(sequelSetup ? { sequelSetup } : {}),
       ...(excludedCard ? { excludedCard, excludedCardTilt:excludedCardTilts[0] } : {}),
       ...(isOldForest && excludedCards.length ? { excludedCards, excludedCardTilts } : {}),
       ...(oldForestDeck ? { oldForestDeck } : {}),
@@ -7202,7 +7337,9 @@ function openStageDialog(){
     const tab = document.createElement('button');
     tab.type = 'button';
     tab.className = 'stage-tab';
-    tab.textContent = `#${stage.number}`;
+    tab.textContent = stage.sequel ? '続' : `#${stage.number}`;
+    tab.classList.toggle('stage-sequel', Boolean(stage.sequel));
+    tab.setAttribute('aria-label', stage.sequel ? '続の章' : `第${stage.number}章`);
     tab.addEventListener('click', async () => {
       if (!state.isHost) return;
       tab.disabled = true;
