@@ -1366,11 +1366,14 @@ defineStage(18, {
   characters: ['frodo*,boromir_denethor,samwise_gamgee,aragorn_arathorn', 'meriadoc_brandybuck,peregrin_took,legolas_greenleaf,gimli_gloin'],
   threats: [{ name:'脅威', min:1, max:7 }],
   winCondition: 'long', goal: 'groupwin',
-  additionalElements: '〈大河〉（1～8）を配る（3人なら1～6）。ただし、〈大河〉は通常のスートとして扱う。〈イベント：一行の離散〉にしたがう。',
+  additionalElements: {
+    3:'〈大河〉（1～6）を配る。ただし、〈大河〉は通常のスートとして扱う。〈イベント：一行の離散〉にしたがう。',
+    4:'〈大河〉（1～8）を配る。ただし、〈大河〉は通常のスートとして扱う。〈イベント：一行の離散〉にしたがう。'
+  },
   eventCards: [
     {
       title:'一行の離散', heading:'イベント：一行の離散', hammer:true,
-      text:'キャラクターたちは、2つのグループに分ける。赤字のキャラクターは重荷の面を使用する。\n\nグループ1：フロド*、デネソールの息子ボロミア、サムワイズ・ギャムジー、アラソルンの息子アラゴルン\n\nグループ2：メリアドク・ブランディバック、ペレグリン・トゥック、緑葉のレゴラス、グローインの息子ギムリ\n\n各ラウンド、〈指輪の1〉を持つプレイヤーがグループと、最初にキャラクターを選ぶ。',
+      text:'キャラクターは以下のグループに分け、赤字は重荷の面を使用する。\n\nグループ1：フロド*、デネソールの息子ボロミア、サムワイズ・ギャムジー、アラソルンの息子アラゴルン\n\nグループ2：メリアドク・ブランディバック、ペレグリン・トゥック、緑葉のレゴラス、グローインの息子ギムリ\n\n各ラウンド、〈指輪の1〉を持つプレイヤーがグループと、最初にキャラクターを選ぶ。',
       burdenCharacters:['デネソールの息子ボロミア','サムワイズ・ギャムジー','アラソルンの息子アラゴルン','メリアドク・ブランディバック','ペレグリン・トゥック','緑葉のレゴラス','グローインの息子ギムリ']
     },
     {
@@ -3137,14 +3140,17 @@ function renderStageInformation(){
   const goalText = document.createElement('span');
   goalText.textContent = WIN_GOAL_LABELS[stage.goal] || stage.goal || 'xxx';
   goal.append(goalHeading, goalType, document.createElement('br'), goalText);
-  if (stage.additionalElements) {
+  const additionalElements = typeof stage.additionalElements === 'string'
+    ? stage.additionalElements
+    : stage.additionalElements?.[Number(state.room?.maxPlayers)];
+  if (additionalElements) {
     const additional = document.createElement('span');
     additional.className = 'additional-elements';
     const mark = document.createElement('span');
     mark.className = 'additional-elements-mark';
     mark.innerHTML = HAMMER_ICON_SVG;
     const text = document.createElement('span');
-    text.textContent = stage.additionalElements;
+    text.textContent = additionalElements;
     additional.append(mark, text);
     goal.append(additional);
   }
