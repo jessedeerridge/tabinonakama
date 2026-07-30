@@ -916,6 +916,12 @@
   <div class="exchange-note">＊2秒長押しで決定。</div>
 </section>
 
+<section id="bilboLeadChoiceDialog" class="exchange-dialog hidden" aria-live="assertive">
+  <div class="exchange-message">スタートプレイヤーを誰にしますか。</div>
+  <div id="bilboLeadChoiceTargets" class="exchange-targets"></div>
+  <div class="exchange-note">＊2秒長押しで決定。</div>
+</section>
+
 <section id="shadowfaxDecision" class="yellow-one-decision hidden" aria-live="assertive">
   <div class="yellow-one-question">手札に加えますか。</div>
   <div class="yellow-one-actions">
@@ -1065,6 +1071,8 @@ const chapterContinueBtn = document.getElementById('chapterContinueBtn');
 const threatChoiceDialog = document.getElementById('threatChoiceDialog');
 const threatChoiceMessage = document.getElementById('threatChoiceMessage');
 const threatChoiceGrid = document.getElementById('threatChoiceGrid');
+const bilboLeadChoiceDialog = document.getElementById('bilboLeadChoiceDialog');
+const bilboLeadChoiceTargets = document.getElementById('bilboLeadChoiceTargets');
 const shadowfaxDecision = document.getElementById('shadowfaxDecision');
 const mithrilDecision = document.getElementById('mithrilDecision');
 const fellowshipGroupDecision = document.getElementById('fellowshipGroupDecision');
@@ -2006,9 +2014,8 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
 
   if (character.name === 'トム・ボンバディル') {
     if (!isFinished) return { status:'pending' };
-    const lastTrick = Object.values(game.capturedTricks || {}).flat()
-      .find(trick => Number(trick.trickNumber) === Number(game.trickNumber) - 1);
-    const suits = lastTrick?.remainingSuitsByPlayer?.[playerId] || [];
+    const suits = [...new Set((room.hands?.[playerId]?.cards || [])
+      .filter(card => card?.kind !== 'character').map(card => card.color))];
     return { status:suits.some(suit => cardsOfSuit(capturedCards, suit) >= 3) ? 'achieved' : 'failed' };
   }
 
@@ -4350,6 +4357,7 @@ function subscribeRoom(){
     renderExchangeDialog();
     renderStriderChoice();
     renderThreatChoice();
+    renderBilboLeadChoice();
     renderChapterComplete();
     renderMithrilDecision();
     if (Number(previousGame?.stageNumber) === 16 || Number(state.game?.stageNumber) === 16) {
@@ -4450,6 +4458,39 @@ function attachTwoSecondHold(button, action){
   button.addEventListener('pointerup', cancel);
   button.addEventListener('pointercancel', cancel);
   button.addEventListener('lostpointercapture', cancel);
+}
+
+function renderBilboLeadChoice(){
+  const choice = state.game?.pendingBilboLeadChoice;
+  const ready = choice && Date.now() >= Number(choice.readyAt || 0);
+  const visible = ready && choice.playerId === state.userId;
+  bilboLeadChoiceDialog.classList.toggle('hidden', !visible);
+  bilboLeadChoiceTargets.replaceChildren();
+  if (!visible) {
+    if (choice?.readyAt && Date.now() < choice.readyAt) {
+      setTimeout(renderBilboLeadChoice, Math.max(0, choice.readyAt - Date.now()) + 20);
+    }
+    return;
+  }
+  (state.game.playerOrder || []).forEach(playerId => {
+    const button = document.createElement('button');
+    button.className = 'btn hold-decision';
+    button.textContent = playerName(playerId);
+    attachTwoSecondHold(button, () => chooseBilboLeadPlayer(playerId));
+    bilboLeadChoiceTargets.append(button);
+  });
+}
+
+async function chooseBilboLeadPlayer(playerId){
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    const choice = game?.pendingBilboLeadChoice;
+    if (!choice || choice.playerId !== state.userId || Date.now() < Number(choice.readyAt || 0)
+        || !(game.playerOrder || []).includes(playerId)) return;
+    game.turnPlayerId = playerId;
+    delete game.pendingBilboLeadChoice;
+    return game;
+  });
 }
 
 async function chooseFellowshipGroup(groupNumber){
@@ -4881,6 +4922,13 @@ function scheduleTrickClear(){
       }
       delete game.trick;
       delete game.pendingCapture;
+      if (pending.bilboChoosesNextLeader && !game.finished) {
+        game.pendingBilboLeadChoice = {
+          playerId:pending.winnerId,
+          readyAt:Date.now() + CAPTURE_ARRIVAL_DURATION_MS
+        };
+        game.turnPlayerId = null;
+      }
       // 獲得欄への到着と同時に結果判定を行い、次の手番をすぐ開始できるようにする。
       game.pendingOutcomeCheckAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS + OUTCOME_CHECK_DELAY_MS;
       // 獲得カードの移動完了から1秒待って、次の森カードを公開する。
@@ -5539,9 +5587,17 @@ async function playCard(cardIndex, expectedCard){
           ])),
           gatherAt, captureAt:gatherAt + 700
         };
-        room.game.turnPlayerId = oldForestWins ? leadPlayerId : winnerId;
+        const winningCharacter = room.game.characterSelections?.[winnerId]?.name;
+        const bilboChoosesNextLeader = !oldForestWins && winningCharacter === 'ビルボ・バギンズ';
+        room.game.turnPlayerId = bilboChoosesNextLeader ? null : (oldForestWins ? leadPlayerId : winnerId);
         room.game.trickNumber = (room.game.trickNumber || 1) + 1;
-        if (order.every(id => !(room.hands[id]?.cards || []).some(card => card.kind !== 'character'))) room.game.finished = true;
+        const tomPlayerId = Object.entries(room.game.characterSelections || {})
+          .find(([, character]) => character.name === 'トム・ボンバディル')?.[0];
+        const ordinaryCardsRemain = id => (room.hands[id]?.cards || []).some(card => card.kind !== 'character');
+        room.game.finished = tomPlayerId
+          ? order.some(id => id !== tomPlayerId && !ordinaryCardsRemain(id))
+          : order.every(id => !ordinaryCardsRemain(id));
+        if (!room.game.finished && bilboChoosesNextLeader) room.game.pendingCapture.bilboChoosesNextLeader = true;
       }
     } else {
       const currentIndex = order.indexOf(state.userId);
@@ -5790,7 +5846,7 @@ async function chooseCharacter(characterName, source){
           .forEach(card => { counts[card.color] = (counts[card.color] || 0) + 1; });
         const most = Math.max(0, ...Object.values(counts));
         room.game.mostSuitDeclarations ||= {};
-        room.game.mostSuitDeclarations[state.userId] = CARD_TYPES.map(type => type.color).filter(color => counts[color] === most).slice(0, 1);
+        room.game.mostSuitDeclarations[state.userId] = CARD_TYPES.map(type => type.color).filter(color => counts[color] === most);
       }
     }
     const mithrilAvailable = Number(room.game.stageNumber) === 14
