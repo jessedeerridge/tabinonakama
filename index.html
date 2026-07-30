@@ -414,7 +414,6 @@
   .exchange-note{position:absolute;right:12px;bottom:8px;font-size:10px;font-weight:700;}
   .threat-choice-grid{display:grid;grid-template-columns:repeat(4,36px);gap:8px;justify-content:center;margin-top:8px;}
   .threat-choice{width:36px;height:36px;padding:0;border:0;border-radius:3px;background:#111;color:#fff;font-weight:900;}
-  .threat-choice.threat-draw-target-hidden{opacity:0;}
   .threat-choice-grid.equipment-range-grid{grid-template-columns:repeat(3,52px);}
   .threat-choice-grid.equipment-range-grid .threat-choice{width:52px;}
   .player-tag .mini-hand.public-hand{width:156px;height:58px;}
@@ -3264,6 +3263,7 @@ function scheduleThreatDraw(){
         game.aragornBurdenThreatChoices = game.threatDeck.splice(0, 2);
         game.phase = 'aragorn-burden-threat-selection';
         game.threatDrawPlayerId = playerId;
+        game.aragornBurdenThreatChoiceReadyAt = Date.now() + 2820;
         game.threatDrawTransfer = { playerId, cards:game.aragornBurdenThreatChoices.map(number => ({
           kind:'threat', color:'threat', name:'脅威', number, id:`${playerId}-threat-choice-${Date.now()}-${number}`
         })), movedAt:Date.now() };
@@ -3756,12 +3756,14 @@ function renderThreatChoice(){
     return;
   }
   if (isBurdenChoice) {
+    const choiceReadyAt = Number(state.game.aragornBurdenThreatChoiceReadyAt || 0);
+    const waitingForCards = Date.now() < choiceReadyAt;
     (state.game.aragornBurdenThreatChoices || []).forEach(number => {
       const button = document.createElement('button'); button.className = 'threat-choice'; button.textContent = number;
-      const transferCard = state.game.threatDrawTransfer?.cards?.find(card => Number(card.number) === Number(number));
-      if (transferCard) button.dataset.threatCardId = transferCard.id;
+      button.disabled = waitingForCards;
       attachTwoSecondHold(button, () => chooseAragornBurdenThreat(number)); threatChoiceGrid.append(button);
     });
+    if (waitingForCards) setTimeout(renderThreatChoice, choiceReadyAt - Date.now() + 20);
     return;
   }
   const stage = STAGES.find(item => item.number === Number(state.game.stageNumber));
@@ -3777,6 +3779,7 @@ function renderThreatChoice(){
 async function chooseAragornBurdenThreat(number){
   await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
     if (game?.phase !== 'aragorn-burden-threat-selection' || game.threatDrawPlayerId !== state.userId) return;
+    if (Date.now() < Number(game.aragornBurdenThreatChoiceReadyAt || 0)) return;
     const choices = game.aragornBurdenThreatChoices || [];
     if (!choices.includes(number)) return;
     const rejected = choices.find(value => value !== number);
@@ -3787,7 +3790,7 @@ async function chooseAragornBurdenThreat(number){
       { kind:'threat', color:'threat', name:'脅威', number, id:`${state.userId}-threat-${Date.now()}-${number}` }
     ];
     game.characterEffectThreatDrawn ||= {}; game.characterEffectThreatDrawn[state.userId] = true;
-    delete game.aragornBurdenThreatChoices; delete game.threatDrawPlayerId;
+    delete game.aragornBurdenThreatChoices; delete game.aragornBurdenThreatChoiceReadyAt; delete game.threatDrawPlayerId;
     continueAfterThreatDraw(game, state.userId); return game;
   });
 }
@@ -6555,7 +6558,13 @@ function renderPlayerCircle(players){
       const holder = document.createElement('div'); holder.className = 'capture-card'; holder.style.setProperty('--stack-rotate', '0deg');
       holder.appendChild(createCardElement(equipmentCard)); bundle.appendChild(holder); capture.appendChild(bundle);
     });
-    const threatCards = state.game?.threatCards?.[p.id] || [];
+    const storedThreatCards = state.game?.threatCards?.[p.id] || [];
+    // 重荷アラゴルンの2枚は、数字ボタンではなくプレイヤーの脅威カード獲得位置へ運ぶ。
+    // 選択前だけ転送カードを表示用に合成し、選択後は永続データの2枚に自然に切り替える。
+    const pendingAragornThreatCards = state.game?.phase === 'aragorn-burden-threat-selection'
+      && state.game?.threatDrawPlayerId === p.id ? (state.game?.threatDrawTransfer?.cards || []) : [];
+    const threatCards = pendingAragornThreatCards.length
+      ? [...storedThreatCards, ...pendingAragornThreatCards] : storedThreatCards;
     // 脅威カードは獲得カード列の先頭（他プレイヤーは公開キャラクターの直後）へ、重ねずに並べる。
     threatCards.forEach((threatCard, threatIndex) => {
       const threatBundle = document.createElement('div');
