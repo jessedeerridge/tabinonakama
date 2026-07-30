@@ -269,9 +269,9 @@
   .center-lower-card-area.character-selection-layout{
     left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
   }
-  /* 多数候補の章と第18章でも、勝利条件カードはプレイ中と同じ右位置から動かさない。 */
+  /* 多数候補の章と続の章では、勝利条件カードはプレイ中と同じ右位置から動かさない。 */
   .center-lower-card-area.character-selection-layout.many-character-selection:not(.event-stage-layout),
-  .center-lower-card-area.character-selection-layout.chapter-eighteen:not(.event-stage-layout){
+  .center-lower-card-area.character-selection-layout.continuation-layout:not(.event-stage-layout){
     left:16px;top:calc(68% - 101px);width:calc(100vw - 32px);transform:translateY(-80px);
   }
   .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:475px;flex-direction:row;justify-content:center;gap:0;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/475));transform-origin:top center;}
@@ -382,7 +382,7 @@
   }
   #arasujisquare{width:112px;height:160px;background-image:url('arasujisquare.jpg');}
   #winningconditionsquare{width:160px;height:112px;overflow:visible;background-image:url('winningconditionsquare.jpg');}
-  .center-lower-card-area:not(.event-stage-layout) #winningconditionsquare{margin-left:auto;}
+  .center-lower-card-area.continuation-layout:not(.event-stage-layout) #winningconditionsquare{margin-left:auto;}
   .event-card{width:112px;height:160px;background-image:url('eventback.jpg');}
   .event-card-title{position:absolute;left:13%;right:13%;top:calc(8% - 6px);height:16%;display:grid;place-items:center;text-align:center;font-size:10px;font-weight:900;line-height:1.05;}
   .event-card-text{position:absolute;left:50%;top:58%;width:95px;height:112px;transform:translate(-50%,-50%) translateY(-2px);display:block;padding:2px;box-sizing:border-box;overflow:hidden;white-space:pre-line;text-align:left;font-size:10px;line-height:1.08;}
@@ -604,7 +604,7 @@
   /* キャラクターカードは常に82x122の原版全体を拡縮し、欄や文字だけが別倍率にならないようにする。 */
   .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(var(--zoom-scale));transform-origin:top left;}
   .character-picker{position:fixed;inset:0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding-top:clamp(120px,calc(50vh - 160px),260px);box-sizing:border-box;pointer-events:none;transform:translateY(-30px);}
-  .character-picker.many-characters{padding-top:25px;transform:none;}
+  .character-picker.many-characters,.character-picker.continuation-characters{padding-top:25px;transform:none;}
   .character-picker.hidden{display:none;}
   /* 案内ポップを外しても、候補カードの従来位置は変えない。 */
   .character-picker-row{width:calc(100vw - 24px);margin-top:45px;display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
@@ -3061,7 +3061,7 @@ function renderStageInformation(){
   centerLowerCardArea.classList.toggle('character-selection-layout', isCharacterSelection);
   centerLowerCardArea.classList.toggle('many-character-selection', isCharacterSelection
     && (state.game?.availableCharacters || []).length >= 10);
-  centerLowerCardArea.classList.toggle('chapter-eighteen', Number(stage.number) === 18);
+  centerLowerCardArea.classList.toggle('continuation-layout', Boolean(stage.continuation));
   centerLowerCardArea.classList.toggle('event-stage-layout', Boolean(stage?.eventCards?.length));
   centerLowerCardArea.classList.toggle('chapter-fourteen', isChapterFourteen);
   eventCardModalRow.classList.toggle('chapter-fourteen', isChapterFourteen);
@@ -6211,6 +6211,7 @@ function renderCharacterPicker(){
   const chosenNames = new Set(Object.values(selections).map(item => item.name));
   const allCharacters = game.availableCharacters || [];
   characterPicker.classList.toggle('many-characters', allCharacters.length >= 10);
+  characterPicker.classList.toggle('continuation-characters', Boolean(game.continuation));
   const hasFrodoCharacter = allCharacters.some(character => character.name === 'フロド');
   const remainingCharacters = allCharacters.filter(character => !chosenNames.has(character.name));
   const moriaRequiredName = moriaRequiredCharacterName(game);
