@@ -5813,7 +5813,7 @@ function characterCardData(character, playerId){
   }
   if (Number(state.game?.stageNumber) === 14 && Number(state.game?.moriaEventScrollIndex ?? state.game?.moriaEventIndex) === 3 && character.name === 'ガンダルフ') {
     details.variant = 'moria-bridge-gandalf';
-    details.image = 'gandalf.jpg';
+    details.image = 'gandalffire.jpg';
     details.displayName = 'ガンダルフ：神秘の\n火に仕える者';
     details.specialName = 'アノールの焔';
     details.cardNumber = '3.17';
@@ -5934,7 +5934,7 @@ async function chooseCharacter(characterName, source){
         }
         if (room.game.moriaEventIndex === 3) {
           Object.assign(ownerCharacter, {
-            variant:'moria-bridge-gandalf', image:'gandalf.jpg',
+            variant:'moria-bridge-gandalf', image:'gandalffire.jpg',
             displayName:'ガンダルフ：神秘の\n火に仕える者', specialName:'アノールの焔',
             cardNumber:'3.17', rank:'無し', frameColor:'銀',
             victory:'目的なし。スートを無視してプレイしてもよい。',
