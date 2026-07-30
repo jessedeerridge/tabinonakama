@@ -3296,7 +3296,9 @@ function offerThreatRedraw(game, playerId){
   };
   game.phase = 'threat-redraw-selection';
   game.threatRedrawPlayerId = playerId;
-  game.threatRedrawReadyAt = Date.now() + 1000;
+  // ドローは「めくる600ms + 表示1000ms + 獲得位置へ移動900ms」で完了する。
+  // 描画の余裕を含む到着時刻（2700ms）のさらに1秒後まで、確認ポップを表示しない。
+  game.threatRedrawReadyAt = Date.now() + 3700;
   return true;
 }
 
@@ -3647,12 +3649,16 @@ threatRedrawDecision.querySelectorAll('.hold-decision').forEach(button => {
 });
 
 function renderThreatRedrawDecision(){
-  const visible = state.game?.phase === 'threat-redraw-selection'
+  const eligible = state.game?.phase === 'threat-redraw-selection'
     && state.game?.threatRedrawPlayerId === state.userId;
-  threatRedrawDecision.classList.toggle('hidden', !visible);
   const waiting = Date.now() < Number(state.game?.threatRedrawReadyAt || 0);
-  threatRedrawDecision.querySelectorAll('button').forEach(button => { button.disabled = !visible || waiting; });
-  if (visible && waiting) setTimeout(renderThreatRedrawDecision, Number(state.game.threatRedrawReadyAt) - Date.now() + 20);
+  // 新しい脅威カードが獲得位置へ着地し、その絵を1秒見せ終わるまではポップ自体を隠す。
+  const visible = eligible && !waiting;
+  threatRedrawDecision.classList.toggle('hidden', !visible);
+  threatRedrawDecision.querySelectorAll('button').forEach(button => { button.disabled = !visible; });
+  if (eligible && waiting) {
+    setTimeout(renderThreatRedrawDecision, Number(state.game.threatRedrawReadyAt) - Date.now() + 20);
+  }
 }
 
 function beginCharacterEffectTurns(game){
@@ -3970,9 +3976,8 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
   }
 }
 
-async function animateThreatReturn(sourceRect, targetDeck, transfer, delayMs = 0){
-  const targetRect = targetDeck?.getBoundingClientRect();
-  if (!sourceRect?.width || !targetRect?.width || !transfer?.returnedCard) return;
+function createThreatReturnFlight(sourceRect, transfer){
+  if (!sourceRect?.width || !transfer?.returnedCard) return null;
   const flight = document.createElement('div');
   flight.classList.add('exchange-card-flight', 'threat-draw-flight');
   flight.appendChild(createCardElement(transfer.returnedCard));
@@ -3981,13 +3986,39 @@ async function animateThreatReturn(sourceRect, targetDeck, transfer, delayMs = 0
     transform:`scale(${sourceRect.width / 82}) rotateY(0deg)`
   });
   document.body.appendChild(flight);
-  if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));
+  return flight;
+}
+
+async function animateThreatReturn(flight, sourceRect, targetDeck){
+  const targetRect = targetDeck?.getBoundingClientRect();
+  if (!flight || !sourceRect?.width || !targetRect?.width) {
+    flight?.remove();
+    return;
+  }
   const latestDeckRect = targetDeck.getBoundingClientRect();
+  // flight は左上を基準に rotateY(180deg) すると、表示領域が left から左へ伸びる。
+  // デッキの右端を left に指定し、裏向きになったカードの表示領域をデッキ本体へ重ねる。
+  const faceDownDeckLeft = latestDeckRect.right;
   await flight.animate([
     { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${sourceRect.width / 82}) rotateY(0deg)` },
-    { left:`${latestDeckRect.left}px`, top:`${latestDeckRect.top}px`, transform:`scale(${latestDeckRect.width / 82}) rotateY(180deg)` }
+    { left:`${faceDownDeckLeft}px`, top:`${latestDeckRect.top}px`, transform:`scale(${latestDeckRect.width / 82}) rotateY(180deg)` }
   ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
   flight.remove();
+}
+
+async function animateThreatRedraw(returnSourceRect, transfer, transferKey, shouldDraw){
+  // 再描画で消えた旧カードを元の獲得位置にまず復元する。後から生成される新カードを
+  // 手前に飛ばすため、旧カードはその場（後ろ）で新しいドローの到着を待つ。
+  const returnFlight = createThreatReturnFlight(returnSourceRect, state.game?.threatRedrawTransfer);
+  try {
+    if (shouldDraw) {
+      const liveDeckRect = threatDeck.getBoundingClientRect();
+      await animateThreatDraw(liveDeckRect, transfer, transferKey);
+    }
+  } finally {
+    // 表向きにした位置ではなく、出現位置の右側にある脅威デッキ本体を終点にする。
+    await animateThreatReturn(returnFlight, returnSourceRect, threatDeck);
+  }
 }
 
 function captureMyHandRects(){
@@ -4319,16 +4350,11 @@ function subscribeRoom(){
     if (shouldAnimateThreatReturn) {
       lastAnimatedThreatRedrawAt = threatRedrawTransfer.movedAt;
       const returnSourceRect = previousThreatCardRects.get(threatRedrawTransfer.returnedCard?.id);
-      // 古い脅威カードは元の獲得位置に残し、代わりの1枚が到着してからデッキへ戻す。
-      // 戻す際は表にしたドロー位置で止めず、現在のデッキ本体まで移動させる。
-      requestAnimationFrame(async () => {
-        // 先に飛行要素を作り、新しいカードのドロー中も古いカードを元の位置に表示する。
-        const returnAnimation = animateThreatReturn(returnSourceRect, threatDeck, threatRedrawTransfer, 2700);
-        if (shouldAnimateThreatDraw) {
-          await animateThreatDraw(threatDeck.getBoundingClientRect(), threatTransfer, threatTransferKey);
-        }
-        await returnAnimation;
-      });
+      // 旧カードを後ろに残す → 新カードを獲得位置へ運ぶ → 旧カードをデッキへ返す、
+      // という順序を時間指定ではなく各アニメーションの完了でつなぐ。
+      requestAnimationFrame(() => animateThreatRedraw(
+        returnSourceRect, threatTransfer, threatTransferKey, shouldAnimateThreatDraw
+      ));
     } else if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey);
     const galadrielLostTransfer = state.game?.galadrielLostTransfer;
     if (galadrielLostTransfer?.completedAt
