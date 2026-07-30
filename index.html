@@ -6142,8 +6142,8 @@ function renderPlayerCircle(players){
     tag.textContent = p.name;
     tag.style.left = `${x}%`;
     tag.style.top = `${y}%`;
-    // 選択中は中央の勝利条件・あらすじ・イベントカードより奥に手札を置く。
-    if (!isMe && state.game?.phase === 'character-selection') tag.style.zIndex = '1';
+    // グループ・キャラクター選択中は中央の勝利条件・あらすじ・イベントカードより奥に手札を置く。
+    if (!isMe && ['fellowship-group-selection', 'character-selection'].includes(state.game?.phase)) tag.style.zIndex = '1';
     // 初期効果・交換がすべて終わり、通常プレイに入ってから手番を明示する。
     tag.classList.toggle('current-turn', p.id !== state.userId
       && state.game?.phase === 'playing' && state.game?.turnPlayerId === p.id);
@@ -6402,8 +6402,8 @@ function renderPlayerCircle(players){
     const capture = document.createElement('div');
     capture.className = 'capture-circle';
     capture.dataset.playerId = p.id;
-    // 選択中は他プレイヤーの公開キャラクターも中央カード群より奥に置く。
-    if (!isMe && state.game?.phase === 'character-selection') capture.style.zIndex = '1';
+    // グループ・キャラクター選択中は他プレイヤーの公開キャラクターも中央カード群より奥に置く。
+    if (!isMe && ['fellowship-group-selection', 'character-selection'].includes(state.game?.phase)) capture.style.zIndex = '1';
     const capturedTricks = state.game?.capturedTricks?.[p.id] || [];
     const circleSize = Math.max(1, playerCircle.clientWidth);
     const circleHeight = Math.max(1, playerCircle.clientHeight);
