@@ -935,6 +935,12 @@
   <div class="exchange-note">＊2秒長押しで決定。</div>
 </section>
 
+<section id="preparationStartDialog" class="exchange-dialog hidden" aria-live="assertive">
+  <div class="exchange-message">誰からスタートしますか。</div>
+  <div id="preparationStartTargets" class="exchange-targets"></div>
+  <div class="exchange-note">＊2秒長押しで決定。</div>
+</section>
+
 <section id="shadowfaxDecision" class="yellow-one-decision hidden" aria-live="assertive">
   <div class="yellow-one-question">手札に加えますか。</div>
   <div class="yellow-one-actions">
@@ -1086,6 +1092,8 @@ const threatChoiceMessage = document.getElementById('threatChoiceMessage');
 const threatChoiceGrid = document.getElementById('threatChoiceGrid');
 const bilboLeadChoiceDialog = document.getElementById('bilboLeadChoiceDialog');
 const bilboLeadChoiceTargets = document.getElementById('bilboLeadChoiceTargets');
+const preparationStartDialog = document.getElementById('preparationStartDialog');
+const preparationStartTargets = document.getElementById('preparationStartTargets');
 const shadowfaxDecision = document.getElementById('shadowfaxDecision');
 const mithrilDecision = document.getElementById('mithrilDecision');
 const fellowshipGroupDecision = document.getElementById('fellowshipGroupDecision');
@@ -2457,6 +2465,8 @@ function createVictoryConditionIcon(cardData, playerId){
     icon.append(coloredTrick('green'), coloredTrick('green'));
   } else if (name === '飛蔭（とびかげ）') {
     icon.append(coloredTrick('orange'), coloredTrick('orange'));
+  } else if (['オロフィンとルーミル', 'ハルディア'].includes(name)) {
+    appendSuitRank('green');
   } else if (['サム', 'サムワイズ・ギャムジー'].includes(name)) {
     appendSuitRank('orange');
   } else if (name === 'ペレグリン・トゥック') {
@@ -3755,16 +3765,22 @@ function renderThreatRedrawDecision(){
   }
 }
 
+function startPreparationEffects(game){
+  if (Number(game.stageNumber) === 6 && game.barrowDeck?.length) {
+    game.barrowPlayerId = Object.entries(game.characterSelections || {})
+      .find(([, selected]) => selected.name === 'トム・ボンバディル')?.[0] || null;
+    game.pendingBarrowDrawAt = Date.now() + 1000;
+    game.phase = 'barrow-draw-wait';
+    game.turnPlayerId = null;
+    return;
+  }
+  beginCharacterEffectTurns(game);
+  beginNextExchange(game);
+}
+
 function beginCharacterEffectTurns(game){
   const order = game.playerOrder || [];
-  const effectsStartAfterFrodo = (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 2)
-    || Number(game.stageNumber) === 16;
-  const frodoId = effectsStartAfterFrodo
-    ? Object.entries(game.characterSelections || {}).find(([, character]) => character.name === 'フロド')?.[0]
-    : null;
-  const frodoIndex = order.indexOf(frodoId);
-  // 長き暗闇とガラドリエルの鏡では、フロド本人ではなく次の席から効果順を始める。
-  const startingPlayerId = frodoIndex >= 0 ? order[(frodoIndex + 1) % order.length] : (game.startingPlayerId || order[0]);
+  const startingPlayerId = game.startingPlayerId || order[0];
   const startingIndex = Math.max(0, order.indexOf(startingPlayerId));
   // 効果ターンは常にスタートプレイヤーから席順に処理する。
   game.effectOrder = [...order.slice(startingIndex), ...order.slice(0, startingIndex)];
@@ -4431,6 +4447,7 @@ function subscribeRoom(){
     renderStageInformation();
     renderYellowOneDecision();
     renderExchangeDialog();
+    renderPreparationStartDialog();
     renderStriderChoice();
     renderThreatChoice();
     renderBilboLeadChoice();
@@ -4645,6 +4662,39 @@ shadowfaxDecision.querySelectorAll('.hold-decision').forEach(button => {
 mithrilDecision.querySelectorAll('.hold-decision').forEach(button => {
   attachTwoSecondHold(button, () => decideMithril(button.dataset.mithrilDecision === 'yes'));
 });
+
+async function choosePreparationStart(playerId){
+  if (!state.roomCode) return;
+  await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    if (game?.phase !== 'preparation-start-selection'
+        || game.preparationStartChooserId !== state.userId
+        || !game.preparationStartCandidates?.includes(playerId)) return;
+    game.startingPlayerId = playerId;
+    delete game.preparationStartChooserId;
+    delete game.preparationStartCandidates;
+    startPreparationEffects(game);
+    return game;
+  });
+}
+
+function renderPreparationStartDialog(){
+  const game = state.game;
+  const visible = game?.phase === 'preparation-start-selection'
+    && game.preparationStartChooserId === state.userId;
+  preparationStartDialog.classList.toggle('hidden', !visible);
+  preparationStartTargets.replaceChildren();
+  if (!visible) return;
+  (game.preparationStartCandidates || game.playerOrder || []).forEach(playerId => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn hold-decision exchange-target';
+    const label = document.createElement('span');
+    label.textContent = playerName(playerId);
+    button.appendChild(label);
+    attachTwoSecondHold(button, () => choosePreparationStart(playerId));
+    preparationStartTargets.appendChild(button);
+  });
+}
 
 function renderExchangeDialog(){
   const exchange = state.game?.pendingExchange;
@@ -5706,6 +5756,7 @@ function renderHands(){
   renderCharacterPicker();
   renderFellowshipGroupDecision();
   renderThreatRedrawDecision();
+  renderPreparationStartDialog();
   renderMyHand();
   if (latestPlayers.length) renderPlayerCircle(latestPlayers);
 }
@@ -6021,16 +6072,23 @@ async function chooseCharacter(characterName, source){
         : ['山の下さん', 'グロルフィンデル', 'エルロンド', 'ラダガスト'];
       const forcedLeader = forcedLeaderNames.map(name => Object.entries(room.game.characterSelections)
         .find(([, selected]) => selected.name === name)?.[0]).find(Boolean);
-      room.game.startingPlayerId = forcedLeader || room.game.turnPlayerId || room.game.playerOrder[0];
-      if (Number(room.game.stageNumber) === 6 && room.game.barrowDeck?.length) {
-        room.game.barrowPlayerId = Object.entries(room.game.characterSelections)
-          .find(([, selected]) => selected.name === 'トム・ボンバディル')?.[0] || null;
-        room.game.pendingBarrowDrawAt = Date.now() + 1000;
-        room.game.phase = 'barrow-draw-wait';
+      const frodoId = Object.entries(room.game.characterSelections)
+        .find(([, selected]) => selected.name === 'フロド')?.[0];
+      // フロドがいる章では、ほかの「最初にリードする」効果よりフロドを常に優先する。
+      room.game.startingPlayerId = frodoId || forcedLeader || room.game.turnPlayerId || room.game.playerOrder[0];
+      const effectPlayerIds = room.game.playerOrder.filter(playerId => {
+        const characterCard = (room.hands?.[playerId]?.cards || [])
+          .find(card => card.kind === 'character');
+        return characterCard?.effect && characterCard.effect !== 'なし';
+      });
+      if (!frodoId && effectPlayerIds.length > 1) {
+        // 準備効果を始める前に、該当者から無作為に一人だけ選択役を決める。
+        room.game.phase = 'preparation-start-selection';
+        room.game.preparationStartChooserId = effectPlayerIds[Math.floor(Math.random() * effectPlayerIds.length)];
+        room.game.preparationStartCandidates = [...room.game.playerOrder];
         room.game.turnPlayerId = null;
       } else {
-        beginCharacterEffectTurns(room.game);
-        beginNextExchange(room.game);
+        startPreparationEffects(room.game);
       }
     }
     return room;
