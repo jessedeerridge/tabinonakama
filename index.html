@@ -257,6 +257,8 @@
   .stage-grid{display:grid;grid-template-columns:repeat(4,36px);justify-content:center;gap:10px;}
   .stage-tab{width:36px;height:36px;padding:0;border:1px solid #111;border-radius:50%;background:#fff;font-size:12px;font-weight:800;cursor:pointer;}
   .stage-tab:hover,.stage-tab:focus-visible{background:#111;color:#fff;}
+  .stage-tab.stage-continue{background:#10233f;color:#d9b84f;border-color:#10233f;font-size:15px;font-family:serif;}
+  .stage-tab.stage-continue:hover,.stage-tab.stage-continue:focus-visible{background:#081426;color:#f3d879;}
   .center-lower-card-area.hidden{display:none;}
   .center-lower-card-area{
     position:fixed;left:16px;top:calc(68% - 101px);transform:translateY(-80px);
@@ -914,6 +916,12 @@
   <div class="exchange-note">＊2秒クリックで決定。</div>
 </section>
 
+<section id="lostCardClaimDialog" class="exchange-dialog hidden" aria-live="assertive">
+  <div class="exchange-message">誰が失われしカードを取りますか</div>
+  <div id="lostCardClaimTargets" class="exchange-targets"></div>
+  <div class="exchange-note">＊2秒クリックで決定。</div>
+</section>
+
 <section id="striderChoiceDialog" class="strider-choice-dialog hidden" aria-live="assertive">
   <div id="striderChoiceQuestion" class="exchange-message"></div>
   <div class="strider-choice-actions">
@@ -1076,6 +1084,8 @@ const yellowOneDecision = document.getElementById('yellowOneDecision');
 const exchangeDialog = document.getElementById('exchangeDialog');
 const exchangeMessage = document.getElementById('exchangeMessage');
 const exchangeTargets = document.getElementById('exchangeTargets');
+const lostCardClaimDialog = document.getElementById('lostCardClaimDialog');
+const lostCardClaimTargets = document.getElementById('lostCardClaimTargets');
 const striderChoiceDialog = document.getElementById('striderChoiceDialog');
 const striderChoiceQuestion = document.getElementById('striderChoiceQuestion');
 const chapterCompleteBanner = document.getElementById('chapterCompleteBanner');
@@ -1404,6 +1414,13 @@ defineStage(18, {
   ]
 });
 
+// 本編18章を遊び終えた後の、ランダム構成による追加ステージ。
+STAGES.push({
+  number:19, chapterLabel:'続', title:'続の章', story:'', characters:[],
+  threats:[{ name:'脅威', min:1, max:7 }], winCondition:'long', goal:'everywin',
+  continuation:true
+});
+
 /* ★ 追加：ヘルプUI参照 */
 const helpBtn = document.getElementById('helpBtn');
 const helpBackdrop = document.getElementById('helpBackdrop');
@@ -1427,6 +1444,21 @@ const MITHRIL_COAT = {
   effect:'ラウンド終了時、キャラクター1人の目的が未達成なら、このカードを捨て札にして達成したものとして扱う。',
   cardNumber:'3.11', rank:'黒', image:'mithril.jpg'
 };
+
+const CONTINUATION_GOLD_PAIRS = [
+  ['sam','samwise_gamgee'], ['merry','meriadoc_brandybuck'], ['pippin','peregrin_took'],
+  ['aragorn','aragorn_arathorn'], ['boromir','boromir_denethor'],
+  ['legolas','legolas_greenleaf'], ['gimli','gimli_gloin']
+];
+const CONTINUATION_BLACK_CODES = [
+  'farmer_maggot','gildor','fatty_bolger','tom_bombadil','goldberry','barliman','glorfindel',
+  'bill','elrond','gloin','arwen','bilbo_baggins','gwaihir','radagast','shadowfax',
+  'orophin_rumil','haldir','galadriel','celeborn'
+];
+const CONTINUATION_EQUIPMENT = [
+  STAGE_ELEVEN_EQUIPMENT['アラゴルン'], STAGE_ELEVEN_EQUIPMENT['ボロミア'], MITHRIL_COAT
+];
+const CONTINUATION_THREATS = Object.values(STAGE_NINE_THREATS);
 
 function hasSpecialThreat(game, playerId, name){
   return (game?.threatCards?.[playerId] || []).some(card => card.kind === 'special-threat' && card.name === name);
@@ -2936,6 +2968,8 @@ document.addEventListener('keydown', event => {
 
 function renderStageInformation(){
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
+  const isContinuation = Boolean(stage?.continuation);
+  arasujisquare.classList.toggle('hidden', isContinuation);
   const isChapterFourteen = Number(state.game?.stageNumber) === 14;
   const usesCompactWinningConditionInfo = [14, 15].includes(Number(state.game?.stageNumber));
   const isOldForest = Number(state.game?.stageNumber) === 5;
@@ -3170,7 +3204,15 @@ function renderStageInformation(){
   title.className = 'stage-title';
   title.textContent = stage.title;
   info.append(heading, document.createElement('br'), title);
-  if (Number(stage.number) !== 18) {
+  if (stage.continuation) {
+    const characterHeading = document.createElement('strong');
+    characterHeading.className = 'character-heading';
+    characterHeading.textContent = 'キャラクター：';
+    const line = document.createElement('span');
+    line.className = 'character-line';
+    line.textContent = 'フロド*、以下のキャラクター';
+    info.append(characterHeading, line);
+  } else if (Number(stage.number) !== 18) {
     const characterHeading = document.createElement('strong');
     characterHeading.className = 'character-heading';
     characterHeading.textContent = 'キャラクター：';
@@ -3432,6 +3474,40 @@ function scheduleBarrowDraw(){
   }, Math.max(0, drawAt - Date.now()) + 20);
 }
 
+function lostCardClaimants(game){
+  if (!game?.excludedCard && !game?.excludedCards?.length) return [];
+  const eligibleNames = new Set(['ガンダルフ', 'トム・ボンバディル', 'グロルフィンデル']);
+  return (game.effectOrder || game.playerOrder || []).filter(id =>
+    eligibleNames.has(game.characterSelections?.[id]?.name));
+}
+
+async function decideLostCardClaim(playerId){
+  await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    if (game?.phase !== 'lost-card-claim-selection'
+        || game.lostCardClaimDeciderId !== state.userId
+        || !lostCardClaimants(game).includes(playerId)) return;
+    game.lostCardClaimPlayerId = playerId;
+    delete game.lostCardClaimDeciderId;
+    beginNextExchange(game);
+    return game;
+  });
+}
+
+function renderLostCardClaimDialog(){
+  const visible = state.game?.phase === 'lost-card-claim-selection'
+    && state.game?.lostCardClaimDeciderId === state.userId;
+  lostCardClaimDialog.classList.toggle('hidden', !visible);
+  lostCardClaimTargets.replaceChildren();
+  if (!visible) return;
+  lostCardClaimants(state.game).forEach(playerId => {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'btn hold-decision';
+    button.innerHTML = `<span>${state.game.characterSelections?.[playerId]?.name || 'キャラクター'}</span>`;
+    attachTwoSecondHold(button, () => decideLostCardClaim(playerId));
+    lostCardClaimTargets.appendChild(button);
+  });
+}
+
 function beginNextExchange(game){
   game.exchangeQueue ||= [...(game.effectOrder || game.playerOrder || [])];
   // 〈長き暗闇〉だけは通常の「1人の効果を最後まで処理して次へ」という進行にしない。
@@ -3486,6 +3562,19 @@ function beginNextExchange(game){
     const characterName = game.characterSelections?.[sourceId]?.name;
     game.effectTurnStartedAt ||= {};
     game.effectTurnStartedAt[sourceId] ||= Date.now();
+    const claimants = lostCardClaimants(game);
+    if (claimants.length >= 2 && claimants.includes(sourceId) && !game.lostCardClaimPlayerId) {
+      game.phase = 'lost-card-claim-selection';
+      game.lostCardClaimDeciderId = sourceId;
+      game.turnPlayerId = null;
+      return;
+    }
+    if (claimants.length >= 2 && claimants.includes(sourceId)
+        && game.lostCardClaimPlayerId !== sourceId) {
+      if (characterName === 'ガンダルフ') game.gandalfEffectCompleted = true;
+      if (characterName === 'トム・ボンバディル') game.tomEffectCompleted = true;
+      if (characterName === 'グロルフィンデル') game.glorfindelEffectCompleted = true;
+    }
     if (characterName === 'エルロンド' && !game.elrondEffectCompleted) {
       game.phase = 'elrond-transfer-selection';
       game.pendingElrondTransfers = { selections:{}, transferred:{}, cards:{}, targetIds:{}, requestedAt:Date.now() };
@@ -4451,6 +4540,7 @@ function subscribeRoom(){
     renderStriderChoice();
     renderThreatChoice();
     renderBilboLeadChoice();
+    renderLostCardClaimDialog();
     renderChapterComplete();
     renderMithrilDecision();
     if (Number(previousGame?.stageNumber) === 16 || Number(state.game?.stageNumber) === 16) {
@@ -5723,6 +5813,7 @@ function renderHands(){
   renderCharacterPicker();
   renderFellowshipGroupDecision();
   renderThreatRedrawDecision();
+  renderLostCardClaimDialog();
   renderMyHand();
   if (latestPlayers.length) renderPlayerCircle(latestPlayers);
 }
@@ -6015,6 +6106,21 @@ async function chooseCharacter(characterName, source){
     }
     const chosenCount = Object.keys(room.game.characterSelections).length;
     if (chosenCount >= room.game.playerOrder.length) {
+      if (room.game.continuationSpecialThreat && !room.game.continuationSpecialThreatAssigned) {
+        const invisible = room.game.continuationSpecialThreat.name === '見えざる者';
+        const threatDrawers = Object.entries(room.game.characterSelections)
+          .filter(([, selected]) => characterDrawsThreat(selected.name)).map(([id]) => id);
+        const targetId = invisible && threatDrawers.length
+          ? threatDrawers[Math.floor(Math.random() * threatDrawers.length)]
+          : room.game.continuationSpecialThreatFallbackPlayerId;
+        room.game.threatCards ||= {};
+        room.game.threatCards[targetId] ||= [];
+        room.game.threatCards[targetId].unshift({
+          kind:'special-threat', color:'threat', ...room.game.continuationSpecialThreat,
+          id:`${targetId}-continuation-threat-${Date.now()}`
+        });
+        room.game.continuationSpecialThreatAssigned = true;
+      }
       if (Number(room.game.stageNumber) === 15) {
         const gimliId = Object.entries(room.game.characterSelections)
           .find(([, selected]) => selected.name === 'ギムリ')?.[0];
@@ -6384,7 +6490,7 @@ async function renderSeatTabs(){
 
     if(state.isHost && !maxPlayers){
       seatLabel.textContent = '人数を選択';
-      for(let i=2; i<=8; i++){
+      for(let i=1; i<=8; i++){
         const tab = document.createElement('div');
         tab.className = 'tab';
         tab.textContent = i;
@@ -7064,7 +7170,7 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     const j = Math.floor(Math.random() * (i + 1));
     [threatDeck[i], threatDeck[j]] = [threatDeck[j], threatDeck[i]];
   }
-  const stageCharacters = (stage?.characters || [])
+  let stageCharacters = (stage?.characters || [])
     .flatMap(line => line.split(/[、,]/))
     .map(name => name.trim())
     .filter(name => name && name !== 'xxx')
@@ -7072,6 +7178,24 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
       const code = label.replace(/\*+$/, '');
       return { code, name: CHARACTER_NAMES[code] || code, required: /\*+$/.test(label) };
     });
+  let continuationSetup = null;
+  if (stage?.continuation) {
+    const goldCount = [2, 3].includes(playerOrder.length) ? 4 : 5;
+    const blackCount = [2, 3].includes(playerOrder.length) ? 3 : 6;
+    const goldPairs = shuffleInPlace(CONTINUATION_GOLD_PAIRS.map(pair => [...pair])).slice(0, goldCount);
+    const burdenIndex = Math.floor(Math.random() * goldPairs.length);
+    const goldCodes = goldPairs.map((pair, index) => pair[index === burdenIndex ? 1 : 0]);
+    const blackCodes = shuffleInPlace([...CONTINUATION_BLACK_CODES]).slice(0, blackCount);
+    stageCharacters = ['frodo','gandalf', ...goldCodes, ...blackCodes].map(code => ({
+      code, name:CHARACTER_NAMES[code], required:code === 'frodo'
+    }));
+    const equipment = CONTINUATION_EQUIPMENT[Math.floor(Math.random() * CONTINUATION_EQUIPMENT.length)];
+    const specialThreat = CONTINUATION_THREATS[Math.floor(Math.random() * CONTINUATION_THREATS.length)];
+    continuationSetup = {
+      equipment:{ ...equipment }, equipmentPlayerId:playerOrder[Math.floor(Math.random() * playerOrder.length)],
+      specialThreat:{ ...specialThreat }, specialThreatFallbackPlayerId:playerOrder[Math.floor(Math.random() * playerOrder.length)]
+    };
+  }
   const fellowshipGroups = Number(stageNumber) === 18 ? {
     1:stageCharacters.slice(0, 4), 2:stageCharacters.slice(4, 8)
   } : null;
@@ -7134,6 +7258,12 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
       } : {}),
       characterSelections: {},
       ringCircleOn: false,
+      ...(continuationSetup ? {
+        continuation:true,
+        equipmentCards:{ [continuationSetup.equipmentPlayerId]:[{ kind:'equipment', ...continuationSetup.equipment, id:`${continuationSetup.equipmentPlayerId}-continuation-equipment-${dealtAt}` }] },
+        continuationSpecialThreat:continuationSetup.specialThreat,
+        continuationSpecialThreatFallbackPlayerId:continuationSetup.specialThreatFallbackPlayerId
+      } : {}),
       ...(excludedCard ? { excludedCard, excludedCardTilt:excludedCardTilts[0] } : {}),
       ...(isOldForest && excludedCards.length ? { excludedCards, excludedCardTilts } : {}),
       ...(oldForestDeck ? { oldForestDeck } : {}),
@@ -7202,7 +7332,13 @@ function openStageDialog(){
     const tab = document.createElement('button');
     tab.type = 'button';
     tab.className = 'stage-tab';
-    tab.textContent = `#${stage.number}`;
+    tab.textContent = stage.continuation ? '続' : `#${stage.number}`;
+    tab.classList.toggle('stage-continue', Boolean(stage.continuation));
+    tab.setAttribute('aria-label', stage.continuation ? '続の章' : `第${stage.number}章`);
+    if (stage.continuation && Number(state.room?.maxPlayers) > 4) {
+      tab.disabled = true;
+      tab.title = '続の章は1～4人用です';
+    }
     tab.addEventListener('click', async () => {
       if (!state.isHost) return;
       tab.disabled = true;
