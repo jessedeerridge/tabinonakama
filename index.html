@@ -1794,7 +1794,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     .find(card => card?.kind === 'character') || game?.characterSelections?.[playerId];
   if (!game || !character) return { status:'pending' };
   if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3 && character.name === 'ガンダルフ') return { status:'achieved' };
-  if ([13, 14].includes(Number(game.stageNumber)) && game.mithrilAppliedToPlayerId === playerId) return { status:'achieved' };
+  if ([13, 14, 17].includes(Number(game.stageNumber)) && game.mithrilAppliedToPlayerId === playerId) return { status:'achieved' };
   const capturedTricks = game.capturedTricks?.[playerId] || [];
   const trickCount = capturedTricks.length;
   const playerIds = game.playerOrder || [];
@@ -3618,6 +3618,8 @@ function balrogOverpowersTrick(balrogCards, plays){
 
 function oldForestWinsTrick(game, plays){
   if (Number(game?.stageNumber) !== 5 || !game.oldForestRevealed || !plays.length) return false;
+  // 〈1の指輪〉は、数字の比較にかかわらず古森デッキのすべてのカードに勝つ。
+  if (plays.some(play => play.card?.color === 'yellow' && Number(play.card?.number) === 1)) return false;
   const highestPlayedNumber = Math.max(...plays.map(play => Number(play.card?.number) || 0));
   return highestPlayedNumber < Number(game.oldForestRevealed.number);
 }
