@@ -7400,7 +7400,7 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     const specialThreat = CONTINUATION_THREATS[Math.floor(Math.random() * CONTINUATION_THREATS.length)];
     continuationSetup = {
       equipment:{ ...equipment },
-      burdenName:CHARACTER_NAMES[burdenCode], challengeThreatNumber:Math.floor(Math.random() * 4) + 1,
+      burdenName:CHARACTER_NAMES[burdenCode], challengeThreatNumber:Math.floor(Math.random() * 7) + 1,
       specialThreat:{ ...specialThreat }
     };
   }
