@@ -3990,9 +3990,12 @@ async function animateThreatReturn(flight, sourceRect, targetDeck){
     return;
   }
   const latestDeckRect = targetDeck.getBoundingClientRect();
+  // flight は左上を基準に rotateY(180deg) すると、表示領域が left から左へ伸びる。
+  // デッキの右端を left に指定し、裏向きになったカードの表示領域をデッキ本体へ重ねる。
+  const faceDownDeckLeft = latestDeckRect.right;
   await flight.animate([
     { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${sourceRect.width / 82}) rotateY(0deg)` },
-    { left:`${latestDeckRect.left}px`, top:`${latestDeckRect.top}px`, transform:`scale(${latestDeckRect.width / 82}) rotateY(180deg)` }
+    { left:`${faceDownDeckLeft}px`, top:`${latestDeckRect.top}px`, transform:`scale(${latestDeckRect.width / 82}) rotateY(180deg)` }
   ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
   flight.remove();
 }
