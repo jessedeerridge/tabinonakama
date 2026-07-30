@@ -705,9 +705,9 @@
     font-size:22px;font-weight:800;cursor:pointer;z-index:230;
   }
   .help-btn.visible{display:flex;}
-  .help-btn .help-character-selection-icon{display:none;align-items:center;justify-content:center;gap:2px;}
-  .help-btn .help-character-selection-icon svg{display:block;width:22px;height:24px;fill:#fff;}
-  .help-btn .help-character-selection-question{font-size:18px;line-height:1;}
+  .help-btn .help-character-selection-icon{display:none;align-items:center;justify-content:center;gap:0;}
+  .help-btn .help-character-selection-icon svg{display:block;width:20px;height:24px;fill:#fff;}
+  .help-btn .help-character-selection-question{margin-left:-4px;font-size:18px;line-height:1;}
   .help-btn.character-selection-mode .help-default-question{display:none;}
   .help-btn.character-selection-mode .help-character-selection-icon{display:flex;}
 
@@ -6373,10 +6373,10 @@ function renderCharacterPicker(){
   const hasYellowOne = (state.hands?.[state.userId]?.cards || [])
     .some(card => card.color === 'yellow' && card.number === 1);
   const continuationEquipment = game.continuationEquipment;
-  // 自由獲得アイテムは枠を維持し、フロド／ガンダルフ確定アイテムだけ即座に一覧から除く。
+  // 確定アイテムは獲得後に不可視化するが、枠は残して右隣の効果脅威カードを動かさない。
   const fixedOwnerEquipmentClaimed = Boolean(continuationEquipment?.continuationOwnerName
     && game.continuationEquipmentOwnerId);
-  const showContinuationEquipment = Boolean(continuationEquipment && !fixedOwnerEquipmentClaimed);
+  const showContinuationEquipment = Boolean(continuationEquipment);
   const challengeWasSelected = Boolean(game.continuationChallengeSelectedAt);
   const showContinuationChallenge = Boolean(game.continuationSpecialThreat && !challengeWasSelected);
   const displayedChoiceCount = allCharacters.length + (showContinuationEquipment ? 1 : 0)
@@ -6423,6 +6423,7 @@ function renderCharacterPicker(){
     const equipmentChoice = document.createElement('button');
     equipmentChoice.type = 'button';
     equipmentChoice.className = 'character-choice continuation-equipment-choice';
+    equipmentChoice.classList.toggle('chosen-placeholder', fixedOwnerEquipmentClaimed);
     const canClaim = canClaimContinuationEquipment(game, state.userId);
     equipmentChoice.classList.toggle('claimable', canClaim);
     equipmentChoice.disabled = !canClaim;
