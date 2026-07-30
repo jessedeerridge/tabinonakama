@@ -3236,6 +3236,7 @@ function isCharacterEffectTurn(playerId){
   if (!playerId || !game || ['playing', 'character-selection'].includes(game.phase)) return false;
   const activePlayerId = game.pendingExchange?.sourceId
     || (game.phase === 'threat-draw-wait' ? game.threatDrawPlayerId : null)
+    || (game.phase === 'threat-redraw-selection' ? game.threatRedrawPlayerId : null)
     || (game.phase === 'barrow-draw-wait' ? game.barrowPlayerId : null)
     || (game.phase === 'tom-selection' ? game.tomPlayerId : null)
     || (game.phase === 'gandalf-selection' ? game.gandalfPlayerId : null)
@@ -3272,17 +3273,45 @@ function scheduleThreatDraw(){
       delete game.pendingThreatDrawAt;
       if (!isBurdenAragorn) delete game.threatDrawPlayerId;
       delete game.threatDrawRequestId;
-      const hasMerryBurden = Object.values(game.characterSelections || {})
-        .some(character => character.name === 'メリアドク・ブランディバック');
       if (isBurdenAragorn) return game;
-      if (hasMerryBurden && !game.threatRedrawUsed) {
-        game.phase = 'threat-redraw-selection';
-        game.threatRedrawPlayerId = playerId;
-        game.threatRedrawReadyAt = Date.now() + 1000;
-      } else beginNextExchange(game);
+      continueAfterThreatDraw(game, playerId);
       return game;
     });
   }, Math.max(0, drawAt - Date.now()) + 20);
+}
+
+function offerThreatRedraw(game, playerId){
+  const hasMerryBurden = Object.values(game.characterSelections || {})
+    .some(character => character.name === 'メリアドク・ブランディバック');
+  if (!hasMerryBurden || game.threatRedrawUsed) return false;
+  // 引き直しの確認中も、現在のキャラクターは効果キューの先頭に残る。
+  // RTDBで空配列が消えたり、複数クライアントの再描画が重なっても復帰できるよう、
+  // 進行位置を選択ダイアログと同じトランザクションに保存する。
+  const resumeQueue = [...(game.exchangeQueue || [])];
+  if (!resumeQueue.includes(playerId)) resumeQueue.unshift(playerId);
+  game.threatRedrawContinuation = {
+    playerId,
+    exchangeQueue:resumeQueue,
+    createdAt:Date.now()
+  };
+  game.phase = 'threat-redraw-selection';
+  game.threatRedrawPlayerId = playerId;
+  game.threatRedrawReadyAt = Date.now() + 1000;
+  return true;
+}
+
+function continueAfterThreatDraw(game, playerId){
+  if (!offerThreatRedraw(game, playerId)) beginNextExchange(game);
+}
+
+function restoreThreatRedrawContinuation(game, playerId){
+  const continuation = game.threatRedrawContinuation || {
+    playerId:game.threatRedrawPlayerId, exchangeQueue:[...(game.exchangeQueue || [])]
+  };
+  if (continuation.playerId !== playerId) return false;
+  game.exchangeQueue = [...(continuation.exchangeQueue || [])];
+  delete game.threatRedrawContinuation;
+  return true;
 }
 
 function scheduleBarrowDraw(){
@@ -3591,6 +3620,7 @@ async function decideThreatRedraw(redraw){
   await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
     if (game?.phase !== 'threat-redraw-selection' || game.threatRedrawPlayerId !== state.userId
         || Date.now() < Number(game.threatRedrawReadyAt || 0)) return;
+    if (!restoreThreatRedrawContinuation(game, state.userId)) return;
     if (redraw) {
       const cards = game.threatCards?.[state.userId] || [];
       const previous = cards.find(card => card.kind === 'threat');
@@ -3603,6 +3633,8 @@ async function decideThreatRedraw(redraw){
       }
       game.threatRedrawUsed = true;
     }
+    // 選択中にキューの現在地を失わないよう、ドロー直後のスナップショットから復元する。
+    // これにより、引き直した本人の交換と後続プレイヤーの効果を必ず同じ順序で再開する。
     delete game.threatRedrawPlayerId; delete game.threatRedrawReadyAt;
     beginNextExchange(game);
     return game;
@@ -3756,7 +3788,7 @@ async function chooseAragornBurdenThreat(number){
     ];
     game.characterEffectThreatDrawn ||= {}; game.characterEffectThreatDrawn[state.userId] = true;
     delete game.aragornBurdenThreatChoices; delete game.threatDrawPlayerId;
-    beginNextExchange(game); return game;
+    continueAfterThreatDraw(game, state.userId); return game;
   });
 }
 
