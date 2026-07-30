@@ -153,9 +153,10 @@
   .threat-card .card-name{left:0;right:auto;bottom:5px;width:66px;height:19px;padding-right:9px;box-sizing:border-box;background:#4a2f20;color:#fff;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);font-size:9px;line-height:19px;letter-spacing:0;white-space:nowrap;}
   .threat-card .card-name::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
-  /* 第十三章の脅威デッキは、黒の乗手とは別の専用イラストを使う。 */
-  .threat-card.chapter-thirteen-threat{background-image:url('kyoi17.jpg');}
+  /* 1～7の脅威デッキは、1～4の黒の乗手とは別の専用イラストを使う。 */
+  .threat-card.threat-one-to-seven{background-image:url('kyoi17.jpg');}
   .threat-card.concealed{border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.18);}
+  .threat-card.threat-one-to-seven.concealed{background-image:url('kyoi17.jpg');}
   .threat-card.concealed>*{display:none;}
   .capture-card.owner-concealed{transform:rotate(180deg);}
   .threat-draw-flight .threat-card.owner-concealed{transform:rotate(180deg);transform-origin:center;}
@@ -181,7 +182,7 @@
   /* 通常装備はイベント札やキャラクター札ではなく、専用の装備札フォーマットで表示する。 */
   .item-equipment-card{--equipment-frame:#aeb8c5;--equipment-panel:#fff8e8;border-color:var(--equipment-frame);background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
   .item-equipment-card::after{content:'';position:absolute;inset:0;border:2px solid #eef3f8;border-radius:6px;box-sizing:border-box;pointer-events:none;z-index:4;}
-  .equipment-name,.equipment-special{position:absolute;right:0;box-sizing:border-box;background:color-mix(in srgb,var(--equipment-frame) 50%,transparent);color:#3f3021;font-weight:900;text-align:right;isolation:isolate;overflow:hidden;}
+  .equipment-name,.equipment-special{position:absolute;right:2px;box-sizing:border-box;background:color-mix(in srgb,var(--equipment-frame) 50%,transparent);color:#3f3021;font-weight:900;text-align:right;isolation:isolate;overflow:hidden;}
   .equipment-name::before,.equipment-special::before{content:'';position:absolute;inset:1px;background:color-mix(in srgb,var(--equipment-panel) 50%,transparent);z-index:-1;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);}
   .equipment-name{top:1px;width:max-content;max-width:100%;height:15.3px;padding:0 4.5px 0 16px;font-size:9px;line-height:15.3px;white-space:nowrap;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);}
   .equipment-special{top:17px;width:48px;max-width:48px;padding:2.4px 4px 2.4px 18px;font-size:6px;line-height:1.2;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);}
@@ -341,6 +342,7 @@
   .threat-deck::before,.threat-deck::after{content:'';position:absolute;inset:0;border:1px solid #4a2f20;border-radius:6px;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-sizing:border-box;z-index:-1;}
   .threat-deck::before{transform:translateX(2px);}
   .threat-deck::after{transform:translateX(4px);z-index:-2;}
+  .threat-deck.threat-one-to-seven,.threat-deck.threat-one-to-seven::before,.threat-deck.threat-one-to-seven::after{background-image:url('kyoi17.jpg');}
   .threat-deck.empty{visibility:hidden;}
   .threat-deck-area.deck-transition-out{animation:deckSlideOutRight .85s ease-in forwards;}
   .old-forest-area.deck-transition-in,.barrow-deck-area.deck-transition-in,.balrog-deck-area.deck-transition-in{animation:deckSlideInRight .85s ease-out both;}
@@ -475,6 +477,7 @@
   .exchange-card-flight.card-back{border:1px solid #10233f;border-radius:10px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
   .threat-draw-flight{transform-style:preserve-3d;}
   .threat-draw-flight::before{content:'';position:absolute;inset:0;border:4px solid #4a2f20;border-radius:10px;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-sizing:border-box;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505,inset 0 0 0 3px rgba(255,244,220,.72);transform:rotateY(180deg);backface-visibility:hidden;}
+  .threat-draw-flight:has(.threat-one-to-seven)::before{background-image:url('kyoi17.jpg');}
   .threat-draw-flight>.my-card{position:absolute;inset:0;backface-visibility:hidden;}
   .threat-capture.threat-draw-target-hidden{opacity:0;}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
@@ -511,6 +514,7 @@
   .burden-character{color:#b51f24;font-weight:900;}
   @media (max-width:520px){
     .center-lower-card-area{width:calc(100vw - 24px);}
+    .victory-condition-fail{margin-right:-6px;top:-2px;font-size:18px;line-height:15px;}
   }
   .my-card.card-red{--card-color:#c94c47;}
   .my-card.card-green{--card-color:#559344;}
@@ -1619,7 +1623,8 @@ function createCardElement(cardData){
   if (cardData.kind === 'rejected-threat') card.classList.add('rejected-threat-card');
   if (cardData.kind === 'balrog-shadow' && cardData.name === 'バルログ' && Number(cardData.number) === 5) card.classList.add('balrog-five');
   if (cardData.kind === 'threat' && cardData.concealed) card.classList.add('concealed');
-  if (cardData.kind === 'threat' && [13, 19].includes(Number(state.game?.stageNumber))) card.classList.add('chapter-thirteen-threat');
+  const stageThreat = STAGES.find(item => item.number === Number(state.game?.stageNumber))?.threats?.[0];
+  if (['threat', 'rejected-threat'].includes(cardData.kind) && Number(stageThreat?.max) === 7) card.classList.add('threat-one-to-seven');
   const isYellowOne = cardData.kind !== 'threat' && cardData.color === 'yellow' && cardData.number === 1;
   if (isYellowOne) card.classList.add('yellow-one');
   if (isYellowOne && state.game?.yellowOneWinningCards?.[cardData.id]) card.classList.add('yellow-one-winner');
@@ -2564,7 +2569,7 @@ function createVictoryConditionIcon(cardData, playerId){
     icon.classList.add('multiline');
     const fail = label('✕');
     fail.classList.add('victory-condition-fail');
-    icon.append(line(...countTricks(3)), line(fail, square('1', 'yellow')));
+    icon.append(line(...countTricks(3), label('以上')), line(fail, square('1', 'yellow')));
   } else if (['ボロミア', 'デネソールの息子ボロミア'].includes(name)) {
     icon.classList.add('multiline');
     const fail = label('✕');
@@ -2596,7 +2601,8 @@ function createVictoryConditionIcon(cardData, playerId){
     else icon.append(coloredTrick(), label('x?'));
   } else if (victory.includes('脅威カードと同じ数字')) {
     const matchingSquare = () => {
-      const color = name === 'レゴラス' ? 'green' : name === 'ギムリ' ? 'gray' : 'black';
+      const color = ['レゴラス', 'オロフィンとルーミル', 'ハルディア'].includes(name)
+        ? 'green' : name === 'ギムリ' ? 'gray' : 'black';
       const item = square(String(displayedThreatNumber ?? '?'), color);
       if (name === '農夫マゴット') item.classList.add('number-centered');
       return item;
@@ -3060,7 +3066,11 @@ function renderStageInformation(){
   barrowDeck.classList.toggle('empty', !state.game?.barrowDeck?.length);
   barrowDeck.setAttribute('aria-label', `塚デッキ 残り${state.game?.barrowDeck?.length || 0}枚`);
   const threatDefinition = stage?.threats?.[0];
-  const hasThreatDeck = Boolean(threatDefinition && state.game?.phase !== 'character-selection');
+  // 3人用の第六章では黒の乗手を使わない。代わりに、トムが5枚取った後の
+  // 塚デッキ（数字カードの裏面）を残り枚数とともに表示する。
+  const skipsThreePlayerBarrowThreats = isBarrow && Number(state.room?.maxPlayers) === 3;
+  const hasThreatDeck = Boolean(threatDefinition && !skipsThreePlayerBarrowThreats
+    && state.game?.phase !== 'character-selection');
   threatDeckArea.classList.toggle('active', hasThreatDeck);
   threatDeckArea.classList.toggle('deck-transition-out', replacementDeckActive);
   oldForestArea.classList.toggle('deck-transition-in', replacementDeckActive && isOldForest);
@@ -3069,6 +3079,7 @@ function renderStageInformation(){
     || replacementDeckActive;
   threatDeck.classList.toggle('empty', !state.game?.threatDeck?.length && !keepThreatDeckForLanding);
   const threatDeckName = threatDefinition?.max === 7 ? '脅威1-7デッキ' : '黒の乗手デッキ';
+  threatDeck.classList.toggle('threat-one-to-seven', Number(threatDefinition?.max) === 7);
   threatDeckArea.setAttribute('aria-label', threatDeckName);
   threatDeck.setAttribute('aria-label', `${threatDeckName} 残り${state.game?.threatDeck?.length || 0}枚`);
   balrogDeckArea.classList.toggle('active', replacementDeckActive && isBalrogBridge);
@@ -4160,8 +4171,19 @@ async function chooseAragornThreat(number){
     const threat = stage?.threats?.[0] || { name:'脅威カード', min:1, max:4 };
     if (number < threat.min || number > threat.max) return;
     game.threatCards ||= {};
-    game.threatCards[state.userId] = [{ kind:'threat', color:'threat', name:threat.name, number, id:`${state.userId}-threat-${Date.now()}-${number}` }];
+    const selectedAt = Date.now();
+    const selectedCard = {
+      kind:'threat', color:'threat', name:threat.name, number,
+      id:`${state.userId}-threat-${selectedAt}-${number}`,
+      numberRevealedAt:selectedAt + 3500
+    };
+    game.threatCards[state.userId] = [selectedCard];
     if (game.threatDeck) game.threatDeck = game.threatDeck.filter(rank => Number(rank) !== Number(number));
+    // 任意の数字を選んだ場合も通常のドローと同じ転送情報を作り、デッキから
+    // めくって獲得位置へ飛ぶアニメーションが完了してから次の効果へ進める。
+    game.characterEffectThreatDrawn ||= {};
+    game.characterEffectThreatDrawn[state.userId] = true;
+    game.threatDrawTransfer = { playerId:state.userId, card:selectedCard, movedAt:selectedAt };
     delete game.threatDrawPlayerId;
     beginNextExchange(game);
     return game;
@@ -5216,9 +5238,10 @@ function completeCurrentTrick(room, yellowOneWins = false){
   const bilboChoosesNextLeader = !oldForestWins && winningCharacter === 'ビルボ・バギンズ';
   game.turnPlayerId = bilboChoosesNextLeader ? null : (oldForestWins ? leadPlayerId : winnerId);
   game.trickNumber = (game.trickNumber || 1) + 1;
-  const tomPlayerId = Object.entries(game.characterSelections || {}).find(([, character]) => character.name === 'トム・ボンバディル')?.[0];
   const ordinaryCardsRemain = id => (room.hands?.[id]?.cards || []).some(card => card.kind !== 'character');
-  game.finished = tomPlayerId ? order.some(id => id !== tomPlayerId && !ordinaryCardsRemain(id)) : order.every(id => !ordinaryCardsRemain(id));
+  // 効果で一人だけ手札が多くなったラウンドは、ほかの全員が出し切った時点で終了し、
+  // 多いプレイヤーの残り手札を結果確認に残す。
+  game.finished = order.filter(ordinaryCardsRemain).length <= 1;
   if (!game.finished && bilboChoosesNextLeader) game.pendingCapture.bilboChoosesNextLeader = true;
 }
 
@@ -5826,6 +5849,15 @@ function beginExchangeCardDrag(event, cardData, source){
   source.addEventListener('pointercancel', cancel, { once:true });
 }
 
+function playableHandCards(game, cards, playerId){
+  const unavailableIds = new Set();
+  const shadowfaxReserved = game?.shadowfaxReservedCard;
+  const radagastReserved = game?.radagastReservedCard;
+  if (shadowfaxReserved?.playerId === playerId && !shadowfaxReserved.inHand) unavailableIds.add(shadowfaxReserved.id);
+  if (radagastReserved?.playerId === playerId && !radagastReserved.inHand) unavailableIds.add(radagastReserved.id);
+  return cards.filter(card => card.kind !== 'character' && !unavailableIds.has(card.id));
+}
+
 function canFollowSuit(card){
   const ignoresSuit = ignoresFollowSuit(state.game, state.userId);
   const trick = state.game?.trick || {};
@@ -5837,7 +5869,7 @@ function canFollowSuit(card){
   }
   if (ignoresSuit) return true;
   const leadColor = plays.sort((a,b) => a.order-b.order)[0].card.color;
-  const cards = (state.hands[state.userId]?.cards || []).filter(card => card.kind !== 'character');
+  const cards = playableHandCards(state.game, state.hands[state.userId]?.cards || [], state.userId);
   return card.color === leadColor || !cards.some(c => c.color === leadColor);
 }
 
@@ -5901,7 +5933,8 @@ async function playCard(cardIndex, expectedCard){
     if (existing.length) {
       const lead = existing[0].card.color;
       const ignoresSuit = ignoresFollowSuit(room.game, state.userId);
-      if (!ignoresSuit && card.color !== lead && hand.some(c => c.color === lead)) return;
+      if (!ignoresSuit && card.color !== lead
+        && playableHandCards(room.game, hand, state.userId).some(c => c.color === lead)) return;
     }
     hand.splice(cardIndex, 1);
     room.hands[state.userId].cards = hand;
