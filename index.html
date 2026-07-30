@@ -34,7 +34,7 @@
   /* ★ 着席ポップ */
   .seat-pop{
     position:fixed;left:50%;bottom:10px;transform:translateX(-50%);
-    background:orange;border:1px solid #eee;border-radius:12px;
+    background:#0f3d2e;color:#fff;border:1px solid #285f4b;border-radius:12px;
     box-shadow:0 12px 28px rgba(0,0,0,.12);
     padding:10px;z-index:330;display:flex;flex-direction:column;gap:10px;min-width:280px;
   }
@@ -178,6 +178,15 @@
   .event-equipment-card .event-card-heading{margin-bottom:1.46px;}
   .event-equipment-card .event-card-hammer{width:5.86px;height:5.86px;margin-right:1.46px;}
   .event-equipment-card .event-card-gap{height:2.2px;}
+  /* 通常装備はイベント札やキャラクター札ではなく、専用の装備札フォーマットで表示する。 */
+  .item-equipment-card{--equipment-frame:#aeb8c5;--equipment-panel:#fff8e8;border-color:var(--equipment-frame);background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  .item-equipment-card::after{content:'';position:absolute;inset:0;border:2px solid #eef3f8;border-radius:6px;box-sizing:border-box;pointer-events:none;z-index:4;}
+  .equipment-name,.equipment-special{position:absolute;right:0;box-sizing:border-box;background:color-mix(in srgb,var(--equipment-frame) 50%,transparent);color:#3f3021;font-weight:900;text-align:right;isolation:isolate;overflow:hidden;}
+  .equipment-name::before,.equipment-special::before{content:'';position:absolute;inset:1px;background:color-mix(in srgb,var(--equipment-panel) 50%,transparent);z-index:-1;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);}
+  .equipment-name{top:1px;width:max-content;max-width:100%;height:15.3px;padding:0 4.5px 0 16px;font-size:9px;line-height:15.3px;white-space:nowrap;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);}
+  .equipment-special{top:17px;width:48px;max-width:48px;padding:2.4px 4px 2.4px 18px;font-size:6px;line-height:1.2;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);}
+  .equipment-effect{position:absolute;left:-4px;right:-4px;bottom:-4px;min-height:64px;padding:12px 5px 6px;box-sizing:border-box;background:var(--equipment-frame);isolation:isolate;display:flex;flex-direction:column;gap:2px;font-size:6px;line-height:1.2;text-align:left;clip-path:polygon(0 10px,30% 6px,70% 6px,100% 10px,100% 100%,0 100%);}
+  .equipment-effect::before{content:'';position:absolute;inset:1px;background:var(--equipment-panel);z-index:-1;clip-path:polygon(0 10px,30% 6px,70% 6px,100% 10px,100% 100%,0 100%);}
   .most-suit-marker{position:absolute;left:50%;top:56px;transform:translateX(-50%);display:flex;align-items:center;gap:2px;color:#fff;font:700 8px/10px system-ui;white-space:nowrap;z-index:30;}
   .most-suit-marker .victory-condition-square{width:10px;height:10px;font-size:0;}
   .capture-card.new-capture{animation:captureArrive .7s ease-in both;}
@@ -1412,7 +1421,7 @@ const STAGE_ELEVEN_EQUIPMENT = {
 const MITHRIL_COAT = {
   name:'ミスリルの胴着', specialName:'鋼よりも堅い',
   effect:'ラウンド終了時、キャラクター1人の目的が未達成なら、このカードを捨て札にして達成したものとして扱う。',
-  cardNumber:'3.11', rank:'黒'
+  cardNumber:'3.11', rank:'黒', image:'mithril.jpg'
 };
 
 function hasSpecialThreat(game, playerId, name){
@@ -1598,12 +1607,26 @@ function concreteEventCardData(eventCard, playerCount){
 
 function createEquipmentCardElement(cardData){
   const card = document.createElement('div');
-  card.className = 'my-card equipment-card event-equipment-card';
   card.style.backgroundImage = `url('${cardData.image || 'eventback.jpg'}')`;
-  card.setAttribute('aria-label', `所持イベントカード ${cardData.name}`);
-  card.innerHTML = '<div class="event-card-title"></div><div class="event-card-text"></div>';
-  const eventData = cardData.eventData || { title:cardData.name, heading:cardData.specialName, hammer:true, text:cardData.effect || '' };
-  requestAnimationFrame(() => populateEventCardElement(card, eventData, { maxFontSize:7.32, minFontSize:2.2 }));
+  if (cardData.eventData) {
+    card.className = 'my-card equipment-card event-equipment-card';
+    card.setAttribute('aria-label', `所持イベントカード ${cardData.name}`);
+    card.innerHTML = '<div class="event-card-title"></div><div class="event-card-text"></div>';
+    requestAnimationFrame(() => populateEventCardElement(card, cardData.eventData, { maxFontSize:7.32, minFontSize:2.2 }));
+  } else {
+    card.className = 'my-card equipment-card item-equipment-card';
+    card.setAttribute('aria-label', `装備カード ${cardData.name}`);
+    const name = document.createElement('span');
+    name.className = 'equipment-name';
+    name.textContent = cardData.name;
+    const special = document.createElement('span');
+    special.className = 'equipment-special';
+    appendWrappedCharacterName(special, cardData.specialName || '特殊名');
+    const effect = document.createElement('div');
+    effect.className = 'equipment-effect';
+    effect.appendChild(createCharacterEffectRow('special', cardData.effect || ''));
+    card.append(name, special, effect);
+  }
   card.setAttribute('role', 'button'); card.tabIndex = 0;
   const open = event => { event.preventDefault(); event.stopPropagation(); openSingleCardZoom(card); };
   card.addEventListener('click', open); card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') open(event); });
