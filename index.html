@@ -414,6 +414,7 @@
   .exchange-note{position:absolute;right:12px;bottom:8px;font-size:10px;font-weight:700;}
   .threat-choice-grid{display:grid;grid-template-columns:repeat(4,36px);gap:8px;justify-content:center;margin-top:8px;}
   .threat-choice{width:36px;height:36px;padding:0;border:0;border-radius:3px;background:#111;color:#fff;font-weight:900;}
+  .threat-choice.threat-draw-target-hidden{opacity:0;}
   .threat-choice-grid.equipment-range-grid{grid-template-columns:repeat(3,52px);}
   .threat-choice-grid.equipment-range-grid .threat-choice{width:52px;}
   .player-tag .mini-hand.public-hand{width:156px;height:58px;}
@@ -2407,7 +2408,7 @@ function createVictoryConditionIcon(cardData, playerId){
     const sameNumberSquares = [square('n'), square('n'), square('n')];
     sameNumberSquares.forEach(item => item.classList.add('number-centered'));
     icon.append(...sameNumberSquares);
-  } else if (name === 'ボロミア') {
+  } else if (['ボロミア', 'デネソールの息子ボロミア'].includes(name)) {
     icon.classList.add('multiline');
     const fail = label('✕');
     fail.classList.add('victory-condition-fail');
@@ -2418,15 +2419,17 @@ function createVictoryConditionIcon(cardData, playerId){
     icon.append(coloredTrick('green'), coloredTrick('green'));
   } else if (name === '飛蔭（とびかげ）') {
     icon.append(coloredTrick('orange'), coloredTrick('orange'));
-  } else if (name === 'サム') {
+  } else if (['サム', 'サムワイズ・ギャムジー'].includes(name)) {
     icon.append(square(String(threatNumber ?? 'x'), 'orange'));
+  } else if (name === 'ペレグリン・トゥック') {
+    icon.append(coloredTrick(), label('x0'));
   } else if (['レゴラス', 'ギムリ', '緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name)) {
     const suit = ['レゴラス', '緑葉のレゴラス'].includes(name) ? 'green' : 'gray';
     icon.append(square(String(threatNumber ?? 'x'), suit));
     if (['緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name)) {
       icon.append(square(String(threatNumber ?? 'x'), 'red'));
     }
-  } else if (name === 'アラゴルン') {
+  } else if (['アラゴルン', 'アラソルンの息子アラゴルン'].includes(name)) {
     if (equipmentChoice) {
       const expandBoth = equipmentChoice.min === 1 && equipmentChoice.max === 2;
       if (expandBoth) {
@@ -2579,10 +2582,10 @@ let threatDrawTimer = null;
 let effectTransitionTimer = null;
 let lastAnimatedBarrowDrawAt = null;
 let lastAnimatedThreatDrawAt = null;
+let lastAnimatedThreatRedrawAt = null;
 const animatingThreatCardIds = new Set();
 const activeThreatDrawTransfers = new Set();
 const animatedThreatDrawTransfers = new Set();
-const animatedThreatDrawPlayers = new Set();
 // 転送データと到着先カードは同じRealtime Database更新で届くため、DOM描画の完了とは別に
 // 「着地済み」を記録する。飛行カードが着くまで実カードを表示しないための唯一の判定源にする。
 const landedThreatDrawTransfers = new Set();
@@ -3723,6 +3726,8 @@ function renderThreatChoice(){
   if (isBurdenChoice) {
     (state.game.aragornBurdenThreatChoices || []).forEach(number => {
       const button = document.createElement('button'); button.className = 'threat-choice'; button.textContent = number;
+      const transferCard = state.game.threatDrawTransfer?.cards?.find(card => Number(card.number) === Number(number));
+      if (transferCard) button.dataset.threatCardId = transferCard.id;
       attachTwoSecondHold(button, () => chooseAragornBurdenThreat(number)); threatChoiceGrid.append(button);
     });
     return;
@@ -3849,12 +3854,20 @@ function animateBarrowDraw(sourceRect, transfer){
 }
 
 async function animateThreatDraw(sourceRect, transfer, transferKey){
+  if (!transfer?.card && transfer?.cards?.length) {
+    await Promise.all(transfer.cards.map((card, index) => new Promise(resolve => {
+      setTimeout(() => animateThreatDraw(sourceRect, { ...transfer, card }, `${transferKey}:${card.id}`).finally(resolve), index * 120);
+    })));
+    landedThreatDrawTransfers.add(transferKey);
+    activeThreatDrawTransfers.delete(transferKey);
+    return;
+  }
   if (!transfer?.card) {
     if (transferKey) landedThreatDrawTransfers.add(transferKey);
     activeThreatDrawTransfers.delete(transferKey);
     return;
   }
-  const target = playerCircle.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
+  const target = document.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
   const targetRect = target?.getBoundingClientRect();
   if (!sourceRect?.width || !targetRect?.width) {
     // 初回入室・再接続などで移動元を測れない場合は演出だけを省略する。
@@ -3901,7 +3914,7 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
     ], { duration:600, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
     await new Promise(resolve => setTimeout(resolve, 1000));
     // 待機中のレイアウト変更を反映し、移動開始時点の実際の目的地へ飛ばす。
-    const latestTargetRect = playerCircle
+    const latestTargetRect = document
       .querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`)
       ?.getBoundingClientRect();
     await flight.animate([
@@ -3912,13 +3925,30 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
     // 先に着地済みへ切り替え、次の同期再描画でも到着先が再び隠れないようにする。
     landedThreatDrawTransfers.add(transferKey);
     animatingThreatCardIds.delete(transfer.card.id);
-    const destination = playerCircle.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
+    const destination = document.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
     destination?.classList.remove('threat-draw-target-hidden');
     // 実カードを表示してから飛行カードを外し、到着時に背景が見えるフレームを作らない。
     await new Promise(resolve => requestAnimationFrame(resolve));
     flight.remove();
     activeThreatDrawTransfers.delete(transferKey);
   }
+}
+
+async function animateThreatReturn(sourceRect, targetRect, transfer){
+  if (!sourceRect?.width || !targetRect?.width || !transfer?.returnedCard) return;
+  const flight = document.createElement('div');
+  flight.classList.add('exchange-card-flight', 'threat-draw-flight');
+  flight.appendChild(createCardElement(transfer.returnedCard));
+  Object.assign(flight.style, {
+    left:`${sourceRect.left}px`, top:`${sourceRect.top}px`,
+    transform:`scale(${sourceRect.width / 82}) rotateY(0deg)`
+  });
+  document.body.appendChild(flight);
+  await flight.animate([
+    { left:`${sourceRect.left}px`, top:`${sourceRect.top}px`, transform:`scale(${sourceRect.width / 82}) rotateY(0deg)` },
+    { left:`${targetRect.left}px`, top:`${targetRect.top}px`, transform:`scale(${targetRect.width / 82}) rotateY(180deg)` }
+  ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
+  flight.remove();
 }
 
 function captureMyHandRects(){
@@ -4194,6 +4224,9 @@ function subscribeRoom(){
     const excludedSourceRect = state.game?.excludedCard ? excludedCardSlot.getBoundingClientRect() : null;
     const barrowSourceRect = state.game?.barrowDeck?.length ? barrowDeck.getBoundingClientRect() : null;
     const threatSourceRect = state.game?.threatDeck?.length ? threatDeck.getBoundingClientRect() : null;
+    const previousThreatCardRects = new Map(Array.from(document.querySelectorAll('[data-threat-card-id]'), card => [
+      card.dataset.threatCardId, card.getBoundingClientRect()
+    ]));
     const previousMyHandRects = captureMyHandRects();
     const previousExchangePositions = captureExchangePositions();
     const previousGame = state.game;
@@ -4201,22 +4234,21 @@ function subscribeRoom(){
     state.game = state.room.game || null;
     state.hands = state.room.hands || {};
     const threatTransfer = state.game?.threatDrawTransfer;
-    const threatTransferKey = threatTransfer?.card?.id && threatTransfer?.movedAt
-      ? `${threatTransfer.card.id}:${threatTransfer.movedAt}` : null;
-    const threatDrawPlayerKey = threatTransfer?.playerId ? `${state.game?.startedAt || state.game?.stageNumber}:${threatTransfer.playerId}` : null;
-    const shouldAnimateThreatDraw = Boolean(threatTransferKey && threatDrawPlayerKey
+    const threatTransferIds = threatTransfer?.card?.id
+      || threatTransfer?.cards?.map(card => card.id).join(',');
+    const threatTransferKey = threatTransferIds && threatTransfer?.movedAt
+      ? `${threatTransferIds}:${threatTransfer.movedAt}` : null;
+    const shouldAnimateThreatDraw = Boolean(threatTransferKey
       && threatTransfer.movedAt !== lastAnimatedThreatDrawAt
       && !animatedThreatDrawTransfers.has(threatTransferKey)
-      && !animatedThreatDrawPlayers.has(threatDrawPlayerKey)
       && !activeThreatDrawTransfers.has(threatTransferKey)
       && !document.querySelector(`[data-threat-draw-transfer="${CSS.escape(threatTransferKey)}"]`));
     if (shouldAnimateThreatDraw) {
       // 再描画や重複購読が続いても、同じ転送を描画前に一度だけ確保する。
       activeThreatDrawTransfers.add(threatTransferKey);
       animatedThreatDrawTransfers.add(threatTransferKey);
-      animatedThreatDrawPlayers.add(threatDrawPlayerKey);
       lastAnimatedThreatDrawAt = threatTransfer.movedAt;
-      animatingThreatCardIds.add(threatTransfer.card.id);
+      (threatTransfer.cards || [threatTransfer.card]).filter(Boolean).forEach(card => animatingThreatCardIds.add(card.id));
     }
     const waiting = (!state.isHost && !state.room.maxPlayers);
     hostSelectingPop.classList.toggle('hidden', !waiting);
@@ -4243,6 +4275,12 @@ function subscribeRoom(){
       requestAnimationFrame(() => animateBarrowDraw(barrowSourceRect, barrowTransfer));
     }
     if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey);
+    const threatRedrawTransfer = state.game?.threatRedrawTransfer;
+    if (threatRedrawTransfer?.movedAt && threatRedrawTransfer.movedAt !== lastAnimatedThreatRedrawAt) {
+      lastAnimatedThreatRedrawAt = threatRedrawTransfer.movedAt;
+      const returnSourceRect = previousThreatCardRects.get(threatRedrawTransfer.returnedCard?.id);
+      requestAnimationFrame(() => animateThreatReturn(returnSourceRect, threatSourceRect, threatRedrawTransfer));
+    }
     const galadrielLostTransfer = state.game?.galadrielLostTransfer;
     if (galadrielLostTransfer?.completedAt
         && galadrielLostTransfer.completedAt !== lastAnimatedGaladrielLostTransferAt) {
