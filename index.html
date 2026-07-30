@@ -1598,12 +1598,27 @@ function concreteEventCardData(eventCard, playerCount){
 
 function createEquipmentCardElement(cardData){
   const card = document.createElement('div');
-  card.className = 'my-card equipment-card event-equipment-card';
   card.style.backgroundImage = `url('${cardData.image || 'eventback.jpg'}')`;
-  card.setAttribute('aria-label', `所持イベントカード ${cardData.name}`);
-  card.innerHTML = '<div class="event-card-title"></div><div class="event-card-text"></div>';
-  const eventData = cardData.eventData || { title:cardData.name, heading:cardData.specialName, hammer:true, text:cardData.effect || '' };
-  requestAnimationFrame(() => populateEventCardElement(card, eventData, { maxFontSize:7.32, minFontSize:2.2 }));
+  if (cardData.eventData) {
+    card.className = 'my-card equipment-card event-equipment-card';
+    card.setAttribute('aria-label', `所持イベントカード ${cardData.name}`);
+    card.innerHTML = '<div class="event-card-title"></div><div class="event-card-text"></div>';
+    requestAnimationFrame(() => populateEventCardElement(card, cardData.eventData, { maxFontSize:7.32, minFontSize:2.2 }));
+  } else {
+    card.className = 'my-card character-card character-silver equipment-card';
+    card.setAttribute('aria-label', `装備カード ${cardData.name}`);
+    const name = document.createElement('span');
+    name.className = 'character-label';
+    name.textContent = cardData.name;
+    fitCharacterName(name);
+    const special = document.createElement('span');
+    special.className = 'character-label character-special';
+    appendWrappedCharacterName(special, cardData.specialName || '特殊名');
+    const effect = document.createElement('div');
+    effect.className = 'character-effect';
+    effect.appendChild(createCharacterEffectRow('special', cardData.effect || ''));
+    card.append(name, special, effect);
+  }
   card.setAttribute('role', 'button'); card.tabIndex = 0;
   const open = event => { event.preventDefault(); event.stopPropagation(); openSingleCardZoom(card); };
   card.addEventListener('click', open); card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') open(event); });
