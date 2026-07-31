@@ -4082,13 +4082,19 @@ function effectAnimationsReadyAt(game){
   return Math.max(0, ...deadlines);
 }
 
+function minimumPlayableHandSize(game, hands){
+  const handSizes = (game.playerOrder || []).map(playerId =>
+    (hands?.[playerId]?.cards || []).filter(card => card?.kind !== 'character').length);
+  // 最少人数を一人に絞らず枚数だけを比較することで、全員が同数の場合もその枚数を返す。
+  return handSizes.length ? handSizes.reduce((minimum, size) => Math.min(minimum, size), Infinity) : 0;
+}
+
 function finishCharacterEffectTransition(game, hands){
   // キャラクター効果による受け渡しや失われしカードの取得がすべて確定してから、
   // 最少手札を基準にこのラウンドの総トリック数を固定する。以降は手札枚数を見直さず、
   // 「最後」「最後の3トリック」などの目的が参照する終点を変化させない。
-  if (!Number.isFinite(Number(game.totalTricks))) {
-    game.totalTricks = Math.min(...(game.playerOrder || []).map(playerId =>
-      (hands?.[playerId]?.cards || []).filter(card => card?.kind !== 'character').length));
+  if (typeof game.totalTricks !== 'number' || !Number.isFinite(game.totalTricks)) {
+    game.totalTricks = minimumPlayableHandSize(game, hands);
   }
   game.phase = 'playing';
   game.turnPlayerId = game.startingPlayerId || game.playerOrder?.[0] || null;
