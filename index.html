@@ -2786,6 +2786,9 @@ let lastAnimatedAragornThreatReturnAt = null;
 const animatingThreatCardIds = new Set();
 const activeThreatDrawTransfers = new Set();
 const animatedThreatDrawTransfers = new Set();
+// Realtime Database はローカル書き込みとサーバー確認を別々に通知することがある。
+// 転送時刻だけでなくカード ID 単位でも実行中 Promise を共有し、同じ札の飛行体を同時に2枚作らない。
+const threatDrawAnimations = new Map();
 // 転送データと到着先カードは同じRealtime Database更新で届くため、DOM描画の完了とは別に
 // 「着地済み」を記録する。飛行カードが着くまで実カードを表示しないための唯一の判定源にする。
 const landedThreatDrawTransfers = new Set();
@@ -4339,7 +4342,23 @@ function animateBarrowDraw(sourceRect, transfer){
   lastAnimatedBarrowDrawAt = transfer.movedAt;
 }
 
-async function animateThreatDraw(sourceRect, transfer, transferKey){
+function animateThreatDraw(sourceRect, transfer, transferKey){
+  const animationKey = transfer?.card?.id
+    || (transfer?.cards || []).map(card => card.id).sort().join(',')
+    || transferKey;
+  if (!animationKey) return Promise.resolve();
+  const running = threatDrawAnimations.get(animationKey);
+  if (running) return running;
+  const animation = runThreatDrawAnimation(sourceRect, transfer, transferKey);
+  threatDrawAnimations.set(animationKey, animation);
+  const release = () => {
+    if (threatDrawAnimations.get(animationKey) === animation) threatDrawAnimations.delete(animationKey);
+  };
+  animation.then(release, release);
+  return animation;
+}
+
+async function runThreatDrawAnimation(sourceRect, transfer, transferKey){
   if (!transfer?.card && transfer?.cards?.length) {
     await Promise.all(transfer.cards.map((card, index) => new Promise(resolve => {
       setTimeout(() => animateThreatDraw(sourceRect, { ...transfer, card }, `${transferKey}:${card.id}`).finally(resolve), index * 120);
@@ -4410,14 +4429,13 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
       { left:`${latestTargetRect?.left ?? targetLeft}px`, top:`${latestTargetRect?.top ?? targetTop}px`, transform:`scale(${latestTargetRect?.width ? latestTargetRect.width / 82 : destinationScale}) rotateY(0deg)` }
     ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
   } finally {
-    // 先に着地済みへ切り替え、次の同期再描画でも到着先が再び隠れないようにする。
+    // DOM の飛行札と到着札を同じフレーム内で交換する。到着札を先に表示して1フレーム待つと、
+    // 両方が重なる「二重発射」に見え、逆順では盤面が一瞬抜けてちらつく。
     landedThreatDrawTransfers.add(transferKey);
     animatingThreatCardIds.delete(transfer.card.id);
     const destination = document.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
-    destination?.classList.remove('threat-draw-target-hidden');
-    // 実カードを表示してから飛行カードを外し、到着時に背景が見えるフレームを作らない。
-    await new Promise(resolve => requestAnimationFrame(resolve));
     flight.remove();
+    destination?.classList.remove('threat-draw-target-hidden');
     activeThreatDrawTransfers.delete(transferKey);
   }
 }
