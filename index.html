@@ -1263,7 +1263,7 @@ defineStage(1, {
   goal: 'allwin'
 });
 defineStage(2, {
-  title: 'ホビット庄での少しか遅れ',
+  title: 'ホビット庄での少しの遅れ',
   story: '「静かに、そしてすみやかに出立するのだ」ガンダルフはそう言った。しかし二、三週間が過ぎてもフロドは旅立つ気配がなかった。「分かってるさ。でも、両立は難しいんだ」フロドは反論した。「ビルボみたいに急に消えたら、噂はホビット庄中にあっという間に広がってしまう」',
   characters: ['frodo*,sam*,merry*', 'gandalf,pippin'],
   threats: [{ name:'黒の乗手', min:1, max:4 }],
@@ -1309,7 +1309,7 @@ defineStage(6, {
     },
     {
       title:'塚人',
-      text:'彼が正気を取り戻したとき、一瞬、恐怖の感覚しか思い出せなかった。だが突如として、逃げ場のない状況にあることを悟った。そう、彼は塚の中にいた。塚人にさらわれたのだ。そして人々がひそひそ語たる、塚人の恐ろしい呪文の支配下にすでに落ちているのかもしれなかった。'
+      text:'彼が正気を取り戻したとき、一瞬、恐怖の感覚しか思い出せなかった。だが突如として、逃げ場のない状況にあることを悟った。そう、彼は塚の中にいた。塚人にさらわれたのだ。そして人々がひそひそ語る、塚人の恐ろしい呪文の支配下にすでに落ちているのかもしれなかった。'
     }
   ]
 });
@@ -1318,7 +1318,7 @@ defineStage(7, {
   characters: ['underhill*,barliman*', 'sam,merry,pippin'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin'
 });
 defineStage(8, {
-  title: '闇夜め短剣', story: 'もはや疑いようはなかった。三、四つの黒い姿が斜面の上に立ち、彼らを見下ろしていた。あまりにも黒く、まるで背後の深い影にぽっかりと穴が空いているかのようだった。フロドは、どこかでかすかにシュッという毒々しい息遣いを聞いたような気がした。その直後、鋭く突き刺すような冷気を感じた。',
+  title: '闇夜の短剣', story: 'もはや疑いようはなかった。三、四つの黒い姿が斜面の上に立ち、彼らを見下ろしていた。あまりにも黒く、まるで背後の深い影にぽっかりと穴が空いているかのようだった。フロドは、どこかでかすかにシュッという毒々しい息遣いを聞いたような気がした。その直後、鋭く突き刺すような冷気を感じた。',
   characters: ['frodo*,merry*,strider*', 'sam,pippin,barliman'], threats: [{ name:'黒の乗手', min:1, max:4 }], winCondition:'short', goal:'allwin', additionalElements:'〈魔王〉をフロドに、〈黒の息〉をメリーに渡す。'
 });
 defineStage(9, {
@@ -1343,7 +1343,7 @@ defineStage(11, {
   additionalElements: 'アラゴルンに〈折れたる剣〉を、ボロミアに〈ゴンドールの角笛〉を渡す。'
 });
 defineStage(12, {
-  title: 'アイゼンガルドでめ始め',
+  title: 'アイゼンガルドでの始まり',
   story: '「サルマン」私は言った。「そのような言葉は、無知なる者を欺くためにモルドールより遣わされた使者の口からしか聞いたことがない。私の耳を覆いさせるためだけに、あなたが私をこんなにも遠くへ呼び寄せたとは思えぬ」',
   characters: ['gandalf*', 'radagast,shadowfax,gwaihir'],
   threats: [],
@@ -1380,7 +1380,7 @@ defineStage(14, {
       text:'〈ガンダルフ、神秘の火に仕える者〉を使用する。影8枚と〈バルログ(影5)〉で、バルログデッキを作る。そのあと、',
       playerText:{ 3:'各プレイヤーに手札9枚、失われしカード2枚配る。', 4:'各プレイヤーに手札7枚、失われしカード1枚配る。' }, playerTextSeparator:'',
       secondaryHeading:'ドゥリンの橋',
-      afterText:'各トリックの前にx枚を公開する（3人なら2枚、4人なら3枚）。プレイされたカードの数字の合計より、バルログの公開したカードの数字の合計が多い場合（同数は除く）、全員敗北となる。バルログデッキが枯渇したら、シャッフルし直して新しい山を作る。'
+      afterText:'各トリックの前に2枚（3人プレイ時）、または3枚（4人プレイ時）を公開する。プレイされたカードの数字の合計より、バルログの公開したカードの数字の合計が多い場合（同数は除く）、全員敗北となる。バルログデッキが枯渇したら、シャッフルし直して新しい山を作る。'
     }
   ]
 });
@@ -1999,6 +1999,18 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   const cardsOfSuit = (cards, color) => cards.filter(card => card.color === color).length;
   const possibleTricks = trickCount + remainingRounds;
 
+  // 〈黒の息〉による失敗はキャラクター自身の目的より優先し、ミスリルでも救済できない。
+  if (hasSpecialThreat(game, playerId, '黒の息')
+      && capturedCards.some(card => Number(card.number) === 8)) {
+    return { status:'failed', forced:true };
+  }
+
+  if (character.name === 'ピピン') {
+    if (!isFinished) return { status:'pending' };
+    const otherCounts = otherIds.map(id => (game.capturedTricks?.[id] || []).length);
+    return { status:!otherCounts.length || trickCount <= Math.min(...otherCounts) ? 'achieved' : 'failed' };
+  }
+
   if (character.name === 'ペレグリン・トゥック') {
     if (trickCount > 0) return { status:'failed' };
     if (!isFinished) return { status:'pending' };
@@ -2229,11 +2241,6 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     return { status:'pending' };
   }
 
-  if (hasSpecialThreat(game, playerId, '黒の息')) {
-    const acquiredEight = capturedTricks.some(trick => (trick.cards || []).some(card => Number(card.number) === 8));
-    if (acquiredEight) return { status:'failed' };
-  }
-
   if (character.name === 'サムワイズ・ギャムジー') {
     const threatRanks = new Set((game.threatCards?.[playerId] || []).map(card => Number(card.number)));
     const matchingSuits = new Set(capturedCards
@@ -2315,8 +2322,10 @@ function frodoHasMithril(room){
 function chapterOutcome(room){
   const playerIds = room?.game?.playerOrder || [];
   if (!playerIds.length) return null;
-  const statuses = playerIds.map(playerId => victoryConditionStatus(room, playerId).status);
+  const results = playerIds.map(playerId => victoryConditionStatus(room, playerId));
+  const statuses = results.map(result => result.status);
   if (statuses.every(status => status === 'achieved')) return 'complete';
+  if (results.some(result => result.status === 'failed' && result.forced)) return 'failed';
   if (frodoHasMithril(room)) {
     // この章では、最初の確定失敗は胴着で救えるため結果を保留する。
     // 二人目が失敗した時点、または胴着を使わずに確定した時だけ敗北となる。
@@ -2420,7 +2429,9 @@ function canDecideMithril(room = state.room){
   if (![13, 14, 17, 19].includes(Number(game?.stageNumber)) || game.chapterOutcome || game.mithrilDecision) return false;
   if (game.pendingCapture || game.pendingOutcomeCheckAt) return false;
   if (!frodoHasMithril(room)) return false;
-  const statuses = (game.playerOrder || []).map(playerId => victoryConditionStatus(room, playerId).status);
+  const results = (game.playerOrder || []).map(playerId => victoryConditionStatus(room, playerId));
+  if (results.some(result => result.status === 'failed' && result.forced)) return false;
+  const statuses = results.map(result => result.status);
   return statuses.filter(status => status === 'achieved').length === statuses.length - 1
     && statuses.filter(status => status === 'failed').length === 1;
 }
