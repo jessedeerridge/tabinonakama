@@ -266,19 +266,20 @@
   .center-lower-card-area.character-selection-layout{
     left:calc(50% - 144px);top:70px;width:288px;transform:translateY(0);
   }
-  /* 多数候補の章と続の章では、勝利条件カードはプレイ中と同じ右位置から動かさない。 */
-  .center-lower-card-area.character-selection-layout.many-character-selection:not(.event-stage-layout),
+  /* 続の章では、勝利条件カードはプレイ中と同じ右位置から動かさない。 */
   .center-lower-card-area.character-selection-layout.continuation-layout:not(.event-stage-layout){
     left:16px;top:calc(68% - 101px);width:calc(100vw - 32px);transform:translateY(-80px);
   }
   .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:475px;flex-direction:row;justify-content:center;gap:0;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/475));transform-origin:top center;}
   .center-lower-card-area.event-stage-layout:not(.character-selection-layout){z-index:7;}
   .event-stage-layout.character-selection-layout>.center-card-row{display:contents;}
-  .event-stage-layout.character-selection-layout #arasujisquare{order:1;margin-left:0;}
-  .event-stage-layout.character-selection-layout #winningconditionsquare{order:2;}
-  .event-stage-layout.character-selection-layout .event-card-row>.event-card:nth-child(2){order:3;}
-  .event-stage-layout.character-selection-layout .event-card-row>.event-card:nth-child(1){order:4;}
-  .event-stage-layout.character-selection-layout>.center-lower-card,.event-stage-layout.character-selection-layout>.center-card-row>.center-lower-card{margin-left:-7px;}
+  /* 横並びは維持しつつ、重なりは章あらすじ、イベント説明、イベントあらすじ、勝利条件の順にする。 */
+  .event-stage-layout.character-selection-layout #arasujisquare{order:1;margin-left:0;position:relative;z-index:4;}
+  .event-stage-layout.character-selection-layout #winningconditionsquare{order:2;position:relative;z-index:1;}
+  .event-stage-layout.character-selection-layout .event-card-row>.event-card:nth-child(2){order:3;position:relative;z-index:2;}
+  .event-stage-layout.character-selection-layout .event-card-row>.event-card:nth-child(1){order:4;position:relative;z-index:3;}
+  /* 4枚を少しだけ重ね、カード群全体を中央へ寄せる。 */
+  .event-stage-layout.character-selection-layout>.center-lower-card,.event-stage-layout.character-selection-layout>.center-card-row>.center-lower-card{margin-left:-10px;}
   /* 14章は右側のイベント欄だけを横に送れるようにし、4枚のイベント面を並べる。 */
   .event-stage-layout.chapter-fourteen.character-selection-layout{width:475px;}
   .event-stage-layout.chapter-fourteen.character-selection-layout>.center-card-row{display:flex;width:265px;flex:0 0 265px;}
@@ -606,7 +607,7 @@
   /* キャラクターカードは常に82x122の原版全体を拡縮し、欄や文字だけが別倍率にならないようにする。 */
   .card-zoom-card>.my-card{position:absolute;left:0;top:0;width:82px;height:122px;transform:scale(var(--zoom-scale));transform-origin:top left;}
   .character-picker{position:fixed;inset:0;z-index:315;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;padding-top:clamp(120px,calc(50vh - 160px),260px);box-sizing:border-box;pointer-events:none;transform:translateY(-30px);}
-  .character-picker.many-characters,.character-picker.continuation-characters{padding-top:25px;transform:none;}
+  .character-picker.continuation-characters{padding-top:25px;transform:none;}
   .character-picker.hidden{display:none;}
   /* 案内ポップを外しても、候補カードの従来位置は変えない。 */
   .character-picker-row{width:calc(100vw - 24px);margin-top:45px;display:flex;align-items:center;justify-content:center;gap:clamp(4px,2vw,14px);}
@@ -1492,13 +1493,13 @@ const MITHRIL_COAT = {
 
 const TSURANUKIMARU = {
   name:'つらぬき丸', specialName:'ビルボの剣',
-  effect:'失われしカードと交換するか、失われしカードを手札に加えたキャラクターと交換する。',
+  effect:'このカードをフロドに渡す。\n失われしカードと交換するか、失われしカードを手札に加えたキャラクターと交換する。',
   cardNumber:'3.47', rank:'黒', image:'tsuranukimaru.jpg', continuationOwnerName:'フロド'
 };
 
 const GLAMDRING = {
   name:'グラムドリング', specialName:'エルフの剣',
-  effect:'最初のトリックの間のみ、スートをフォローしなくてもよい。',
+  effect:'このカードをガンダルフに渡す。\n最初のトリックの間のみ、スートをフォローしなくてもよい。',
   cardNumber:'3.48', rank:'黒', image:'gramdrink.jpg', continuationOwnerName:'ガンダルフ'
 };
 
@@ -1528,6 +1529,20 @@ function canClaimContinuationEquipment(game, playerId){
   if (!equipment || !characterName || game.continuationEquipmentOwnerId) return false;
   if (equipment.name === '折れたる剣') return characterDrawsThreat(characterName);
   return equipment.name === 'ゴンドールの角笛';
+}
+
+function continuationEquipmentHasEligibleCharacter(game){
+  const equipment = game?.continuationEquipment;
+  const selectedCharacters = Object.values(game?.characterSelections || {});
+  if (!equipment) return false;
+  if (equipment.continuationOwnerName) {
+    return selectedCharacters.some(character => character.name === equipment.continuationOwnerName);
+  }
+  if (equipment.name === '折れたる剣') {
+    return selectedCharacters.some(character => characterDrawsThreat(character.name));
+  }
+  // 角笛は選択済みのどのキャラクターでも受け取れる。
+  return equipment.name === 'ゴンドールの角笛' && selectedCharacters.length > 0;
 }
 
 function continuationChallengeAchieved(room, threatName){
@@ -2760,6 +2775,7 @@ let effectTransitionTimer = null;
 let lastAnimatedBarrowDrawAt = null;
 let lastAnimatedThreatDrawAt = null;
 let lastAnimatedThreatRedrawAt = null;
+let lastAnimatedAragornThreatReturnAt = null;
 const animatingThreatCardIds = new Set();
 const activeThreatDrawTransfers = new Set();
 const animatedThreatDrawTransfers = new Set();
@@ -3815,6 +3831,7 @@ function effectAnimationsReadyAt(game){
   const deadlines = [
     Number(game.threatDrawTransfer?.movedAt || 0) + 2700,
     Number(game.threatRedrawTransfer?.movedAt || 0) + 3700,
+    Number(game.aragornThreatReturnTransfer?.movedAt || 0) + 900,
     Number(game.lostCardTransfer?.movedAt || 0) + 900,
     Number(game.barrowDrawTransfer?.movedAt || 0) + 1400,
     Number(game.exchangeOfferTransfer?.movedAt || 0) + 1500,
@@ -4176,12 +4193,23 @@ async function chooseAragornBurdenThreat(number){
     const choices = game.aragornBurdenThreatChoices || [];
     if (!choices.includes(number)) return;
     const rejected = choices.find(value => value !== number);
+    const returnedCard = (game.threatDrawTransfer?.cards || []).find(card => Number(card.number) === Number(rejected))
+      || { kind:'threat', color:'threat', name:'脅威', number:rejected,
+        id:`${state.userId}-threat-return-${Date.now()}-${rejected}` };
+    const returnedAt = Date.now();
     game.threatCards ||= {};
     game.threatCards[state.userId] = [
-      { kind:'rejected-threat', color:'threat', name:'脅威', number:rejected, rejected:true,
-        id:`${state.userId}-rejected-threat-${Date.now()}-${rejected}` },
       { kind:'threat', color:'threat', name:'脅威', number, id:`${state.userId}-threat-${Date.now()}-${number}` }
     ];
+    // 選ばなかった1枚は脅威デッキへ戻し、次のドローが予測できないよう再シャッフルする。
+    game.threatDeck ||= [];
+    game.threatDeck.push(rejected);
+    for (let index = game.threatDeck.length - 1; index > 0; index -= 1) {
+      const shuffledIndex = Math.floor(Math.random() * (index + 1));
+      [game.threatDeck[index], game.threatDeck[shuffledIndex]] = [game.threatDeck[shuffledIndex], game.threatDeck[index]];
+    }
+    // 選択直前まで表示されていた未選択カードの座標から、デッキへ戻す演出を全端末で再生する。
+    game.aragornThreatReturnTransfer = { playerId:state.userId, returnedCard, movedAt:returnedAt };
     game.characterEffectThreatDrawn ||= {}; game.characterEffectThreatDrawn[state.userId] = true;
     delete game.aragornBurdenThreatChoices; delete game.aragornBurdenThreatChoiceReadyAt; delete game.threatDrawPlayerId;
     continueAfterThreatDraw(game, state.userId); return game;
@@ -4770,6 +4798,16 @@ function subscribeRoom(){
         returnSourceRect, threatTransfer, threatTransferKey, shouldAnimateThreatDraw
       ));
     } else if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey);
+    const aragornThreatReturnTransfer = state.game?.aragornThreatReturnTransfer;
+    if (aragornThreatReturnTransfer?.movedAt
+        && aragornThreatReturnTransfer.movedAt !== lastAnimatedAragornThreatReturnAt) {
+      lastAnimatedAragornThreatReturnAt = aragornThreatReturnTransfer.movedAt;
+      const returnSourceRect = previousThreatCardRects.get(aragornThreatReturnTransfer.returnedCard?.id);
+      requestAnimationFrame(() => {
+        const returnFlight = createThreatReturnFlight(returnSourceRect, aragornThreatReturnTransfer);
+        animateThreatReturn(returnFlight, returnSourceRect, threatDeck);
+      });
+    }
     const galadrielLostTransfer = state.game?.galadrielLostTransfer;
     if (galadrielLostTransfer?.completedAt
         && galadrielLostTransfer.completedAt !== lastAnimatedGaladrielLostTransferAt) {
@@ -5530,7 +5568,8 @@ function renderMyHand(){
   const radagastReservedId = state.game?.radagastReservedCard?.playerId === myId
       && !state.game.radagastReservedCard.inHand ? state.game.radagastReservedCard.id : null;
   const shadowfaxReserved = state.game?.shadowfaxReservedCard?.playerId === myId ? state.game.shadowfaxReservedCard : null;
-  const colorOrder = { red: 0, green: 1, orange: 2, gray: 3, yellow: 4 };
+  // 大河を山と同順位にすると数字ごとに両スートが交互に混ざるため、独立した並び順にする。
+  const colorOrder = { red: 0, green: 1, orange: 2, gray: 3, river: 4, yellow: 5 };
   const displayedCards = handData.cards.map((cardData, cardIndex) => ({
     // 古いルームに残っている数字カードも表示を壊さない。
     normalized: (typeof cardData === 'object' && cardData)
@@ -6188,7 +6227,9 @@ function animateCharacterSelection(playerId, character, sourceRect){
 function finishCharacterSelection(room){
   const game = room?.game;
   const allCharactersChosen = Object.keys(game?.characterSelections || {}).length >= (game?.playerOrder || []).length;
-  const equipmentReady = !game?.continuation || Boolean(game.continuationEquipmentOwnerId);
+  // 全員の選択後に所持可能なキャラクターがいなければ、アイテムを未獲得のまま開始する。
+  const equipmentReady = !game?.continuation || Boolean(game.continuationEquipmentOwnerId)
+    || (allCharactersChosen && !continuationEquipmentHasEligibleCharacter(game));
   if (!game || game.phase !== 'character-selection' || !allCharactersChosen || !equipmentReady) return false;
   if (room.game.continuationChallengeSelectedAt
       && room.game.continuationSpecialThreat && !room.game.continuationSpecialThreatAssigned) {
@@ -6962,7 +7003,7 @@ function renderPlayerCircle(players){
       if (hasDarknessExchangePending) miniHand.classList.add('elrond-pending');
 
       // キャラクターカードは獲得カード置き場で公開するため、手札の裏面には含めない。
-      const colorOrder = { red:0, green:1, orange:2, gray:3, yellow:4 };
+      const colorOrder = { red:0, green:1, orange:2, gray:3, river:4, yellow:5 };
       const hiddenCards = handData.cards.filter(card => card?.kind !== 'character');
       const isPublicHand = state.game?.characterSelections?.[p.id]?.name === 'ゴールドベリ';
       // 公開時も本人の手札と同じスート・数字順で並べる。
