@@ -1531,6 +1531,20 @@ function canClaimContinuationEquipment(game, playerId){
   return equipment.name === 'ゴンドールの角笛';
 }
 
+function continuationEquipmentHasEligibleCharacter(game){
+  const equipment = game?.continuationEquipment;
+  const selectedCharacters = Object.values(game?.characterSelections || {});
+  if (!equipment) return false;
+  if (equipment.continuationOwnerName) {
+    return selectedCharacters.some(character => character.name === equipment.continuationOwnerName);
+  }
+  if (equipment.name === '折れたる剣') {
+    return selectedCharacters.some(character => characterDrawsThreat(character.name));
+  }
+  // 角笛は選択済みのどのキャラクターでも受け取れる。
+  return equipment.name === 'ゴンドールの角笛' && selectedCharacters.length > 0;
+}
+
 function continuationChallengeAchieved(room, threatName){
   return Boolean(threatName && room?.longChapterProgress?.continuationThreats?.[threatName]);
 }
@@ -6213,7 +6227,9 @@ function animateCharacterSelection(playerId, character, sourceRect){
 function finishCharacterSelection(room){
   const game = room?.game;
   const allCharactersChosen = Object.keys(game?.characterSelections || {}).length >= (game?.playerOrder || []).length;
-  const equipmentReady = !game?.continuation || Boolean(game.continuationEquipmentOwnerId);
+  // 全員の選択後に所持可能なキャラクターがいなければ、アイテムを未獲得のまま開始する。
+  const equipmentReady = !game?.continuation || Boolean(game.continuationEquipmentOwnerId)
+    || (allCharactersChosen && !continuationEquipmentHasEligibleCharacter(game));
   if (!game || game.phase !== 'character-selection' || !allCharactersChosen || !equipmentReady) return false;
   if (room.game.continuationChallengeSelectedAt
       && room.game.continuationSpecialThreat && !room.game.continuationSpecialThreatAssigned) {
