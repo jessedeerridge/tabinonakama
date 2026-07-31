@@ -3533,7 +3533,7 @@ function isCharacterEffectTurn(playerId){
     || (game.phase === 'gandalf-selection' ? game.gandalfPlayerId : null)
     || (game.phase === 'strider-comparison' ? game.striderPlayerId : null)
     || (game.phase === 'aragorn-threat-selection' ? game.threatDrawPlayerId : null)
-    || (['radagast-selection','shadowfax-selection','galadriel-lost-selection'].includes(game.phase) ? game.specialSelectionPlayerId : null)
+    || (['radagast-selection','shadowfax-selection','galadriel-lost-selection','tsuranukimaru-selection'].includes(game.phase) ? game.specialSelectionPlayerId : null)
     || (game.phase === 'glorfindel-selection' ? game.glorfindelPlayerId : null)
     || game.exchangeQueue?.[0];
   return activePlayerId === playerId;
@@ -3686,7 +3686,9 @@ function renderLostCardClaimDialog(){
 }
 
 function beginNextExchange(game){
-  game.exchangeQueue ||= [...(game.effectOrder || game.playerOrder || [])];
+  // 効果ターン完了後の追加効果から戻った時に、消えた空配列を効果順で作り直さない。
+  // Realtime Database では空配列が保存されないため、完了フラグを進行位置として使う。
+  game.exchangeQueue ||= game.characterEffectsCompleted ? [] : [...(game.effectOrder || game.playerOrder || [])];
   // 〈長き暗闇〉だけは通常の「1人の効果を最後まで処理して次へ」という進行にしない。
   // 先にフロドの次から全脅威ドローを席順で完了し、その後の交換を全員同時に保留する。
   if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 2) {
@@ -3731,7 +3733,7 @@ function beginNextExchange(game){
     }
     delete game.exchangeQueue;
     delete game.pendingDarknessExchange;
-    finishCharacterEffectTransition(game);
+    beginPostCharacterEffects(game);
     return;
   }
   while (game.exchangeQueue.length) {
@@ -3884,6 +3886,25 @@ function beginNextExchange(game){
   }
   delete game.exchangeQueue;
   delete game.pendingExchange;
+  beginPostCharacterEffects(game);
+}
+
+function beginPostCharacterEffects(game){
+  game.characterEffectsCompleted = true;
+  const tsuranukimaruOwnerId = Object.entries(game.equipmentCards || {})
+    .find(([playerId, cards]) => game.characterSelections?.[playerId]?.name === 'フロド'
+      && (cards || []).some(card => card.name === 'つらぬき丸'))?.[0];
+  const lostCardHolderId = game.lostCardTransfer?.playerId;
+  if (tsuranukimaruOwnerId && !game.tsuranukimaruEffectCompleted
+      && (game.excludedCard || (lostCardHolderId && lostCardHolderId !== tsuranukimaruOwnerId))) {
+    // つらぬき丸は、全員のキャラクター効果が終わってから解決する。
+    game.phase = 'tsuranukimaru-selection';
+    game.specialSelectionPlayerId = tsuranukimaruOwnerId;
+    game.tsuranukimaruLostCardHolderId = lostCardHolderId || null;
+    game.turnPlayerId = null;
+    return;
+  }
+  game.tsuranukimaruEffectCompleted = true;
   const animationReadyAt = effectAnimationsReadyAt(game);
   if (animationReadyAt > Date.now() + 20) {
     // 最後の効果カードが着地するまでは脅威デッキを残し、交換先デッキを出さない。
@@ -5274,7 +5295,7 @@ async function chooseDarknessExchangeCard(cardId, droppedTargetId){
     };
     delete game.pendingDarknessExchange;
     delete game.exchangeQueue;
-    finishCharacterEffectTransition(game);
+    beginPostCharacterEffects(game);
     return room;
   });
 }
@@ -5665,7 +5686,7 @@ function renderMyHand(){
       && !darknessExchange.returns?.[sourceId]);
   const canChooseDarknessCard = darknessOutgoingPending || darknessReturnPending;
   const selectedExchangeCardId = exchange?.selections?.[myId] || elrondTransfer?.selections?.[myId];
-  const specialSelection = ['radagast-selection','shadowfax-selection','galadriel-lost-selection'].includes(state.game?.phase)
+  const specialSelection = ['radagast-selection','shadowfax-selection','galadriel-lost-selection','tsuranukimaru-selection'].includes(state.game?.phase)
     && state.game?.specialSelectionPlayerId === myId;
   const radagastReservedId = state.game?.radagastReservedCard?.playerId === myId
       && !state.game.radagastReservedCard.inHand ? state.game.radagastReservedCard.id : null;
@@ -5738,7 +5759,7 @@ function renderMyHand(){
     }
     if (specialSelection && normalized.kind !== 'character') {
       card.classList.add('effect-pick');
-      if (state.game?.phase === 'galadriel-lost-selection') {
+      if (['galadriel-lost-selection','tsuranukimaru-selection'].includes(state.game?.phase)) {
         card.addEventListener('pointerdown', event => beginGaladrielLostCardDrag(event, normalized, card));
       } else card.addEventListener('click', () => reserveSpecialCard(normalized.id));
     }
@@ -5821,14 +5842,16 @@ function scheduleMirrorDraft(){
 
 function beginGaladrielLostCardDrag(event, cardData, source){
   if (event.button !== undefined && event.button !== 0) return;
-  if (state.game?.phase !== 'galadriel-lost-selection'
+  if (!['galadriel-lost-selection','tsuranukimaru-selection'].includes(state.game?.phase)
       || state.game?.specialSelectionPlayerId !== state.userId) return;
   event.preventDefault();
   source.setPointerCapture(event.pointerId);
   source.classList.add('drag-source');
   const canUseLostCard = Boolean(state.game?.excludedCard);
   if (canUseLostCard) excludedCardSlot.classList.add('galadriel-drag-target');
-  const gandalfId = exchangeCandidates(state.game, state.userId)[0];
+  const gandalfId = state.game.phase === 'tsuranukimaru-selection'
+    ? state.game.tsuranukimaruLostCardHolderId
+    : exchangeCandidates(state.game, state.userId)[0];
   const gandalfTag = gandalfId
     ? playerCircle.querySelector(`.player-tag[data-player-id="${CSS.escape(gandalfId)}"]`)
     : null;
@@ -5874,27 +5897,37 @@ function beginGaladrielLostCardDrag(event, cardData, source){
 }
 
 async function exchangeGaladrielCard(cardId, gandalfId = null){
-  if (!state.roomCode || state.game?.phase !== 'galadriel-lost-selection') return;
+  if (!state.roomCode || !['galadriel-lost-selection','tsuranukimaru-selection'].includes(state.game?.phase)) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
     const game = room?.game;
-    if (!game || game.phase !== 'galadriel-lost-selection' || game.specialSelectionPlayerId !== state.userId) return;
+    if (!game || !['galadriel-lost-selection','tsuranukimaru-selection'].includes(game.phase)
+        || game.specialSelectionPlayerId !== state.userId) return;
+    const isTsuranukimaru = game.phase === 'tsuranukimaru-selection';
     const cards = room.hands?.[state.userId]?.cards || [];
     const cardIndex = cards.findIndex(card => card.id === cardId && card.kind !== 'character');
     if (cardIndex < 0) return;
     const outgoing = cards[cardIndex];
+    if (outgoing.color === 'yellow' && Number(outgoing.number) === 1
+        && game.characterSelections?.[state.userId]?.name === 'フロド') return;
     if (gandalfId) {
-      if (!exchangeCandidates(game, state.userId).includes(gandalfId)) return;
+      const allowedTarget = isTsuranukimaru
+        ? game.tsuranukimaruLostCardHolderId === gandalfId && gandalfId !== state.userId
+        : exchangeCandidates(game, state.userId).includes(gandalfId);
+      if (!allowedTarget) return;
       game.pendingExchange = {
         sourceId:state.userId, targetId:gandalfId, candidates:[gandalfId],
-        selectingPlayerId:gandalfId, selections:{ [state.userId]:cardId }, mode:'exchange', requestedAt:Date.now()
+        selectingPlayerId:gandalfId, selections:{ [state.userId]:cardId }, mode:'exchange', requestedAt:Date.now(),
+        ...(isTsuranukimaru ? { purpose:'tsuranukimaru' } : {})
       };
       game.exchangeOfferTransfer = {
         sourceId:state.userId, targetId:gandalfId, card:outgoing,
         tilt:Math.floor(Math.random() * 5) - 2, movedAt:Date.now()
       };
       game.pendingExchange.selectionAvailableAt = game.exchangeOfferTransfer.movedAt + 1400;
-      game.galadrielLostExchangeCompleted = true;
+      if (isTsuranukimaru) game.tsuranukimaruEffectCompleted = true;
+      else game.galadrielLostExchangeCompleted = true;
       delete game.specialSelectionPlayerId;
+      delete game.tsuranukimaruLostCardHolderId;
       game.phase = 'exchange-card-selection';
       return room;
     }
@@ -5906,8 +5939,10 @@ async function exchangeGaladrielCard(cardId, gandalfId = null){
     game.galadrielLostTransfer = {
       playerId:state.userId, outgoingCard:outgoing, incomingCard:incoming, completedAt:Date.now()
     };
-    game.galadrielLostExchangeCompleted = true;
+    if (isTsuranukimaru) game.tsuranukimaruEffectCompleted = true;
+    else game.galadrielLostExchangeCompleted = true;
     delete game.specialSelectionPlayerId;
+    delete game.tsuranukimaruLostCardHolderId;
     if (game.exchangeQueue?.[0] === state.userId) game.exchangeQueue.shift();
     beginNextExchange(game);
     return room;
@@ -7176,11 +7211,15 @@ function renderPlayerCircle(players){
         : (pendingGlorfindel.characterName !== '小馬のビル' || pendingGlorfindel.sourceCards?.[state.userId]
           ? [pendingGlorfindel.sourceId] : []))
       : pendingExchange?.sourceId === state.userId ? (pendingExchange.targetId ? [pendingExchange.targetId] : pendingExchange.candidates || [])
-        : state.game?.phase === 'galadriel-lost-selection' && state.game?.specialSelectionPlayerId === state.userId
-          ? exchangeCandidates(state.game, state.userId)
+      : ['galadriel-lost-selection','tsuranukimaru-selection'].includes(state.game?.phase)
+          && state.game?.specialSelectionPlayerId === state.userId
+          ? (state.game.phase === 'tsuranukimaru-selection'
+            ? [state.game.tsuranukimaruLostCardHolderId].filter(Boolean)
+            : exchangeCandidates(state.game, state.userId))
         : pendingExchange?.targetId === state.userId ? [pendingExchange.sourceId] : [];
     const exchangeHintVisible = (state.game?.phase === 'exchange-card-selection' || /^mirror-draft-[12]$/.test(state.game?.phase || '') || choosingElrondCard || choosingGlorfindelCard
-      || state.game?.phase === 'darkness-exchange-selection' || state.game?.phase === 'galadriel-lost-selection')
+      || state.game?.phase === 'darkness-exchange-selection'
+      || ['galadriel-lost-selection','tsuranukimaru-selection'].includes(state.game?.phase))
       && exchangeHintIds.includes(p.id);
     if (exchangeHintVisible) {
       const hint = document.createElement('div');
