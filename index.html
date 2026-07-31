@@ -5676,7 +5676,7 @@ function scheduleTrickClear(){
     return;
   }
   trickClearTimer = setTimeout(async () => {
-    await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    const result = await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
       const pending = game?.pendingCapture;
       if (!pending || pending.captureAt !== captureAt || Date.now() < captureAt) return;
       if (pending.captureOwner === 'old-forest') {
@@ -5719,6 +5719,11 @@ function scheduleTrickClear(){
       }
       return game;
     });
+    // onValue の再通知だけに結果判定タイマーの開始を任せると、最終トリック後に
+    // 通知が遅延・抑制されたクライアントしか残っていない場合、完／失敗が確定しない。
+    // 回収を書き込んだクライアント自身でも、確定した時刻を使って必ず開始する。
+    const committedCheckAt = result.snapshot.val()?.pendingOutcomeCheckAt;
+    if (result.committed && committedCheckAt) scheduleOutcomeCheck(committedCheckAt);
   }, Math.max(0, captureAt - Date.now()) + 20);
 }
 
@@ -5734,9 +5739,9 @@ function scheduleBalrogDraw(){
   }, Math.max(0, drawAt - Date.now()) + 20);
 }
 
-function scheduleOutcomeCheck(){
+function scheduleOutcomeCheck(scheduledCheckAt){
   clearTimeout(outcomeCheckTimer);
-  const checkAt = state.game?.pendingOutcomeCheckAt;
+  const checkAt = scheduledCheckAt || state.game?.pendingOutcomeCheckAt;
   if (!checkAt || !state.roomCode) return;
   outcomeCheckTimer = setTimeout(async () => {
     await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
