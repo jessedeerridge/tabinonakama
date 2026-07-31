@@ -2010,7 +2010,6 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     .find(card => card?.kind === 'character') || game?.characterSelections?.[playerId];
   if (!game || !character) return { status:'pending' };
   if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3 && character.name === 'ガンダルフ') return { status:'achieved' };
-  if ([13, 14, 17, 19].includes(Number(game.stageNumber)) && game.mithrilAppliedToPlayerId === playerId) return { status:'achieved' };
   const capturedTricks = game.capturedTricks?.[playerId] || [];
   const trickCount = capturedTricks.length;
   const playerIds = game.playerOrder || [];
@@ -2029,11 +2028,17 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     || hasSpecialThreat(game, playerId, '黒の息');
   const achieved = () => ({ status:!isFinished && waitsForRoundEnd ? 'pending' : 'achieved' });
 
-  // 〈黒の息〉による失敗はキャラクター自身の目的より優先し、ミスリルでも救済できない。
+  // 救済不能な即時敗北はミスリル適用済み判定より先に行う。
+  // これにより、救済ポップを出した後で強制失敗へ覆る状態も作らない。
   if (hasSpecialThreat(game, playerId, '黒の息')
       && capturedCards.some(card => Number(card.number) === 8)) {
     return { status:'failed', forced:true };
   }
+  if (['ボロミア', 'デネソールの息子ボロミア', 'ビルボ・バギンズ'].includes(character.name)
+      && capturedCards.some(card => card.color === 'yellow' && Number(card.number) === 1)) {
+    return { status:'failed', forced:true };
+  }
+  if ([13, 14, 17, 19].includes(Number(game.stageNumber)) && game.mithrilAppliedToPlayerId === playerId) return { status:'achieved' };
 
   if (character.name === 'ピピン') {
     const otherCounts = otherIds.map(id => (game.capturedTricks?.[id] || []).length);
@@ -2193,24 +2198,36 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   }
 
   if (character.name === 'バーリマン・バタバー') {
-    if (!isFinished) return { status:'pending' };
-    const finalTrickNumber = Number(game.trickNumber) - 1;
-    return { status:capturedTricks.some((trick, index) =>
-      Number(trick.trickNumber || index + 1) > finalTrickNumber - 3) ? 'achieved' : 'failed' };
+    // ラウンドは最少手札のプレイヤーが出し切ったトリックで終わるため、残り総数は途中でも計算できる。
+    // 現在のトリックが進行中の場合は、すでに出した人の1枚も残数へ戻して同じ基準にそろえる。
+    const currentPlayers = new Set(Object.keys(game.trick || {}));
+    const remainingTricks = Math.min(...playerIds.map(id => (room.hands?.[id]?.cards || [])
+      .filter(card => card?.kind !== 'character').length + (currentPlayers.has(id) ? 1 : 0)));
+    const finalTrickNumber = Math.max(0, Number(game.trickNumber || 1) - 1) + remainingTricks;
+    const wonFinalThree = capturedTricks.some((trick, index) =>
+      Number(trick.trickNumber || index + 1) > finalTrickNumber - 3);
+    if (wonFinalThree) return { status:'achieved' };
+    if (!isFinished && remainingTricks > 0) return { status:'pending' };
+    return { status:'failed' };
   }
 
   if (character.name === 'ゴールドベリ') {
     const wonNumbers = new Set(capturedTricks.map((trick, index) => Number(trick.trickNumber || index + 1)));
-    let longest = 0;
     let run = 0;
     const playedTricks = Math.max(0, Number(game.trickNumber || 1) - 1);
     for (let number = 1; number <= playedTricks; number += 1) {
-      run = wonNumbers.has(number) ? run + 1 : 0;
-      longest = Math.max(longest, run);
+      if (wonNumbers.has(number)) {
+        run += 1;
+      } else {
+        // 3連勝の直後に負けた時点で「4連勝にはならなかった」ことが確定する。
+        if (run === 3) return { status:'achieved' };
+        if (run >= 4) return { status:'failed' };
+        run = 0;
+      }
     }
-    if (longest >= 4) return { status:'failed' };
+    if (run >= 4) return { status:'failed' };
     if (!isFinished) return { status:'pending' };
-    return { status:longest === 3 ? 'achieved' : 'failed' };
+    return { status:run === 3 ? 'achieved' : 'failed' };
   }
 
   if (character.name === '馳夫') {
@@ -2235,19 +2252,20 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   }
 
   if (['ボロミア', 'デネソールの息子ボロミア'].includes(character.name)) {
-    // 〈指輪の1〉による即時敗北は、ミスリルの胴着でも救済できない。
-    if (capturedCards.some(card => card.color === 'yellow' && Number(card.number) === 1)) {
-      return { status:'failed', forced:true };
-    }
     if (!isFinished) return { status:'pending' };
     return { status:game.lastWinnerId === playerId ? 'achieved' : 'failed' };
   }
 
-  if (character.name === 'ビルボ・バギンズ'
-      && capturedCards.some(card => card.color === 'yellow' && Number(card.number) === 1)) {
-    return { status:'failed', forced:true };
-  }
   if (character.name === 'ビルボ・バギンズ') {
+    // 3勝後も黄1が未プレイなら獲得禁止を破る可能性が残る。黄1がすでに他所へ確定した後だけ早期達成する。
+    const unsettledCards = [
+      ...remainingCards,
+      ...Object.values(game.trick || {}).map(play => play?.card).filter(Boolean),
+      ...(game.pendingCapture?.cards || [])
+    ];
+    const yellowOneCanStillBeCaptured = unsettledCards
+      .some(card => card.color === 'yellow' && Number(card.number) === 1);
+    if (trickCount >= 3 && !yellowOneCanStillBeCaptured) return { status:'achieved' };
     if (trickCount >= 3) return achieved();
     return { status:!isFinished && possibleTricks >= 3 ? 'pending' : 'failed' };
   }
@@ -2277,6 +2295,9 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     const suit = ['グローイン', 'ギムリ'].includes(character.name) ? 'gray' : 'green';
     const count = cardsOfSuit(capturedCards, suit);
     const otherCounts = otherIds.map(id => cardsOfSuit((game.capturedTricks?.[id] || []).flatMap(trick => trick.cards || []), suit));
+    const otherMaximumCounts = otherCounts.map(count => count + remainingRounds);
+    // 同数最多も成功なので、全員の理論上の最大獲得数以上なら途中で確定できる。
+    if (count >= Math.max(0, ...otherMaximumCounts)) return { status:'achieved' };
     if (!isFinished) return { status:'pending' };
     return { status:count >= Math.max(0, ...otherCounts) ? 'achieved' : 'failed' };
   }
@@ -2527,6 +2548,8 @@ function canDecideMithril(room = state.room){
   const game = room?.game;
   if (![13, 14, 17, 19].includes(Number(game?.stageNumber)) || game.chapterOutcome || game.mithrilDecision) return false;
   if (game.pendingCapture || game.pendingOutcomeCheckAt) return false;
+  // カード文どおりラウンド終了時にだけ救済を選ぶ。途中失敗ではポップを先出ししない。
+  if (game.finished !== true) return false;
   if (!frodoHasMithril(room)) return false;
   const results = (game.playerOrder || []).map(playerId => victoryConditionStatus(room, playerId));
   if (results.some(result => result.status === 'failed' && result.forced)) return false;
@@ -5712,17 +5735,6 @@ function scheduleOutcomeCheck(){
     await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
       const game = room?.game;
       if (!game?.pendingOutcomeCheckAt || game.pendingOutcomeCheckAt !== checkAt || Date.now() < checkAt) return;
-      if (!game.finished && [13, 14, 17, 19].includes(Number(game.stageNumber)) && frodoHasMithril(room)) {
-        const playerIds = game.playerOrder || [];
-        const results = playerIds.map(playerId => victoryConditionStatus(room, playerId));
-        const statuses = results.map(result => result.status);
-        const oneFailureCanBeResolved = statuses.filter(status => status === 'achieved').length === playerIds.length - 1
-          && statuses.filter(status => status === 'failed').length === 1;
-        const forcedFailure = results.some(result => result.status === 'failed' && result.forced);
-        // 今後のトリックにかかわらず全員の成否が確定し、救済可能な失敗が一人だけなら、
-        // トリックを切り上げて胴着の判断へ移る。pending が一人でもいる間は続行する。
-        if (oneFailureCanBeResolved && !forcedFailure) game.finished = true;
-      }
       if (game.pendingBalrogFailure) {
         game.finished = true;
         game.chapterOutcome ||= { status:'failed', reason:'balrog', decidedAt:Date.now() };
@@ -6379,7 +6391,7 @@ function characterCardData(character, playerId){
       specialName:'指輪所持者', victory:(state.game?.playerOrder?.length === 3 ? '指輪カードを4枚以上獲得する。' : '指輪カードを2枚以上獲得する。'), effect:'〈指輪の1〉を受け取ったプレイヤーが〈フロド〉になる。〈指輪の1〉は交換できない。最初のトリックをリードする。', cardNumber:'1.02', rank:'黒', frameColor:'金'
     },
     'ピピン': {
-      specialName:'ばか者', victory:'獲得したトリック数が最も少ない。', cardNumber:'1.05', rank:'無し', frameColor:'銀'
+      specialName:'ばか者', victory:'獲得したトリック数が最も少ない。（同数可）', cardNumber:'1.05', rank:'無し', frameColor:'銀'
     },
     'サム': {
       specialName:'庭師', victory:'脅威カードと同じ数字の丘を獲得する。', effect:'脅威カードを1枚引く。', cardNumber:'2.02', rank:'無し', frameColor:'金'
@@ -6408,8 +6420,8 @@ function characterCardData(character, playerId){
     'グロルフィンデル':{specialName:'エルフの将',victory:'すべての影カード（1〜8）を獲得する。',effect:'失われしカードを手札に加える。他のキャラクター全員と同時に交換を行う。最初のトリックをリードする。',cardNumber:'2.28', rank:'黒', frameColor:'赤'},
     '小馬のビル':{specialName:'たくましい',victory:'ちょうど1トリックを獲得する。',effect:'〈サム〉と〈フロド〉の2人と同時に1枚ずつ交換する。',cardNumber:'2.29', rank:'黒', frameColor:'銀'},
     'エルロンド':{specialName:'半エルフ',victory:'各キャラクターは自分の目的のほかに、指輪カードを1枚以上含むトリックを獲得しなければならない。',effect:'全員が同時に右隣にカードを1枚渡す。最初のトリックをリードする。',cardNumber:'2.35', rank:'黒', frameColor:'金'},
-    'グローイン':{specialName:'ビルボの仲間',victory:'最も多く山カードを獲得する。',effect:'〈ビルボ〉か〈ギムリ〉と交換する。',cardNumber:'2.37', rank:'黒', frameColor:'銀'},
-    'アルウェン':{specialName:'夕星姫',victory:'最も多く森カードを獲得する。',effect:'〈エルロンド〉か〈アラゴルン〉と交換する。',cardNumber:'2.36', rank:'黒', frameColor:'緑'},
+    'グローイン':{specialName:'ビルボの仲間',victory:'最も多く山カードを獲得する。（同数可）',effect:'〈ビルボ〉か〈ギムリ〉と交換する。',cardNumber:'2.37', rank:'黒', frameColor:'銀'},
+    'アルウェン':{specialName:'夕星姫',victory:'最も多く森カードを獲得する。（同数可）',effect:'〈エルロンド〉か〈アラゴルン〉と交換する。',cardNumber:'2.36', rank:'黒', frameColor:'緑'},
     'ビルボ・バギンズ':{specialName:'寿命を延ばされた',victory:'3トリック以上を獲得する。〈ビルボ〉がトリックを獲得した場合、他のプレイヤーを次のリードプレイヤーに指名してもよい。〈ビルボ〉が〈指輪の1〉を獲得した場合、即座に全員敗北となる。',effect:'なし',cardNumber:'2.38', rank:'黒', frameColor:'金'},
     'アラゴルン':{specialName:'イシルドゥアの世継',victory:'脅威カードの数字と同じ回数のトリックを獲得する。',effect:'脅威デッキから任意のカードを1枚選んでよい。任意のキャラクターと交換する。',cardNumber:'2.40', rank:'無し', frameColor:'薄緑'},
     'ボロミア':{specialName:'ゴンドールの大将',victory:'最後のトリックを獲得する。もし〈ボロミア〉が〈指輪の1〉を獲得した場合、その章は即座に敗北となる。',effect:'〈フロド〉以外の任意のキャラクターと交換する。',cardNumber:'2.41', rank:'無し', frameColor:'銀'},
