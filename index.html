@@ -1796,7 +1796,11 @@ function createEquipmentCardElement(cardData){
     card.append(name, special, effect);
   }
   card.setAttribute('role', 'button'); card.tabIndex = 0;
-  const open = event => { event.preventDefault(); event.stopPropagation(); openSingleCardZoom(card); };
+  const open = event => {
+    event.preventDefault(); event.stopPropagation();
+    if (cardData.eventData) setEventCardsExpanded(true);
+    else openSingleCardZoom(card);
+  };
   card.addEventListener('click', open); card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') open(event); });
   return card;
 }
