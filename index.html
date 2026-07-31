@@ -2287,7 +2287,9 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     const target = Number(victory.match(/\d+/)?.[0] || 1);
     let count = capturedTricks.reduce((total, trick) => total
       + (trick.cards || []).filter(card => card.color === 'yellow').length, 0);
-    if (Number(game.stageNumber) === 18 && character.name === 'フロド') {
+    // サムワイズの重荷面は第18章だけでなく、続行チャレンジでも選ばれる。
+    // 章番号ではなく実際の選択キャラクターを基準に、獲得した指輪をフロドへ加算する。
+    if (character.name === 'フロド') {
       const samId = Object.entries(game.characterSelections || {})
         .find(([, selected]) => selected.name === 'サムワイズ・ギャムジー')?.[0];
       count += (game.capturedTricks?.[samId] || []).reduce((total, trick) => total
