@@ -6504,8 +6504,9 @@ async function chooseCharacter(characterName, source){
         } else if (ownerCharacter && room.game.moriaEventIndex === 1) {
           ownerCharacter.victory = '連続した数字の山カードを4枚獲得する。';
         }
-        // 〈長き暗闇〉はアラゴルンへ渡す所持カードではなく、全体へ適用する場イベントとして扱う。
-        if (room.game.moriaEventIndex !== 2) {
+        // 所持カードとして渡すのは〈ドゥリンの扉〉と〈バーリンの墓所〉だけ。
+        // 〈長き暗闇〉と〈カザド＝ドゥームの橋〉は全体へ適用する場イベントとして扱う。
+        if ([0, 1].includes(Number(room.game.moriaEventIndex))) {
           room.game.equipmentCards ||= {}; room.game.equipmentCards[ownerId] ||= [];
           room.game.equipmentCards[ownerId].push({
             kind:'equipment', name:event.title, specialName:event.secondaryHeading || event.heading,
