@@ -1989,17 +1989,6 @@ function createCharacterEffectRow(type, text){
   return row;
 }
 
-function gildorForestFinishIsGuaranteed(room, playerId){
-  const game = room?.game;
-  if (!game || game.characterSelections?.[playerId]?.name !== 'ギルドール・イングロリオン') return false;
-  const playableCards = (room.hands?.[playerId]?.cards || []).filter(card => card?.kind !== 'character');
-  if (!playableCards.length || !playableCards.every(card => card.color === 'green')) return false;
-  // 他の全目的がすでに確定済みなら、残る各トリックでギルドールが森を出すことが保証される。
-  // 最終トリックも必ず森になるため、実際に出し切るまで待つ必要はない。
-  return (game.playerOrder || []).filter(id => id !== playerId)
-    .every(id => victoryConditionStatus(room, id).status === 'achieved');
-}
-
 function hasAchievedVictoryCondition(cardData, playerId){
   return victoryConditionStatus(state.room, playerId, cardData).status === 'achieved';
 }
@@ -2179,7 +2168,6 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
       return { status:(finalTrick?.cards || []).some(card => card.playedBy === playerId && card.color === 'green')
         ? 'achieved' : 'failed' };
     }
-    if (gildorForestFinishIsGuaranteed(room, playerId)) return { status:'achieved' };
     // この目的で使えるのはギルドール本人の手札だけ。森がなくなった時点で
     // 他人の手札に森が残っていても回復できないため、直ちに達成不可能とする。
     const hasGreenInHand = (room.hands?.[playerId]?.cards || [])
@@ -7325,8 +7313,7 @@ function renderPlayerCircle(players){
       // キャラクターカードは獲得カード置き場で公開するため、手札の裏面には含めない。
       const colorOrder = { red:0, green:1, orange:2, gray:3, river:4, yellow:5 };
       const hiddenCards = handData.cards.filter(card => card?.kind !== 'character');
-      const isPublicHand = state.game?.characterSelections?.[p.id]?.name === 'ゴールドベリ'
-        || gildorForestFinishIsGuaranteed(state.room, p.id);
+      const isPublicHand = state.game?.characterSelections?.[p.id]?.name === 'ゴールドベリ';
       // 公開時も本人の手札と同じスート・数字順で並べる。
       if (isPublicHand) hiddenCards.sort((left, right) => {
         const typeDifference = (colorOrder[left.color] ?? 3) - (colorOrder[right.color] ?? 3);
