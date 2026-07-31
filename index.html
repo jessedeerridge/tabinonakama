@@ -2038,9 +2038,9 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   if (threatSuitGoal) {
     const threats = objectiveThreatNumbers(game, playerId);
     if (!threats.length) return { status:'pending' };
-    const hasRequiredCards = cards => threats.every(threat =>
-      cards.some(card => card.color === threatSuitGoal.suit && Number(card.number) === threat)
-      && (!threatSuitGoal.requiresShadow || cards.some(card => card.color === 'red' && Number(card.number) === threat)));
+    const requiredSuits = [threatSuitGoal.suit, ...(threatSuitGoal.requiresShadow ? ['red'] : [])];
+    const hasRequiredCards = cards => requiredSuits.every(suit =>
+      cards.some(card => card.color === suit && threats.includes(Number(card.number))));
     if (hasRequiredCards(capturedCards)) return { status:'achieved' };
     const stillAvailable = hasRequiredCards([...capturedCards, ...remainingCards]);
     return { status:!isFinished && stillAvailable ? 'pending' : 'failed' };
@@ -2060,8 +2060,8 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     const threats = objectiveThreatNumbers(game, playerId);
     if (!threats.length) return { status:'pending' };
     const suits = character.name === 'サムワイズ・ギャムジー' ? ['orange', 'red'] : ['orange'];
-    const hasRequiredCards = cards => threats.every(threat => suits.every(suit =>
-      cards.some(card => card.color === suit && Number(card.number) === threat)));
+    const hasRequiredCards = cards => suits.every(suit =>
+      cards.some(card => card.color === suit && threats.includes(Number(card.number))));
     if (hasRequiredCards(capturedCards)) return { status:'achieved' };
     return { status:!isFinished && hasRequiredCards([...capturedCards, ...remainingCards]) ? 'pending' : 'failed' };
   }
@@ -2546,6 +2546,15 @@ function createVictoryConditionIcon(cardData, playerId){
     separator.textContent = 'or';
     icon.append(left, separator, right);
   };
+  const numberChoice = (numbers, color) => {
+    const option = document.createElement('span');
+    option.className = 'victory-condition-option';
+    numbers.forEach((number, index) => {
+      if (index > 0) option.append(label('or'));
+      option.append(square(String(number), color));
+    });
+    return option;
+  };
   const countSquares = (count, color = 'black') => {
     const items = [];
     if (count >= 4) return [square('', color), label(`x${count}`)];
@@ -2638,13 +2647,21 @@ function createVictoryConditionIcon(cardData, playerId){
   } else if (name === '飛蔭（とびかげ）') {
     icon.append(coloredTrick('orange'), coloredTrick('orange'));
   } else if (['サム', 'サムワイズ・ギャムジー'].includes(name)) {
-    appendSuitRank(...(name === 'サムワイズ・ギャムジー' ? ['orange', 'red'] : ['orange']));
+    const suits = name === 'サムワイズ・ギャムジー' ? ['orange', 'red'] : ['orange'];
+    if (suits.length === 2 && displayedThreatNumbers.length > 1) {
+      icon.classList.add('multiline');
+      icon.append(...suits.map(suit => line(numberChoice(displayedThreatNumbers, suit))));
+    } else appendSuitRank(...suits);
   } else if (name === 'ペレグリン・トゥック') {
     icon.append(coloredTrick(), label('x0'));
   } else if (['レゴラス', 'ギムリ', '緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name)) {
     const suit = ['レゴラス', '緑葉のレゴラス'].includes(name) ? 'green' : 'gray';
     const requiresShadow = ['緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name);
-    appendSuitRank(...(requiresShadow ? [suit, 'red'] : [suit]));
+    const suits = requiresShadow ? [suit, 'red'] : [suit];
+    if (suits.length === 2 && displayedThreatNumbers.length > 1) {
+      icon.classList.add('multiline');
+      icon.append(...suits.map(requiredSuit => line(numberChoice(displayedThreatNumbers, requiredSuit))));
+    } else appendSuitRank(...suits);
   } else if (['アラゴルン', 'アラソルンの息子アラゴルン'].includes(name)) {
     if (equipmentChoice) {
       const expandBoth = equipmentChoice.min === 1 && equipmentChoice.max === 2;
