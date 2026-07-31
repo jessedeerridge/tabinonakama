@@ -1290,7 +1290,7 @@ defineStage(5, {
       hammer:true, text:'森カード8枚と〈柳じじい(森9)〉を混ぜて、古森デッキを作る。そのあと、',
       playerText:{ 3:'各プレイヤーに手札9枚、失われしカード2枚を配る。', 4:'各プレイヤーに手札7枚、失われしカード1枚を配る。' }, playerTextSeparator:'\n',
       secondaryHeading:'柳じじい',
-      afterText:'各トリックの前に古森デッキから1枚を公開する。このトリックでプレイされたカードの数字より森カードの数字が高い場合は、柳じじいがトリックを獲得する。（同数は除く）\nその後、前のリードプレイヤーが最初にプレイする。<1の指輪>は、古森デッキのどのカードにも勝てる。'
+      afterText:'各トリックの前に古森デッキから1枚を公開する。このトリックでプレイされたカードの数字より森カードの数字が高い場合は、柳じじいがトリックを獲得する。（同数は除く）\nその後、前のリードプレイヤーが最初にプレイする。〈指輪の1〉は、古森デッキのどのカードにも勝てる。'
     },
     {
       title:'柳じじい',
@@ -1421,7 +1421,7 @@ defineStage(17, {
   characters: ['frodo*,aragorn,legolas,gimli,boromir,sam,merry,pippin,galadriel,celeborn'],
   threats: [{ name:'脅威', min:1, max:7 }],
   winCondition: 'long', goal: 'everywin',
-  additionalElements: '〈イベント：アンドゥイン〉の記述に従う。\n〈ミスリルの胴着〉をフロドに渡す。〈ケレボルン〉の目的は達成しなくてよい。',
+  additionalElements: '〈イベント：アンドゥイン〉の記述に従う。\n〈ミスリルの胴着〉をフロドに渡す。〈ケレボルン〉は選ばなくても章を達成したことにしてよい。',
   eventCards: [
     {
       title:'アンドゥイン', heading:'イベント：アンドゥイン', hammer:true,
@@ -2012,6 +2012,10 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     .filter(card => card?.kind !== 'character');
   const cardsOfSuit = (cards, color) => cards.filter(card => card.color === color).length;
   const possibleTricks = trickCount + remainingRounds;
+  // 達成後のプレイで条件を失い得る目的は、ラウンド終了時まで確定させない。
+  const waitsForRoundEnd = ['山の下さん', 'ビルボ・バギンズ'].includes(character.name)
+    || hasSpecialThreat(game, playerId, '黒の息');
+  const achieved = () => ({ status:!isFinished && waitsForRoundEnd ? 'pending' : 'achieved' });
 
   // 〈黒の息〉による失敗はキャラクター自身の目的より優先し、ミスリルでも救済できない。
   if (hasSpecialThreat(game, playerId, '黒の息')
@@ -2040,7 +2044,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 0 && character.name === 'ガンダルフ') {
     const requiredSuits = ['orange', 'gray', 'green'];
     const capturedSuits = new Set(capturedCards.map(card => card.color));
-    if (requiredSuits.every(suit => capturedSuits.has(suit))) return { status:'achieved' };
+    if (requiredSuits.every(suit => capturedSuits.has(suit))) return achieved();
     const possibleSuits = new Set([...capturedCards, ...remainingCards].map(card => card.color));
     return { status:!isFinished && requiredSuits.every(suit => possibleSuits.has(suit)) ? 'pending' : 'failed' };
   }
@@ -2049,7 +2053,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     const capturedMountains = new Set(capturedCards.filter(card => card.color === 'gray').map(card => Number(card.number)));
     const hasRun = numbers => Array.from({ length:5 }, (_, offset) => offset + 1)
       .some(start => [0, 1, 2, 3].every(step => numbers.has(start + step)));
-    if (hasRun(capturedMountains)) return { status:'achieved' };
+    if (hasRun(capturedMountains)) return achieved();
     const possibleMountains = new Set([...capturedCards, ...remainingCards]
       .filter(card => card.color === 'gray').map(card => Number(card.number)));
     return { status:!isFinished && hasRun(possibleMountains) ? 'pending' : 'failed' };
@@ -2058,7 +2062,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   if (character.name === '農夫マゴット') {
     const threatRanks = new Set(objectiveThreatNumbers(game, playerId));
     const count = capturedCards.filter(card => threatRanks.has(Number(card.number))).length;
-    if (count >= 2) return { status:'achieved' };
+    if (count >= 2) return achieved();
     const available = remainingCards.filter(card => threatRanks.has(Number(card.number))).length;
     return { status:!isFinished && count + available >= 2 ? 'pending' : 'failed' };
   }
@@ -2076,7 +2080,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     const requiredSuits = [threatSuitGoal.suit, ...(threatSuitGoal.requiresShadow ? ['red'] : [])];
     const hasRequiredCards = cards => requiredSuits.every(suit =>
       cards.some(card => card.color === suit && threats.includes(Number(card.number))));
-    if (hasRequiredCards(capturedCards)) return { status:'achieved' };
+    if (hasRequiredCards(capturedCards)) return achieved();
     const stillAvailable = hasRequiredCards([...capturedCards, ...remainingCards]);
     return { status:!isFinished && stillAvailable ? 'pending' : 'failed' };
   }
@@ -2086,7 +2090,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     if (!threats.length) return { status:'pending' };
     const hasRequiredCards = cards => threats.every(threat =>
       cards.some(card => card.color === 'green' && Number(card.number) === threat));
-    if (hasRequiredCards(capturedCards)) return { status:'achieved' };
+    if (hasRequiredCards(capturedCards)) return achieved();
     const stillAvailable = hasRequiredCards([...capturedCards, ...remainingCards]);
     return { status:!isFinished && stillAvailable ? 'pending' : 'failed' };
   }
@@ -2097,7 +2101,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     const suits = character.name === 'サムワイズ・ギャムジー' ? ['orange', 'red'] : ['orange'];
     const hasRequiredCards = cards => suits.every(suit =>
       cards.some(card => card.color === suit && threats.includes(Number(card.number))));
-    if (hasRequiredCards(capturedCards)) return { status:'achieved' };
+    if (hasRequiredCards(capturedCards)) return achieved();
     return { status:!isFinished && hasRequiredCards([...capturedCards, ...remainingCards]) ? 'pending' : 'failed' };
   }
 
@@ -2108,7 +2112,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     const otherMaximumCounts = otherIds.map((id, index) => otherCurrentCounts[index] + remainingByPlayer(id));
     const uniqueMostLocked = trickCount > Math.max(...otherMaximumCounts);
     const uniqueLeastLocked = myMaximum < Math.min(...otherCurrentCounts);
-    if (uniqueMostLocked || uniqueLeastLocked) return { status:'achieved' };
+    if (uniqueMostLocked || uniqueLeastLocked) return achieved();
     const canStillBeUniqueMost = myMaximum > Math.max(...otherCurrentCounts);
     // 最少になるには、自分がこれ以上勝たない場合でも、全員を自分より1勝以上上へ押し上げる
     // だけの未決着トリックが必要。各人の理論上の最大値だけを見ると、同じ1トリックを複数人が
@@ -2129,7 +2133,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
       if (Number.isFinite(number)) counts[number] = (counts[number] || 0) + 1;
       return counts;
     }, {});
-    if (Object.values(rankCounts).some(count => count >= 3)) return { status:'achieved' };
+    if (Object.values(rankCounts).some(count => count >= 3)) return achieved();
     const possibleRankCounts = [...capturedCards, ...remainingCards].reduce((counts, card) => {
       const number = Number(card.number);
       if (Number.isFinite(number)) counts[number] = (counts[number] || 0) + 1;
@@ -2153,7 +2157,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
 
   if (character.name === '山の下さん') {
     if (capturedTricks.some(trick => !(trick.cards || []).some(card => card.color === 'yellow'))) return { status:'failed' };
-    if (trickCount >= 1) return { status:'achieved' };
+    if (trickCount >= 1) return achieved();
     return { status:isFinished ? 'failed' : 'pending' };
   }
 
@@ -2208,20 +2212,20 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   if (character.name === 'ビルボ・バギンズ'
     && capturedCards.some(card => card.color === 'yellow' && Number(card.number) === 1)) return { status:'failed' };
   if (character.name === 'ビルボ・バギンズ') {
-    if (trickCount >= 3) return { status:'achieved' };
+    if (trickCount >= 3) return achieved();
     return { status:!isFinished && possibleTricks >= 3 ? 'pending' : 'failed' };
   }
 
   const suitTrickTargets = { 'ラダガスト':'green', '飛蔭（とびかげ）':'orange', 'グワイヒア':'gray' };
   if (suitTrickTargets[character.name]) {
     const count = capturedTricks.filter(trick => (trick.cards || []).some(card => card.color === suitTrickTargets[character.name])).length;
-    if (count >= 2) return { status:'achieved' };
+    if (count >= 2) return achieved();
     return { status:!isFinished && count + remainingRounds >= 2 ? 'pending' : 'failed' };
   }
 
   if (character.name === 'グロルフィンデル') {
     const shadows = new Set(capturedCards.filter(card => card.color === 'red').map(card => Number(card.number)));
-    if (Array.from({ length:8 }, (_, index) => index + 1).every(number => shadows.has(number))) return { status:'achieved' };
+    if (Array.from({ length:8 }, (_, index) => index + 1).every(number => shadows.has(number))) return achieved();
     const available = new Set([...shadows, ...remainingCards.filter(card => card.color === 'red').map(card => Number(card.number))]);
     return { status:!isFinished && available.size === 8 ? 'pending' : 'failed' };
   }
@@ -2229,7 +2233,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   if (character.name === 'エルロンド') {
     const everyoneHasRing = playerIds.every(id => (game.capturedTricks?.[id] || [])
       .some(trick => (trick.cards || []).some(card => card.color === 'yellow')));
-    if (everyoneHasRing) return { status:'achieved' };
+    if (everyoneHasRing) return achieved();
     return { status:!isFinished && remainingCards.some(card => card.color === 'yellow') ? 'pending' : 'failed' };
   }
 
@@ -2250,7 +2254,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
 
   if (Number(game.stageNumber) === 12 && character.name === 'ガンダルフ') {
     const acquired = new Set(capturedTricks.flatMap(trick => trick.cards || []).map(card => Number(card.number)));
-    if (Array.from({ length:8 }, (_, index) => index + 1).every(number => acquired.has(number))) return { status:'achieved' };
+    if (Array.from({ length:8 }, (_, index) => index + 1).every(number => acquired.has(number))) return achieved();
     if (isFinished) return { status:'failed' };
     return { status:'pending' };
   }
@@ -2260,7 +2264,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     const matchingSuits = new Set(capturedCards
       .filter(card => ['orange', 'red'].includes(card.color) && threatRanks.has(Number(card.number)))
       .map(card => card.color));
-    if (matchingSuits.has('orange') && matchingSuits.has('red')) return { status:'achieved' };
+    if (matchingSuits.has('orange') && matchingSuits.has('red')) return achieved();
     const remainingMatchingSuits = new Set(remainingCards
       .filter(card => ['orange', 'red'].includes(card.color) && threatRanks.has(Number(card.number)))
       .map(card => card.color));
@@ -2273,7 +2277,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     const threatRanks = new Set((game.threatCards?.[playerId] || []).map(card => Number(card.number)));
     const hasMatchingHill = capturedTricks.some(trick => (trick.cards || [])
       .some(card => card.color === 'orange' && threatRanks.has(Number(card.number))));
-    if (hasMatchingHill) return { status:'achieved' };
+    if (hasMatchingHill) return achieved();
     const matchingHillRemains = Object.values(room.hands || {}).some(hand => (hand?.cards || [])
       .some(card => card.color === 'orange' && threatRanks.has(Number(card.number))));
     return { status:(!isFinished && matchingHillRemains) ? 'pending' : 'failed' };
@@ -2289,7 +2293,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
       count += (game.capturedTricks?.[samId] || []).reduce((total, trick) => total
         + (trick.cards || []).filter(card => card.color === 'yellow').length, 0);
     }
-    if (count >= target) return { status:'achieved' };
+    if (count >= target) return achieved();
     const remainingRings = Object.values(room.hands || {}).reduce((total, hand) => total
       + (hand?.cards || []).filter(card => card.color === 'yellow').length, 0);
     return { status:(!isFinished && count + remainingRings >= target) ? 'pending' : 'failed' };
@@ -2319,7 +2323,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
 
   const target = Number(victory.match(/\d+/)?.[0]);
   if (Number.isFinite(target)) {
-    if (trickCount >= target) return { status:'achieved' };
+    if (trickCount >= target) return achieved();
     return { status:(!isFinished && trickCount + remainingRounds >= target) ? 'pending' : 'failed' };
   }
   return { status:isFinished ? 'failed' : 'pending' };
@@ -2353,6 +2357,37 @@ function chapterOutcome(room){
   }
   if (statuses.some(status => status === 'failed') || room.game.finished === true) return 'failed';
   return null;
+}
+
+function forcedLeadRestrictionFailure(room){
+  const game = room?.game;
+  if (!game || game.phase !== 'playing' || game.chapterOutcome || game.pendingCapture
+      || Object.keys(game.trick || {}).length || !game.turnPlayerId) return null;
+  const playerId = game.turnPlayerId;
+  const prohibitedColor = hasSpecialThreat(game, playerId, '恐怖') ? 'orange'
+    : hasSpecialThreat(game, playerId, 'モルグルの刃') ? 'yellow' : null;
+  if (!prohibitedColor) return null;
+  const cards = (room.hands?.[playerId]?.cards || []).filter(card => card.kind !== 'character');
+  return cards.length && cards.every(card => card.color === prohibitedColor) ? playerId : null;
+}
+
+let forcedLeadFailurePending = false;
+async function settleForcedLeadRestrictionFailure(){
+  if (forcedLeadFailurePending || !state.roomCode || !forcedLeadRestrictionFailure(state.room)) return;
+  forcedLeadFailurePending = true;
+  try {
+    await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+      const playerId = forcedLeadRestrictionFailure(room);
+      if (!playerId) return;
+      room.game.finished = true;
+      room.game.chapterOutcome = {
+        status:'failed', reason:'prohibited-lead-suit-only', playerId, decidedAt:Date.now()
+      };
+      return room;
+    });
+  } finally {
+    forcedLeadFailurePending = false;
+  }
 }
 
 let chapterCompleteTimer = null;
@@ -4051,7 +4086,7 @@ function balrogOverpowersTrick(balrogCards, plays){
 
 function oldForestWinsTrick(game, plays){
   if (Number(game?.stageNumber) !== 5 || !game.oldForestRevealed || !plays.length) return false;
-  // 〈1の指輪〉は、数字の比較にかかわらず古森デッキのすべてのカードに勝つ。
+  // 〈指輪の1〉は、数字の比較にかかわらず古森デッキのすべてのカードに勝つ。
   if (plays.some(play => play.card?.color === 'yellow' && Number(play.card?.number) === 1)) return false;
   const highestPlayedNumber = Math.max(...plays.map(play => Number(play.card?.number) || 0));
   return highestPlayedNumber < Number(game.oldForestRevealed.number);
@@ -4952,6 +4987,7 @@ function subscribeRoom(){
     scheduleMirrorDraft();
     scheduleBalrogDraw();
     scheduleOutcomeCheck();
+    settleForcedLeadRestrictionFailure();
     const barrowTransfer = state.game?.barrowDrawTransfer;
     if (barrowTransfer?.movedAt && barrowTransfer.movedAt !== lastAnimatedBarrowDrawAt) {
       requestAnimationFrame(() => animateBarrowDraw(barrowSourceRect, barrowTransfer));
@@ -6280,7 +6316,7 @@ function exchangeEffectText(character){
 function characterCardData(character, playerId){
   const characterDetails = {
     'フロド': {
-      specialName:'指輪所持者', victory:(state.game?.playerOrder?.length === 3 ? '指輪カードを4枚以上獲得する。' : '指輪カードを2枚以上獲得する。'), effect:'〈1の指輪〉を受け取ったプレイヤーが〈フロド〉になる。〈1の指輪〉は交換できない。最初のトリックをリードする。', cardNumber:'1.02', rank:'黒', frameColor:'金'
+      specialName:'指輪所持者', victory:(state.game?.playerOrder?.length === 3 ? '指輪カードを4枚以上獲得する。' : '指輪カードを2枚以上獲得する。'), effect:'〈指輪の1〉を受け取ったプレイヤーが〈フロド〉になる。〈指輪の1〉は交換できない。最初のトリックをリードする。', cardNumber:'1.02', rank:'黒', frameColor:'金'
     },
     'ピピン': {
       specialName:'ばか者', victory:'獲得したトリック数が最も少ない。', cardNumber:'1.05', rank:'無し', frameColor:'銀'
@@ -6314,9 +6350,9 @@ function characterCardData(character, playerId){
     'エルロンド':{specialName:'半エルフ',victory:'各キャラクターは自分の目的のほかに、指輪カードを1枚以上含むトリックを獲得しなければならない。',effect:'全員が同時に右隣にカードを1枚渡す。最初のトリックをリードする。',cardNumber:'2.35', rank:'黒', frameColor:'金'},
     'グローイン':{specialName:'ビルボの仲間',victory:'最も多く山カードを獲得する。',effect:'〈ビルボ〉か〈ギムリ〉と交換する。',cardNumber:'2.37', rank:'黒', frameColor:'銀'},
     'アルウェン':{specialName:'夕星姫',victory:'最も多く森カードを獲得する。',effect:'〈エルロンド〉か〈アラゴルン〉と交換する。',cardNumber:'2.36', rank:'黒', frameColor:'緑'},
-    'ビルボ・バギンズ':{specialName:'寿命を延ばされた',victory:'3トリック以上を獲得する。〈ビルボ〉がトリックを獲得した場合、他のプレイヤーを次のリードプレイヤーに指名してもよい。〈ビルボ〉が〈1の指輪〉を獲得した場合、即座に全員敗北となる。',effect:'なし',cardNumber:'2.38', rank:'黒', frameColor:'金'},
+    'ビルボ・バギンズ':{specialName:'寿命を延ばされた',victory:'3トリック以上を獲得する。〈ビルボ〉がトリックを獲得した場合、他のプレイヤーを次のリードプレイヤーに指名してもよい。〈ビルボ〉が〈指輪の1〉を獲得した場合、即座に全員敗北となる。',effect:'なし',cardNumber:'2.38', rank:'黒', frameColor:'金'},
     'アラゴルン':{specialName:'イシルドゥアの世継',victory:'脅威カードの数字と同じ回数のトリックを獲得する。',effect:'脅威デッキから任意のカードを1枚選んでよい。任意のキャラクターと交換する。',cardNumber:'2.40', rank:'無し', frameColor:'薄緑'},
-    'ボロミア':{specialName:'ゴンドールの大将',victory:'最後のトリックを獲得する。もし〈ボロミア〉が〈1の指輪〉を獲得した場合、その章は即座に敗北となる。',effect:'〈フロド〉以外の任意のキャラクターと交換する。',cardNumber:'2.41', rank:'無し', frameColor:'銀'},
+    'ボロミア':{specialName:'ゴンドールの大将',victory:'最後のトリックを獲得する。もし〈ボロミア〉が〈指輪の1〉を獲得した場合、その章は即座に敗北となる。',effect:'〈フロド〉以外の任意のキャラクターと交換する。',cardNumber:'2.41', rank:'無し', frameColor:'銀'},
     'グワイヒア':{specialName:'風早彦',victory:'山がプレイされているトリックを2回獲得する。',effect:'〈ガンダルフ〉と交換する。その後、再び〈ガンダルフ〉と交換する。',cardNumber:'2.46', rank:'黒', frameColor:'銀'},
     'ラダガスト':{specialName:'茶色の魔法使い',victory:'森がプレイされているトリックを2回獲得する。',effect:'手札から1枚選び、表向きにして脇に置く。そのカードは最後のトリックでプレイする。その後、最初のトリックのカードをプレイする。',cardNumber:'2.48', rank:'黒', frameColor:'緑'},
     '飛蔭（とびかげ）':{specialName:'馬の王者',victory:'丘がプレイされているトリックを2回獲得する。',effect:'手札を1枚選び、裏向きでこのカードの下に入れる。任意のタイミング、もしくは手札がなくなったとき、そのカードを手札に戻す。',cardNumber:'2.47', rank:'黒', frameColor:'金'},
@@ -7711,7 +7747,7 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     const barrowCards = new Set(barrowDeck);
     cardsToDeal = deck.filter(card => !barrowCards.has(card));
   } else {
-    // 指輪1はゲーム進行に必要なため残し、それ以外から1枚を表向きで除外する。
+    // 〈指輪の1〉はゲーム進行に必要なため残し、それ以外から1枚を表向きで除外する。
     const excludedIndex = deck.findIndex(card => !(card.color === 'yellow' && card.number === 1));
     excludedCards = [{ ...deck.splice(excludedIndex, 1)[0], id:`excluded-${dealtAt}` }];
     cardsToDeal = deck;
