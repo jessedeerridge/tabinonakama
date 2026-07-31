@@ -270,7 +270,7 @@
   .center-lower-card-area.character-selection-layout.continuation-layout:not(.event-stage-layout){
     left:16px;top:calc(68% - 101px);width:calc(100vw - 32px);transform:translateY(-80px);
   }
-  .center-lower-card-area.event-stage-layout.character-selection-layout{left:50%;width:475px;flex-direction:row;justify-content:center;gap:0;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/475));transform-origin:top center;}
+  .center-lower-card-area.event-stage-layout.character-selection-layout{--event-card-overlap:17px;left:50%;width:475px;flex-direction:row;justify-content:center;gap:0;transform:translateX(-50%);scale:min(1,calc((100vw - 8px)/475));transform-origin:top center;}
   .center-lower-card-area.event-stage-layout:not(.character-selection-layout){z-index:7;}
   .event-stage-layout.character-selection-layout>.center-card-row{display:contents;}
   /* 横並びは維持しつつ、重なりは章あらすじ、イベント説明、イベントあらすじ、勝利条件の順にする。 */
@@ -279,7 +279,8 @@
   .event-stage-layout.character-selection-layout .event-card-row>.event-card:nth-child(2){order:3;position:relative;z-index:2;}
   .event-stage-layout.character-selection-layout .event-card-row>.event-card:nth-child(1){order:4;position:relative;z-index:3;}
   /* 4枚を少しだけ重ね、カード群全体を中央へ寄せる。 */
-  .event-stage-layout.character-selection-layout>.center-lower-card,.event-stage-layout.character-selection-layout>.center-card-row>.center-lower-card{margin-left:-17px;}  /* 14章は右側のイベント欄だけを横に送れるようにし、4枚のイベント面を並べる。 */
+  .event-stage-layout.character-selection-layout>.center-lower-card,.event-stage-layout.character-selection-layout>.center-card-row>.center-lower-card{margin-left:calc(-1 * var(--event-card-overlap));}
+  /* 14章は右側のイベント欄だけを横に送れるようにし、4枚のイベント面を並べる。 */
   .event-stage-layout.chapter-fourteen.character-selection-layout{width:475px;}
   .event-stage-layout.chapter-fourteen.character-selection-layout>.center-card-row{display:flex;width:265px;flex:0 0 265px;}
   .event-stage-layout.chapter-fourteen.character-selection-layout .event-card-row{
@@ -1920,6 +1921,12 @@ function closeCardZoom(){
   cardZoomFrame.replaceChildren();
 }
 
+function updateEventSelectionOverlap(){
+  // コンテナ全体の縮小率を打ち消し、狭い端末でも広い端末でも見た目の重なりを17pxに固定する。
+  const layoutScale = Math.min(1, Math.max(.1, (window.innerWidth - 8) / 475));
+  centerLowerCardArea.style.setProperty('--event-card-overlap', `${17 / layoutScale}px`);
+}
+
 cardZoomBackdrop.addEventListener('click', closeCardZoom);
 window.addEventListener('resize', () => {
   if (!cardZoomBackdrop.classList.contains('hidden')) positionZoomCards();
@@ -1929,6 +1936,7 @@ window.addEventListener('resize', () => {
   renderMyHand();
   if (latestPlayers.length) renderPlayerCircle(latestPlayers);
   updateCharacterChoiceScales();
+  updateEventSelectionOverlap();
 });
 
 const HAMMER_ICON_SVG = '<svg viewBox="0 0 20 20" aria-hidden="true"><g transform="rotate(35 10 10)"><rect x="7" y="7" width="2" height="11"/><path d="M3 3Q10 3.5 17 6Q10 8.5 3 9Q5 6 3 3Z"/></g></svg>';
@@ -3073,6 +3081,7 @@ document.addEventListener('keydown', event => {
 });
 
 function renderStageInformation(){
+  updateEventSelectionOverlap();
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
   const isContinuation = Boolean(stage?.continuation);
   arasujisquare.classList.toggle('hidden', isContinuation);
