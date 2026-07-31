@@ -1380,7 +1380,7 @@ defineStage(14, {
       text:'〈ガンダルフ、神秘の火に仕える者〉を使用する。影8枚と〈バルログ(影5)〉で、バルログデッキを作る。そのあと、',
       playerText:{ 3:'各プレイヤーに手札9枚、失われしカード2枚配る。', 4:'各プレイヤーに手札7枚、失われしカード1枚配る。' }, playerTextSeparator:'',
       secondaryHeading:'ドゥリンの橋',
-      afterText:'各トリックの前に2枚（3人プレイ時）、または3枚（4人プレイ時）を公開する。プレイされたカードの数字の合計より、バルログの公開したカードの数字の合計が多い場合（同数は除く）、全員敗北となる。バルログデッキが枯渇したら、シャッフルし直して新しい山を作る。'
+      afterText:{ 3:'各トリックの前に2枚を公開する。プレイされたカードの数字の合計より、バルログの公開したカードの数字の合計が多い場合（同数は除く）、全員敗北となる。バルログデッキが枯渇したら、シャッフルし直して新しい山を作る。', 4:'各トリックの前に3枚を公開する。プレイされたカードの数字の合計より、バルログの公開したカードの数字の合計が多い場合（同数は除く）、全員敗北となる。バルログデッキが枯渇したら、シャッフルし直して新しい山を作る。' }
     }
   ]
 });
@@ -1745,7 +1745,7 @@ function populateEventCardElement(card, eventCard, { playerCount, eventIndex = -
       appendEventText(part);
     });
   }
-  const playerText = typeof eventCard?.playerText === 'string' ? eventCard.playerText : eventCard?.playerText?.[Number(playerCount)];
+  const playerText = eventTextForPlayerCount(eventCard?.playerText, playerCount);
   if (playerText) text.appendChild(document.createTextNode(`${eventCard.playerTextSeparator ?? '\n\n'}${playerText}`));
   if (eventCard?.afterPlayerText) {
     const gap = document.createElement('span'); gap.className = 'event-card-gap'; text.append(gap, document.createTextNode(eventCard.afterPlayerText));
@@ -1754,12 +1754,21 @@ function populateEventCardElement(card, eventCard, { playerCount, eventIndex = -
     const gap = document.createElement('span'); gap.className = `event-card-gap${eventCard.wideSecondaryHeadingGap ? ' before-secondary-heading' : ''}`;
     const heading = document.createElement('strong'); heading.textContent = eventCard.secondaryHeading; text.append(gap, heading);
   }
-  if (eventCard?.afterText) text.appendChild(document.createTextNode(eventCard.afterText));
+  const afterText = eventTextForPlayerCount(eventCard?.afterText, playerCount);
+  if (afterText) text.appendChild(document.createTextNode(afterText));
   fitBlockText(text, maxFontSize, minFontSize, .1);
 }
 
+function eventTextForPlayerCount(value, playerCount){
+  return typeof value === 'string' ? value : value?.[Number(playerCount)] || '';
+}
+
 function concreteEventCardData(eventCard, playerCount){
-  return JSON.parse(JSON.stringify({ ...eventCard, playerText:eventCard?.playerText?.[Number(playerCount)] || '' }));
+  return JSON.parse(JSON.stringify({
+    ...eventCard,
+    playerText:eventTextForPlayerCount(eventCard?.playerText, playerCount),
+    afterText:eventTextForPlayerCount(eventCard?.afterText, playerCount)
+  }));
 }
 
 function createEquipmentCardElement(cardData){
@@ -6500,7 +6509,7 @@ async function chooseCharacter(characterName, source){
           room.game.equipmentCards ||= {}; room.game.equipmentCards[ownerId] ||= [];
           room.game.equipmentCards[ownerId].push({
             kind:'equipment', name:event.title, specialName:event.secondaryHeading || event.heading,
-            effect:[event.text, event.playerText?.[Number(room.maxPlayers)], event.afterText].filter(Boolean).join('\n'),
+            effect:[event.text, eventTextForPlayerCount(event.playerText, room.maxPlayers), eventTextForPlayerCount(event.afterText, room.maxPlayers)].filter(Boolean).join('\n'),
             eventData:concreteEventCardData(event, room.maxPlayers), image:'eventback.jpg',
             id:`${ownerId}-moria-event-${room.game.moriaEventIndex}-${Date.now()}`
           });
