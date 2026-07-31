@@ -153,9 +153,10 @@
   .threat-card .card-name{left:0;right:auto;bottom:5px;width:66px;height:19px;padding-right:9px;box-sizing:border-box;background:#4a2f20;color:#fff;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);font-size:9px;line-height:19px;letter-spacing:0;white-space:nowrap;}
   .threat-card .card-name::before{display:block;inset:1px;background:#050505;clip-path:polygon(0 0,86% 0,100% 50%,86% 100%,0 100%);}
   .threat-card .card-name-initial{color:inherit;-webkit-text-stroke:0;}
-  /* 第十三章の脅威デッキは、黒の乗手とは別の専用イラストを使う。 */
-  .threat-card.chapter-thirteen-threat{background-image:url('kyoi17.jpg');}
+  /* 1～7の脅威デッキは、1～4の黒の乗手とは別の専用イラストを使う。 */
+  .threat-card.threat-one-to-seven{background-image:url('kyoi17.jpg');}
   .threat-card.concealed{border-color:#4a2f20;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.18);}
+  .threat-card.threat-one-to-seven.concealed{background-image:url('kyoi17.jpg');}
   .threat-card.concealed>*{display:none;}
   .capture-card.owner-concealed{transform:rotate(180deg);}
   .threat-draw-flight .threat-card.owner-concealed{transform:rotate(180deg);transform-origin:center;}
@@ -179,12 +180,8 @@
   .event-equipment-card .event-card-hammer{width:5.86px;height:5.86px;margin-right:1.46px;}
   .event-equipment-card .event-card-gap{height:2.2px;}
   /* 通常装備はイベント札やキャラクター札ではなく、専用の装備札フォーマットで表示する。 */
-  .item-equipment-card{--equipment-frame:#aeb8c5;--equipment-panel:#fff8e8;border-color:var(--equipment-frame);background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  .item-equipment-card{--equipment-frame:#aeb8c5;--equipment-panel:#fff8e8;--character-frame:var(--equipment-frame);--character-panel:var(--equipment-panel);--character-inner-frame:#eef3f8;--character-label-frame:color-mix(in srgb,var(--equipment-frame) 50%,transparent);--character-label-panel:color-mix(in srgb,var(--equipment-panel) 50%,transparent);border-color:var(--equipment-frame);background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
   .item-equipment-card::after{content:'';position:absolute;inset:0;border:2px solid #eef3f8;border-radius:6px;box-sizing:border-box;pointer-events:none;z-index:4;}
-  .equipment-name,.equipment-special{position:absolute;right:0;box-sizing:border-box;background:color-mix(in srgb,var(--equipment-frame) 50%,transparent);color:#3f3021;font-weight:900;text-align:right;isolation:isolate;overflow:hidden;}
-  .equipment-name::before,.equipment-special::before{content:'';position:absolute;inset:1px;background:color-mix(in srgb,var(--equipment-panel) 50%,transparent);z-index:-1;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);}
-  .equipment-name{top:1px;width:max-content;max-width:100%;height:15.3px;padding:0 4.5px 0 16px;font-size:9px;line-height:15.3px;white-space:nowrap;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);}
-  .equipment-special{top:17px;width:48px;max-width:48px;padding:2.4px 4px 2.4px 18px;font-size:6px;line-height:1.2;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);}
   .equipment-effect{position:absolute;left:-4px;right:-4px;bottom:-4px;min-height:64px;padding:12px 5px 6px;box-sizing:border-box;background:var(--equipment-frame);isolation:isolate;display:flex;flex-direction:column;gap:2px;font-size:6px;line-height:1.2;text-align:left;clip-path:polygon(0 10px,30% 6px,70% 6px,100% 10px,100% 100%,0 100%);}
   .equipment-effect::before{content:'';position:absolute;inset:1px;background:var(--equipment-panel);z-index:-1;clip-path:polygon(0 10px,30% 6px,70% 6px,100% 10px,100% 100%,0 100%);}
   .most-suit-marker{position:absolute;left:50%;top:calc(100% + 64px);transform:translateX(-50%);display:flex;align-items:center;gap:2px;color:#111;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;z-index:30;}
@@ -341,6 +338,7 @@
   .threat-deck::before,.threat-deck::after{content:'';position:absolute;inset:0;border:1px solid #4a2f20;border-radius:6px;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-sizing:border-box;z-index:-1;}
   .threat-deck::before{transform:translateX(2px);}
   .threat-deck::after{transform:translateX(4px);z-index:-2;}
+  .threat-deck.threat-one-to-seven,.threat-deck.threat-one-to-seven::before,.threat-deck.threat-one-to-seven::after{background-image:url('kyoi17.jpg');}
   .threat-deck.empty{visibility:hidden;}
   .threat-deck-area.deck-transition-out{animation:deckSlideOutRight .85s ease-in forwards;}
   .old-forest-area.deck-transition-in,.barrow-deck-area.deck-transition-in,.balrog-deck-area.deck-transition-in{animation:deckSlideInRight .85s ease-out both;}
@@ -475,6 +473,7 @@
   .exchange-card-flight.card-back{border:1px solid #10233f;border-radius:10px;background:#fff url('tabicardura.jpg') center/cover no-repeat;box-shadow:0 4px 12px rgba(0,0,0,.2);}
   .threat-draw-flight{transform-style:preserve-3d;}
   .threat-draw-flight::before{content:'';position:absolute;inset:0;border:4px solid #4a2f20;border-radius:10px;background:#302f2c url('kyoi.jpg') center/cover no-repeat;box-sizing:border-box;box-shadow:0 4px 12px rgba(0,0,0,.18),inset 0 0 0 2px #050505,inset 0 0 0 3px rgba(255,244,220,.72);transform:rotateY(180deg);backface-visibility:hidden;}
+  .threat-draw-flight:has(.threat-one-to-seven)::before{background-image:url('kyoi17.jpg');}
   .threat-draw-flight>.my-card{position:absolute;inset:0;backface-visibility:hidden;}
   .threat-capture.threat-draw-target-hidden{opacity:0;}
   .arasujisquare-bar,.arasujisquare-center,.winningcondition-half{position:absolute;box-sizing:border-box;border:0;background:transparent;}
@@ -511,6 +510,7 @@
   .burden-character{color:#b51f24;font-weight:900;}
   @media (max-width:520px){
     .center-lower-card-area{width:calc(100vw - 24px);}
+    .victory-condition-fail{margin-right:-6px;top:-2px;font-size:18px;line-height:15px;}
   }
   .my-card.card-red{--card-color:#c94c47;}
   .my-card.card-green{--card-color:#559344;}
@@ -1474,6 +1474,16 @@ const STAGE_ELEVEN_EQUIPMENT = {
   'ボロミア':{ name:'ゴンドールの角笛', specialName:'家宝', effect:'ゲームの準備中、手札にある最も多いスートを宣言する。', cardNumber:'2.43', rank:'黒', image:'tunobue.jpg' }
 };
 
+function updateMostSuitDeclaration(room, playerId){
+  const counts = {};
+  (room.hands?.[playerId]?.cards || []).filter(card => CARD_TYPES.some(type => type.color === card.color))
+    .forEach(card => { counts[card.color] = (counts[card.color] || 0) + 1; });
+  const most = Math.max(0, ...Object.values(counts));
+  room.game.mostSuitDeclarations ||= {};
+  room.game.mostSuitDeclarations[playerId] = CARD_TYPES.map(type => type.color)
+    .filter(color => counts[color] === most);
+}
+
 const MITHRIL_COAT = {
   name:'ミスリルの胴着', specialName:'鋼よりも堅い',
   effect:'ラウンド終了時、キャラクター1人の目的が未達成なら、このカードを捨て札にして達成したものとして扱う。',
@@ -1619,7 +1629,8 @@ function createCardElement(cardData){
   if (cardData.kind === 'rejected-threat') card.classList.add('rejected-threat-card');
   if (cardData.kind === 'balrog-shadow' && cardData.name === 'バルログ' && Number(cardData.number) === 5) card.classList.add('balrog-five');
   if (cardData.kind === 'threat' && cardData.concealed) card.classList.add('concealed');
-  if (cardData.kind === 'threat' && [13, 19].includes(Number(state.game?.stageNumber))) card.classList.add('chapter-thirteen-threat');
+  const stageThreat = STAGES.find(item => item.number === Number(state.game?.stageNumber))?.threats?.[0];
+  if (['threat', 'rejected-threat'].includes(cardData.kind) && Number(stageThreat?.max) === 7) card.classList.add('threat-one-to-seven');
   const isYellowOne = cardData.kind !== 'threat' && cardData.color === 'yellow' && cardData.number === 1;
   if (isYellowOne) card.classList.add('yellow-one');
   if (isYellowOne && state.game?.yellowOneWinningCards?.[cardData.id]) card.classList.add('yellow-one-winner');
@@ -1726,13 +1737,15 @@ function createEquipmentCardElement(cardData){
     card.innerHTML = '<div class="event-card-title"></div><div class="event-card-text"></div>';
     requestAnimationFrame(() => populateEventCardElement(card, cardData.eventData, { maxFontSize:7.32, minFontSize:2.2 }));
   } else {
-    card.className = 'my-card equipment-card item-equipment-card';
+    // 通常装備の名前欄と特殊名欄はキャラクターカードと同じDOM・組版規則を使う。
+    card.className = 'my-card equipment-card item-equipment-card character-card';
     card.setAttribute('aria-label', `装備カード ${cardData.name}`);
     const name = document.createElement('span');
-    name.className = 'equipment-name';
+    name.className = 'character-label equipment-name';
     name.textContent = cardData.name;
+    fitCharacterName(name);
     const special = document.createElement('span');
-    special.className = 'equipment-special';
+    special.className = 'character-label character-special equipment-special';
     appendWrappedCharacterName(special, cardData.specialName || '特殊名');
     const effect = document.createElement('div');
     effect.className = 'equipment-effect';
@@ -2564,7 +2577,7 @@ function createVictoryConditionIcon(cardData, playerId){
     icon.classList.add('multiline');
     const fail = label('✕');
     fail.classList.add('victory-condition-fail');
-    icon.append(line(...countTricks(3)), line(fail, square('1', 'yellow')));
+    icon.append(line(...countTricks(3), label('以上')), line(fail, square('1', 'yellow')));
   } else if (['ボロミア', 'デネソールの息子ボロミア'].includes(name)) {
     icon.classList.add('multiline');
     const fail = label('✕');
@@ -2596,7 +2609,8 @@ function createVictoryConditionIcon(cardData, playerId){
     else icon.append(coloredTrick(), label('x?'));
   } else if (victory.includes('脅威カードと同じ数字')) {
     const matchingSquare = () => {
-      const color = name === 'レゴラス' ? 'green' : name === 'ギムリ' ? 'gray' : 'black';
+      const color = ['レゴラス', 'オロフィンとルーミル', 'ハルディア'].includes(name)
+        ? 'green' : name === 'ギムリ' ? 'gray' : 'black';
       const item = square(String(displayedThreatNumber ?? '?'), color);
       if (name === '農夫マゴット') item.classList.add('number-centered');
       return item;
@@ -3060,7 +3074,11 @@ function renderStageInformation(){
   barrowDeck.classList.toggle('empty', !state.game?.barrowDeck?.length);
   barrowDeck.setAttribute('aria-label', `塚デッキ 残り${state.game?.barrowDeck?.length || 0}枚`);
   const threatDefinition = stage?.threats?.[0];
-  const hasThreatDeck = Boolean(threatDefinition && state.game?.phase !== 'character-selection');
+  // 3人用の第六章では黒の乗手を使わない。代わりに、トムが5枚取った後の
+  // 塚デッキ（数字カードの裏面）を残り枚数とともに表示する。
+  const skipsThreePlayerBarrowThreats = isBarrow && Number(state.room?.maxPlayers) === 3;
+  const hasThreatDeck = Boolean(threatDefinition && !skipsThreePlayerBarrowThreats
+    && state.game?.phase !== 'character-selection');
   threatDeckArea.classList.toggle('active', hasThreatDeck);
   threatDeckArea.classList.toggle('deck-transition-out', replacementDeckActive);
   oldForestArea.classList.toggle('deck-transition-in', replacementDeckActive && isOldForest);
@@ -3069,6 +3087,7 @@ function renderStageInformation(){
     || replacementDeckActive;
   threatDeck.classList.toggle('empty', !state.game?.threatDeck?.length && !keepThreatDeckForLanding);
   const threatDeckName = threatDefinition?.max === 7 ? '脅威1-7デッキ' : '黒の乗手デッキ';
+  threatDeck.classList.toggle('threat-one-to-seven', Number(threatDefinition?.max) === 7);
   threatDeckArea.setAttribute('aria-label', threatDeckName);
   threatDeck.setAttribute('aria-label', `${threatDeckName} 残り${state.game?.threatDeck?.length || 0}枚`);
   balrogDeckArea.classList.toggle('active', replacementDeckActive && isBalrogBridge);
@@ -3744,14 +3763,28 @@ function beginNextExchange(game){
     game.exchangeQueue.shift();
     const requirement = exchangeRequirement(game, sourceId);
     const completed = game.completedExchangeCounts?.[sourceId] || 0;
-    if (completed >= requirement.count) continue;
+    if (completed >= requirement.count) {
+      if (requirement.count === 0 && playerHasEquipment(game, sourceId, 'ゴンドールの角笛')) {
+        game.mostSuitDeclarationReady ||= {};
+        game.mostSuitDeclarationReady[sourceId] = true;
+      }
+      continue;
+    }
     const allCandidates = requirement.mode === 'give-right'
       ? [game.playerOrder[(game.playerOrder.indexOf(sourceId) - 1 + game.playerOrder.length) % game.playerOrder.length]]
       : exchangeCandidates(game, sourceId);
     const used = game.effectExchangeTargets?.[sourceId] || [];
     const candidates = requirement.mode === 'exchange-all' || characterName === '小馬のビル' || requirement.mode === 'give'
       ? allCandidates.filter(id => !used.includes(id)) : allCandidates;
-    if (!candidates.length) continue;
+    if (!candidates.length) {
+      // 角笛の「most」は交換がない場合だけ現在の宣言をそのまま確定する。
+      // 候補がない交換はダイアログを出さずにスキップする。
+      if (playerHasEquipment(game, sourceId, 'ゴンドールの角笛')) {
+        game.mostSuitDeclarationReady ||= {};
+        game.mostSuitDeclarationReady[sourceId] = true;
+      }
+      continue;
+    }
     // 複数回効果は同じキャラクターをキュー先頭へ戻して、完了ごとに次の相手へ進める。
     game.exchangeQueue.unshift(sourceId);
     game.pendingExchange = {
@@ -3948,6 +3981,11 @@ async function claimContinuationEquipment(){
       kind:'equipment', ...game.continuationEquipment,
       id:`${state.userId}-continuation-equipment-${Date.now()}`
     });
+    if (game.continuationEquipment.name === 'ゴンドールの角笛') {
+      updateMostSuitDeclaration(room, state.userId);
+      game.mostSuitDeclarationReady ||= {};
+      delete game.mostSuitDeclarationReady[state.userId];
+    }
     game.continuationEquipmentOwnerId = state.userId;
     finishCharacterSelection(room);
     return room;
@@ -4116,7 +4154,13 @@ function renderThreatChoice(){
   }
   const stage = STAGES.find(item => item.number === Number(state.game.stageNumber));
   const threat = stage?.threats?.[0] || { min:1, max:4 };
+  const occupiedThreatNumbers = new Set(Object.entries(state.game?.threatCards || {})
+    .filter(([playerId]) => playerId !== state.userId)
+    .flatMap(([, cards]) => cards || [])
+    .filter(card => card.kind === 'threat')
+    .map(card => Number(card.number)));
   for (let number = threat.min; number <= threat.max; number += 1) {
+    if (occupiedThreatNumbers.has(number)) continue;
     const button = document.createElement('button');
     button.className = 'threat-choice'; button.textContent = number;
     attachTwoSecondHold(button, () => chooseAragornThreat(number));
@@ -4159,9 +4203,25 @@ async function chooseAragornThreat(number){
     const stage = STAGES.find(item => item.number === Number(game.stageNumber));
     const threat = stage?.threats?.[0] || { name:'脅威カード', min:1, max:4 };
     if (number < threat.min || number > threat.max) return;
+    const occupiedByAnotherPlayer = Object.entries(game.threatCards || {})
+      .filter(([playerId]) => playerId !== state.userId)
+      .flatMap(([, cards]) => cards || [])
+      .some(card => card.kind === 'threat' && Number(card.number) === Number(number));
+    if (occupiedByAnotherPlayer) return;
     game.threatCards ||= {};
-    game.threatCards[state.userId] = [{ kind:'threat', color:'threat', name:threat.name, number, id:`${state.userId}-threat-${Date.now()}-${number}` }];
+    const selectedAt = Date.now();
+    const selectedCard = {
+      kind:'threat', color:'threat', name:threat.name, number,
+      id:`${state.userId}-threat-${selectedAt}-${number}`,
+      numberRevealedAt:selectedAt + 3500
+    };
+    game.threatCards[state.userId] = [selectedCard];
     if (game.threatDeck) game.threatDeck = game.threatDeck.filter(rank => Number(rank) !== Number(number));
+    // 任意の数字を選んだ場合も通常のドローと同じ転送情報を作り、デッキから
+    // めくって獲得位置へ飛ぶアニメーションが完了してから次の効果へ進める。
+    game.characterEffectThreatDrawn ||= {};
+    game.characterEffectThreatDrawn[state.userId] = true;
+    game.threatDrawTransfer = { playerId:state.userId, card:selectedCard, movedAt:selectedAt };
     delete game.threatDrawPlayerId;
     beginNextExchange(game);
     return game;
@@ -5154,6 +5214,12 @@ async function chooseExchangeCard(cardId, droppedTargetId){
     game.completedExchangeCounts[exchange.sourceId] = (game.completedExchangeCounts[exchange.sourceId] || 0) + 1;
     game.effectExchangeTargets ||= {}; game.effectExchangeTargets[exchange.sourceId] ||= [];
     game.effectExchangeTargets[exchange.sourceId].push(exchange.targetId);
+    if (playerHasEquipment(game, exchange.sourceId, 'ゴンドールの角笛')) {
+      // 交換後の実際の手札を基準に宣言し、その時点で初めてmostマーカーを公開する。
+      updateMostSuitDeclaration(room, exchange.sourceId);
+      game.mostSuitDeclarationReady ||= {};
+      game.mostSuitDeclarationReady[exchange.sourceId] = true;
+    }
     delete game.exchangeOfferTransfer;
     delete game.pendingExchange;
     beginNextExchange(game);
@@ -5216,9 +5282,10 @@ function completeCurrentTrick(room, yellowOneWins = false){
   const bilboChoosesNextLeader = !oldForestWins && winningCharacter === 'ビルボ・バギンズ';
   game.turnPlayerId = bilboChoosesNextLeader ? null : (oldForestWins ? leadPlayerId : winnerId);
   game.trickNumber = (game.trickNumber || 1) + 1;
-  const tomPlayerId = Object.entries(game.characterSelections || {}).find(([, character]) => character.name === 'トム・ボンバディル')?.[0];
   const ordinaryCardsRemain = id => (room.hands?.[id]?.cards || []).some(card => card.kind !== 'character');
-  game.finished = tomPlayerId ? order.some(id => id !== tomPlayerId && !ordinaryCardsRemain(id)) : order.every(id => !ordinaryCardsRemain(id));
+  // 効果で一人だけ手札が多くなったラウンドは、ほかの全員が出し切った時点で終了し、
+  // 多いプレイヤーの残り手札を結果確認に残す。
+  game.finished = order.filter(ordinaryCardsRemain).length <= 1;
   if (!game.finished && bilboChoosesNextLeader) game.pendingCapture.bilboChoosesNextLeader = true;
 }
 
@@ -5826,6 +5893,15 @@ function beginExchangeCardDrag(event, cardData, source){
   source.addEventListener('pointercancel', cancel, { once:true });
 }
 
+function playableHandCards(game, cards, playerId){
+  const unavailableIds = new Set();
+  const shadowfaxReserved = game?.shadowfaxReservedCard;
+  const radagastReserved = game?.radagastReservedCard;
+  if (shadowfaxReserved?.playerId === playerId && !shadowfaxReserved.inHand) unavailableIds.add(shadowfaxReserved.id);
+  if (radagastReserved?.playerId === playerId && !radagastReserved.inHand) unavailableIds.add(radagastReserved.id);
+  return cards.filter(card => card.kind !== 'character' && !unavailableIds.has(card.id));
+}
+
 function canFollowSuit(card){
   const ignoresSuit = ignoresFollowSuit(state.game, state.userId);
   const trick = state.game?.trick || {};
@@ -5837,7 +5913,7 @@ function canFollowSuit(card){
   }
   if (ignoresSuit) return true;
   const leadColor = plays.sort((a,b) => a.order-b.order)[0].card.color;
-  const cards = (state.hands[state.userId]?.cards || []).filter(card => card.kind !== 'character');
+  const cards = playableHandCards(state.game, state.hands[state.userId]?.cards || [], state.userId);
   return card.color === leadColor || !cards.some(c => c.color === leadColor);
 }
 
@@ -5901,7 +5977,8 @@ async function playCard(cardIndex, expectedCard){
     if (existing.length) {
       const lead = existing[0].card.color;
       const ignoresSuit = ignoresFollowSuit(room.game, state.userId);
-      if (!ignoresSuit && card.color !== lead && hand.some(c => c.color === lead)) return;
+      if (!ignoresSuit && card.color !== lead
+        && playableHandCards(room.game, hand, state.userId).some(c => c.color === lead)) return;
     }
     hand.splice(cardIndex, 1);
     room.hands[state.userId].cards = hand;
@@ -6249,12 +6326,8 @@ async function chooseCharacter(characterName, source){
         room.game.threatCards[state.userId] = room.game.threatCards[state.userId].filter(card => card.kind !== 'threat');
       }
       if (characterName === 'ボロミア') {
-        const counts = {};
-        room.hands[state.userId].cards.filter(card => CARD_TYPES.some(type => type.color === card.color))
-          .forEach(card => { counts[card.color] = (counts[card.color] || 0) + 1; });
-        const most = Math.max(0, ...Object.values(counts));
-        room.game.mostSuitDeclarations ||= {};
-        room.game.mostSuitDeclarations[state.userId] = CARD_TYPES.map(type => type.color).filter(color => counts[color] === most);
+        // 交換がない場合の宣言値を先に保存するが、表示はボロミアの効果順まで待つ。
+        updateMostSuitDeclaration(room, state.userId);
       }
     }
     if (Number(room.game.stageNumber) === 12 && characterName === 'ガンダルフ') {
@@ -6922,7 +6995,8 @@ function renderPlayerCircle(players){
       });
 
       tag.appendChild(miniHand);
-      const mostSuits = state.game?.mostSuitDeclarations?.[p.id] || [];
+      const mostSuits = state.game?.mostSuitDeclarationReady?.[p.id]
+        ? state.game?.mostSuitDeclarations?.[p.id] || [] : [];
       if (mostSuits.length) {
         const marker = document.createElement('div'); marker.className = 'most-suit-marker';
         mostSuits.forEach(color => { const square = document.createElement('span'); square.className = `victory-condition-square ${color}`; marker.append(square); });
@@ -7130,9 +7204,13 @@ function renderPlayerCircle(players){
     // 自分の獲得カードは端末ごとの盤面幅に左右されず、画面左端から8pxの位置に置く。
     // capture-circle は中央基準（translateX(-50%)）なので、半幅を加えた座標を盤面内の割合へ変換する。
     const circleRect = playerCircle.getBoundingClientRect();
-    const captureX = isMe
+    const rawCaptureX = isMe
       ? (8 + 38 / 2 - circleRect.left) / circleSize * 100
       : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
+    // 狭いスマートフォンでは左席の公開キャラクターが円の外へ大きく張り出す。
+    // 勝利条件アイコンの幅も含めて画面左端から40px以上を確保する。
+    const minimumCaptureX = (40 - circleRect.left) / circleSize * 100;
+    const captureX = isMe ? rawCaptureX : Math.max(rawCaptureX, minimumCaptureX);
     const captureY = isMe ? 92 + 40 / circleHeight * 100 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
