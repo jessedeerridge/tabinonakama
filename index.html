@@ -424,6 +424,7 @@
   .hold-decision{position:relative;min-width:92px;overflow:hidden;user-select:none;touch-action:none;}
   .hold-decision[data-yellow-decision="yes"]{background:#d5a313;color:#111;border-color:#f1cf62;}
   .hold-decision[data-yellow-decision="no"]{background:#161616;color:#fff;border-color:#b99126;}
+  .hold-decision.fellowship-group-complete:disabled{background:#6b7280;color:#fff;border-color:#6b7280;opacity:1;cursor:not-allowed;filter:none;}
   .hold-decision::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,.24);transform:scaleX(var(--hold-progress,0));transform-origin:left;z-index:0;}
   .hold-decision>span{position:relative;z-index:1;}
   .yellow-one-note{position:absolute;right:10px;bottom:6px;font-size:10px;font-weight:700;}
@@ -1387,7 +1388,7 @@ defineStage(14, {
 defineStage(15, {
   title: 'ロスローリエンの森',
   story: '凍える夜風が谷を吹き上がり、彼らに冷たく吹きつけた。彼らの前には、広がる灰色の影がぼんやりと立ち現れ、そよ風に揺れるポプラの葉のように、木々のざわめきが絶え間なく響いていた。「ロスローリエン！」レゴラスは叫んだ。「ロスローリエンだ！金色の森の入り口まで来たのだ。ああ、これが冬でなければ！」',
-  characters: ['gimli,orophin_rumil,haldir*,legolas'],
+  characters: ['gimli*,orophin_rumil,haldir*,legolas'],
   threats: [{ name:'脅威', min:1, max:7 }],
   winCondition: 'short', goal: 'allwin',
   additionalElements: '〈目隠し〉を〈ギムリ〉に渡す。',
@@ -2369,9 +2370,21 @@ function achievedLongChapterCharacters(room = state.room){
   return achieved;
 }
 
+function completedFellowshipGroups(room = state.room){
+  const completed = new Set(Object.keys(room?.longChapterProgress?.fellowshipGroups || {})
+    .filter(groupNumber => room.longChapterProgress.fellowshipGroups[groupNumber]));
+  const game = room?.game;
+  if (Number(game?.stageNumber) === 18 && game?.chapterOutcome?.status === 'complete'
+      && [1, 2].includes(Number(game.selectedFellowshipGroup))) {
+    completed.add(String(game.selectedFellowshipGroup));
+  }
+  return completed;
+}
+
 function isLongChapterComplete(room = state.room){
   const stage = STAGES.find(item => item.number === Number(room?.game?.stageNumber));
   if (stage?.winCondition !== 'long') return false;
+  if (Number(stage.number) === 18) return completedFellowshipGroups(room).size === 2;
   const achieved = achievedLongChapterCharacters(room);
   return (room?.game?.availableCharacters || []).every(character =>
     ((Number(stage.number) === 13 && character.name === '小馬のビル')
@@ -5078,6 +5091,7 @@ async function chooseFellowshipGroup(groupNumber){
     const game = room?.game;
     if (Number(game?.stageNumber) !== 18 || game.phase !== 'fellowship-group-selection'
         || game.groupChooserPlayerId !== state.userId) return;
+    if (room.longChapterProgress?.fellowshipGroups?.[groupNumber]) return;
     const groups = game.fellowshipGroups || {};
     game.selectedFellowshipGroup = groupNumber;
     game.availableCharacters = groups[groupNumber] || [];
@@ -5095,8 +5109,12 @@ function renderFellowshipGroupDecision(){
     && state.game?.phase === 'fellowship-group-selection'
     && state.game?.groupChooserPlayerId === state.userId;
   fellowshipGroupDecision.classList.toggle('hidden', !active);
+  const completed = completedFellowshipGroups();
   fellowshipGroupDecision.querySelectorAll('button').forEach(button => {
-    button.disabled = !active;
+    const isComplete = completed.has(button.dataset.fellowshipGroup);
+    button.classList.toggle('fellowship-group-complete', isComplete);
+    button.disabled = !active || isComplete;
+    button.setAttribute('aria-label', `${button.textContent}${isComplete ? '（クリア済み）' : ''}`);
   });
 }
 
@@ -7845,6 +7863,10 @@ chapterContinueBtn.addEventListener('click', async () => {
               room.longChapterProgress.characters[character.name] = true;
             }
           });
+          if (Number(room.game.stageNumber) === 18 && [1, 2].includes(Number(room.game.selectedFellowshipGroup))) {
+            room.longChapterProgress.fellowshipGroups ||= {};
+            room.longChapterProgress.fellowshipGroups[room.game.selectedFellowshipGroup] = true;
+          }
           if (room.game.continuationChallengeActive && room.game.continuationSpecialThreat?.name) {
             room.longChapterProgress.continuationThreats ||= {};
             room.longChapterProgress.continuationThreats[room.game.continuationSpecialThreat.name] = true;
@@ -7857,14 +7879,13 @@ chapterContinueBtn.addEventListener('click', async () => {
     const room = result.snapshot.val();
     if (!result.committed || room?.game?.continueClaim !== claim) return;
     const stage = STAGES.find(item => item.number === Number(room.game.stageNumber));
-    const longChapterCharacters = Number(stage?.number) === 18
-      ? Object.values(room.game.fellowshipGroups || {}).flat()
-      : (room.game.availableCharacters || []);
-    const allLongCharactersAchieved = stage?.winCondition === 'long'
-      && longChapterCharacters.every(character =>
+    const longChapterCharacters = room.game.availableCharacters || [];
+    const allLongCharactersAchieved = stage?.winCondition === 'long' && (Number(stage.number) === 18
+      ? [1, 2].every(groupNumber => room.longChapterProgress?.fellowshipGroups?.[groupNumber])
+      : longChapterCharacters.every(character =>
         ((Number(stage.number) === 13 && character.name === '小馬のビル')
           || (Number(stage.number) === 17 && character.name === 'ケレボルン'))
-        || room.longChapterProgress?.characters?.[character.name]);
+        || room.longChapterProgress?.characters?.[character.name]));
     const repeatChapter = stage?.winCondition === 'long'
       ? !allLongCharactersAchieved
       : room.game.chapterOutcome.status === 'failed';
