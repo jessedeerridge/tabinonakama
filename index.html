@@ -2789,6 +2789,9 @@ const animatedThreatDrawTransfers = new Set();
 // Realtime Database はローカル書き込みとサーバー確認を別々に通知することがある。
 // 転送時刻だけでなくカード ID 単位でも実行中 Promise を共有し、同じ札の飛行体を同時に2枚作らない。
 const threatDrawAnimations = new Map();
+// 別々のカードでも、前のドローが着地する前に次の効果が進むと飛行体が同時に現れる。
+// 脅威ドローという「アクション」単位で直列化し、盤面上には常に1アクションだけを流す。
+let threatDrawAnimationTail = Promise.resolve();
 // 転送データと到着先カードは同じRealtime Database更新で届くため、DOM描画の完了とは別に
 // 「着地済み」を記録する。飛行カードが着くまで実カードを表示しないための唯一の判定源にする。
 const landedThreatDrawTransfers = new Set();
@@ -4349,7 +4352,11 @@ function animateThreatDraw(sourceRect, transfer, transferKey){
   if (!animationKey) return Promise.resolve();
   const running = threatDrawAnimations.get(animationKey);
   if (running) return running;
-  const animation = runThreatDrawAnimation(sourceRect, transfer, transferKey);
+  // 直前の演出が失敗・キャンセルされてもキューを止めず、次のアクションを必ず開始する。
+  const animation = threatDrawAnimationTail
+    .catch(() => {})
+    .then(() => runThreatDrawAnimation(sourceRect, transfer, transferKey));
+  threatDrawAnimationTail = animation;
   threatDrawAnimations.set(animationKey, animation);
   const release = () => {
     if (threatDrawAnimations.get(animationKey) === animation) threatDrawAnimations.delete(animationKey);
@@ -4361,7 +4368,11 @@ function animateThreatDraw(sourceRect, transfer, transferKey){
 async function runThreatDrawAnimation(sourceRect, transfer, transferKey){
   if (!transfer?.card && transfer?.cards?.length) {
     await Promise.all(transfer.cards.map((card, index) => new Promise(resolve => {
-      setTimeout(() => animateThreatDraw(sourceRect, { ...transfer, card }, `${transferKey}:${card.id}`).finally(resolve), index * 120);
+      // 同一アクション内の複数枚（重荷アラゴルン）は意図した扇状ドローなので、
+      // 外側のアクションキューへ入れ直さず、ここでのみ時間差を付けて並行実行する。
+      setTimeout(() => runThreatDrawAnimation(
+        sourceRect, { ...transfer, card }, `${transferKey}:${card.id}`
+      ).then(resolve, resolve), index * 120);
     })));
     landedThreatDrawTransfers.add(transferKey);
     activeThreatDrawTransfers.delete(transferKey);
@@ -4372,6 +4383,10 @@ async function runThreatDrawAnimation(sourceRect, transfer, transferKey){
     activeThreatDrawTransfers.delete(transferKey);
     return;
   }
+  // 待ち行列にいる間にレイアウトが変わるため、実行開始時のデッキ位置を採用する。
+  // デッキが既に空になった場合だけ、通知受信時に保存した位置へフォールバックする。
+  const liveSourceRect = threatDeck?.getBoundingClientRect();
+  if (liveSourceRect?.width) sourceRect = liveSourceRect;
   const target = document.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
   const targetRect = target?.getBoundingClientRect();
   if (!sourceRect?.width || !targetRect?.width) {
