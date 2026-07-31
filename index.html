@@ -180,12 +180,8 @@
   .event-equipment-card .event-card-hammer{width:5.86px;height:5.86px;margin-right:1.46px;}
   .event-equipment-card .event-card-gap{height:2.2px;}
   /* 通常装備はイベント札やキャラクター札ではなく、専用の装備札フォーマットで表示する。 */
-  .item-equipment-card{--equipment-frame:#aeb8c5;--equipment-panel:#fff8e8;border-color:var(--equipment-frame);background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  .item-equipment-card{--equipment-frame:#aeb8c5;--equipment-panel:#fff8e8;--character-frame:var(--equipment-frame);--character-panel:var(--equipment-panel);--character-inner-frame:#eef3f8;--character-label-frame:color-mix(in srgb,var(--equipment-frame) 50%,transparent);--character-label-panel:color-mix(in srgb,var(--equipment-panel) 50%,transparent);border-color:var(--equipment-frame);background-color:transparent;background-position:center;background-size:cover;background-repeat:no-repeat;box-shadow:0 4px 12px rgba(40,51,65,.25),inset 0 0 0 2px #eef3f8;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
   .item-equipment-card::after{content:'';position:absolute;inset:0;border:2px solid #eef3f8;border-radius:6px;box-sizing:border-box;pointer-events:none;z-index:4;}
-  .equipment-name,.equipment-special{position:absolute;right:2px;box-sizing:border-box;background:color-mix(in srgb,var(--equipment-frame) 50%,transparent);color:#3f3021;font-weight:900;text-align:right;isolation:isolate;overflow:hidden;}
-  .equipment-name::before,.equipment-special::before{content:'';position:absolute;inset:1px;background:color-mix(in srgb,var(--equipment-panel) 50%,transparent);z-index:-1;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);}
-  .equipment-name{top:1px;width:max-content;max-width:100%;height:15.3px;padding:0 4.5px 0 16px;font-size:9px;line-height:15.3px;white-space:nowrap;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);}
-  .equipment-special{top:17px;width:48px;max-width:48px;padding:2.4px 4px 2.4px 18px;font-size:6px;line-height:1.2;clip-path:polygon(6.3px 50%,16.2px 0,100% 0,100% 100%,16.2px 100%);}
   .equipment-effect{position:absolute;left:-4px;right:-4px;bottom:-4px;min-height:64px;padding:12px 5px 6px;box-sizing:border-box;background:var(--equipment-frame);isolation:isolate;display:flex;flex-direction:column;gap:2px;font-size:6px;line-height:1.2;text-align:left;clip-path:polygon(0 10px,30% 6px,70% 6px,100% 10px,100% 100%,0 100%);}
   .equipment-effect::before{content:'';position:absolute;inset:1px;background:var(--equipment-panel);z-index:-1;clip-path:polygon(0 10px,30% 6px,70% 6px,100% 10px,100% 100%,0 100%);}
   .most-suit-marker{position:absolute;left:50%;top:calc(100% + 64px);transform:translateX(-50%);display:flex;align-items:center;gap:2px;color:#111;font:700 10px/15px system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;z-index:30;}
@@ -1478,6 +1474,16 @@ const STAGE_ELEVEN_EQUIPMENT = {
   'ボロミア':{ name:'ゴンドールの角笛', specialName:'家宝', effect:'ゲームの準備中、手札にある最も多いスートを宣言する。', cardNumber:'2.43', rank:'黒', image:'tunobue.jpg' }
 };
 
+function updateMostSuitDeclaration(room, playerId){
+  const counts = {};
+  (room.hands?.[playerId]?.cards || []).filter(card => CARD_TYPES.some(type => type.color === card.color))
+    .forEach(card => { counts[card.color] = (counts[card.color] || 0) + 1; });
+  const most = Math.max(0, ...Object.values(counts));
+  room.game.mostSuitDeclarations ||= {};
+  room.game.mostSuitDeclarations[playerId] = CARD_TYPES.map(type => type.color)
+    .filter(color => counts[color] === most);
+}
+
 const MITHRIL_COAT = {
   name:'ミスリルの胴着', specialName:'鋼よりも堅い',
   effect:'ラウンド終了時、キャラクター1人の目的が未達成なら、このカードを捨て札にして達成したものとして扱う。',
@@ -1731,13 +1737,15 @@ function createEquipmentCardElement(cardData){
     card.innerHTML = '<div class="event-card-title"></div><div class="event-card-text"></div>';
     requestAnimationFrame(() => populateEventCardElement(card, cardData.eventData, { maxFontSize:7.32, minFontSize:2.2 }));
   } else {
-    card.className = 'my-card equipment-card item-equipment-card';
+    // 通常装備の名前欄と特殊名欄はキャラクターカードと同じDOM・組版規則を使う。
+    card.className = 'my-card equipment-card item-equipment-card character-card';
     card.setAttribute('aria-label', `装備カード ${cardData.name}`);
     const name = document.createElement('span');
-    name.className = 'equipment-name';
+    name.className = 'character-label equipment-name';
     name.textContent = cardData.name;
+    fitCharacterName(name);
     const special = document.createElement('span');
-    special.className = 'equipment-special';
+    special.className = 'character-label character-special equipment-special';
     appendWrappedCharacterName(special, cardData.specialName || '特殊名');
     const effect = document.createElement('div');
     effect.className = 'equipment-effect';
@@ -3755,14 +3763,28 @@ function beginNextExchange(game){
     game.exchangeQueue.shift();
     const requirement = exchangeRequirement(game, sourceId);
     const completed = game.completedExchangeCounts?.[sourceId] || 0;
-    if (completed >= requirement.count) continue;
+    if (completed >= requirement.count) {
+      if (requirement.count === 0 && playerHasEquipment(game, sourceId, 'ゴンドールの角笛')) {
+        game.mostSuitDeclarationReady ||= {};
+        game.mostSuitDeclarationReady[sourceId] = true;
+      }
+      continue;
+    }
     const allCandidates = requirement.mode === 'give-right'
       ? [game.playerOrder[(game.playerOrder.indexOf(sourceId) - 1 + game.playerOrder.length) % game.playerOrder.length]]
       : exchangeCandidates(game, sourceId);
     const used = game.effectExchangeTargets?.[sourceId] || [];
     const candidates = requirement.mode === 'exchange-all' || characterName === '小馬のビル' || requirement.mode === 'give'
       ? allCandidates.filter(id => !used.includes(id)) : allCandidates;
-    if (!candidates.length) continue;
+    if (!candidates.length) {
+      // 角笛の「most」は交換がない場合だけ現在の宣言をそのまま確定する。
+      // 候補がない交換はダイアログを出さずにスキップする。
+      if (playerHasEquipment(game, sourceId, 'ゴンドールの角笛')) {
+        game.mostSuitDeclarationReady ||= {};
+        game.mostSuitDeclarationReady[sourceId] = true;
+      }
+      continue;
+    }
     // 複数回効果は同じキャラクターをキュー先頭へ戻して、完了ごとに次の相手へ進める。
     game.exchangeQueue.unshift(sourceId);
     game.pendingExchange = {
@@ -3959,6 +3981,11 @@ async function claimContinuationEquipment(){
       kind:'equipment', ...game.continuationEquipment,
       id:`${state.userId}-continuation-equipment-${Date.now()}`
     });
+    if (game.continuationEquipment.name === 'ゴンドールの角笛') {
+      updateMostSuitDeclaration(room, state.userId);
+      game.mostSuitDeclarationReady ||= {};
+      delete game.mostSuitDeclarationReady[state.userId];
+    }
     game.continuationEquipmentOwnerId = state.userId;
     finishCharacterSelection(room);
     return room;
@@ -4127,7 +4154,13 @@ function renderThreatChoice(){
   }
   const stage = STAGES.find(item => item.number === Number(state.game.stageNumber));
   const threat = stage?.threats?.[0] || { min:1, max:4 };
+  const occupiedThreatNumbers = new Set(Object.entries(state.game?.threatCards || {})
+    .filter(([playerId]) => playerId !== state.userId)
+    .flatMap(([, cards]) => cards || [])
+    .filter(card => card.kind === 'threat')
+    .map(card => Number(card.number)));
   for (let number = threat.min; number <= threat.max; number += 1) {
+    if (occupiedThreatNumbers.has(number)) continue;
     const button = document.createElement('button');
     button.className = 'threat-choice'; button.textContent = number;
     attachTwoSecondHold(button, () => chooseAragornThreat(number));
@@ -4170,6 +4203,11 @@ async function chooseAragornThreat(number){
     const stage = STAGES.find(item => item.number === Number(game.stageNumber));
     const threat = stage?.threats?.[0] || { name:'脅威カード', min:1, max:4 };
     if (number < threat.min || number > threat.max) return;
+    const occupiedByAnotherPlayer = Object.entries(game.threatCards || {})
+      .filter(([playerId]) => playerId !== state.userId)
+      .flatMap(([, cards]) => cards || [])
+      .some(card => card.kind === 'threat' && Number(card.number) === Number(number));
+    if (occupiedByAnotherPlayer) return;
     game.threatCards ||= {};
     const selectedAt = Date.now();
     const selectedCard = {
@@ -5176,6 +5214,12 @@ async function chooseExchangeCard(cardId, droppedTargetId){
     game.completedExchangeCounts[exchange.sourceId] = (game.completedExchangeCounts[exchange.sourceId] || 0) + 1;
     game.effectExchangeTargets ||= {}; game.effectExchangeTargets[exchange.sourceId] ||= [];
     game.effectExchangeTargets[exchange.sourceId].push(exchange.targetId);
+    if (playerHasEquipment(game, exchange.sourceId, 'ゴンドールの角笛')) {
+      // 交換後の実際の手札を基準に宣言し、その時点で初めてmostマーカーを公開する。
+      updateMostSuitDeclaration(room, exchange.sourceId);
+      game.mostSuitDeclarationReady ||= {};
+      game.mostSuitDeclarationReady[exchange.sourceId] = true;
+    }
     delete game.exchangeOfferTransfer;
     delete game.pendingExchange;
     beginNextExchange(game);
@@ -6282,12 +6326,8 @@ async function chooseCharacter(characterName, source){
         room.game.threatCards[state.userId] = room.game.threatCards[state.userId].filter(card => card.kind !== 'threat');
       }
       if (characterName === 'ボロミア') {
-        const counts = {};
-        room.hands[state.userId].cards.filter(card => CARD_TYPES.some(type => type.color === card.color))
-          .forEach(card => { counts[card.color] = (counts[card.color] || 0) + 1; });
-        const most = Math.max(0, ...Object.values(counts));
-        room.game.mostSuitDeclarations ||= {};
-        room.game.mostSuitDeclarations[state.userId] = CARD_TYPES.map(type => type.color).filter(color => counts[color] === most);
+        // 交換がない場合の宣言値を先に保存するが、表示はボロミアの効果順まで待つ。
+        updateMostSuitDeclaration(room, state.userId);
       }
     }
     if (Number(room.game.stageNumber) === 12 && characterName === 'ガンダルフ') {
@@ -6955,7 +6995,8 @@ function renderPlayerCircle(players){
       });
 
       tag.appendChild(miniHand);
-      const mostSuits = state.game?.mostSuitDeclarations?.[p.id] || [];
+      const mostSuits = state.game?.mostSuitDeclarationReady?.[p.id]
+        ? state.game?.mostSuitDeclarations?.[p.id] || [] : [];
       if (mostSuits.length) {
         const marker = document.createElement('div'); marker.className = 'most-suit-marker';
         mostSuits.forEach(color => { const square = document.createElement('span'); square.className = `victory-condition-square ${color}`; marker.append(square); });
@@ -7163,9 +7204,13 @@ function renderPlayerCircle(players){
     // 自分の獲得カードは端末ごとの盤面幅に左右されず、画面左端から8pxの位置に置く。
     // capture-circle は中央基準（translateX(-50%)）なので、半幅を加えた座標を盤面内の割合へ変換する。
     const circleRect = playerCircle.getBoundingClientRect();
-    const captureX = isMe
+    const rawCaptureX = isMe
       ? (8 + 38 / 2 - circleRect.left) / circleSize * 100
       : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
+    // 狭いスマートフォンでは左席の公開キャラクターが円の外へ大きく張り出す。
+    // 勝利条件アイコンの幅も含めて画面左端から40px以上を確保する。
+    const minimumCaptureX = (40 - circleRect.left) / circleSize * 100;
+    const captureX = isMe ? rawCaptureX : Math.max(rawCaptureX, minimumCaptureX);
     const captureY = isMe ? 92 + 40 / circleHeight * 100 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
