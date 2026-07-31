@@ -1913,6 +1913,7 @@ window.addEventListener('resize', () => {
   if (arasujisquareStory.textContent) fitBlockText(arasujisquareStory, 9, 4);
   updateWinningConditionOverflow();
   renderMyHand();
+  if (latestPlayers.length) renderPlayerCircle(latestPlayers);
   updateCharacterChoiceScales();
 });
 
@@ -7204,13 +7205,9 @@ function renderPlayerCircle(players){
     // 自分の獲得カードは端末ごとの盤面幅に左右されず、画面左端から8pxの位置に置く。
     // capture-circle は中央基準（translateX(-50%)）なので、半幅を加えた座標を盤面内の割合へ変換する。
     const circleRect = playerCircle.getBoundingClientRect();
-    const rawCaptureX = isMe
+    let captureX = isMe
       ? (8 + 38 / 2 - circleRect.left) / circleSize * 100
       : x + (-24 - tag.offsetWidth / 2) / circleSize * 100;
-    // 狭いスマートフォンでは左席の公開キャラクターが円の外へ大きく張り出す。
-    // 勝利条件アイコンの幅も含めて画面左端から40px以上を確保する。
-    const minimumCaptureX = (40 - circleRect.left) / circleSize * 100;
-    const captureX = isMe ? rawCaptureX : Math.max(rawCaptureX, minimumCaptureX);
     const captureY = isMe ? 92 + 40 / circleHeight * 100 : y + (-33 - tag.offsetHeight / 2) / circleHeight * 100;
     capture.style.left = `${captureX}%`;
     capture.style.top = `${captureY}%`;
@@ -7248,6 +7245,30 @@ function renderPlayerCircle(players){
           characterBundle.append(marker);
         }
         capture.appendChild(characterBundle);
+      }
+    }
+    // 左半分の席は、固定の中心座標ではなく実際に描画されたカードと勝利条件の外接矩形で補正する。
+    // 勝利条件ごとに幅が異なるため、固定40pxの余白では長い条件がスマホ画面からはみ出していた。
+    if (!isMe && x < 50 && capture.querySelector('.character-capture')) {
+      playerCircle.appendChild(capture);
+      const boundedElements = capture.querySelectorAll(
+        '.character-capture>.capture-card, .character-capture>.victory-condition-icon'
+      );
+      const bounds = Array.from(boundedElements, element => element.getBoundingClientRect());
+      if (bounds.length) {
+        const viewportPadding = 8;
+        const visualLeft = Math.min(...bounds.map(rect => rect.left));
+        const visualRight = Math.max(...bounds.map(rect => rect.right));
+        let viewportShift = Math.max(0, viewportPadding - visualLeft);
+        const shiftedRight = visualRight + viewportShift;
+        if (shiftedRight > window.innerWidth - viewportPadding) {
+          viewportShift -= shiftedRight - (window.innerWidth - viewportPadding);
+        }
+        if (Math.abs(viewportShift) >= .5) {
+          capture.style.left = `calc(${captureX}% + ${viewportShift}px)`;
+          // 後続の獲得アニメーションにも補正後の実座標を渡す。
+          captureX += viewportShift / circleSize * 100;
+        }
       }
     }
     const characterOffsetCount = !isMe && character ? 1 : 0;
