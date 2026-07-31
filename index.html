@@ -2780,12 +2780,17 @@ let threatDrawTimer = null;
 let threatNumberRevealTimer = null;
 let effectTransitionTimer = null;
 let lastAnimatedBarrowDrawAt = null;
-let lastAnimatedThreatDrawAt = null;
 let lastAnimatedThreatRedrawAt = null;
 let lastAnimatedAragornThreatReturnAt = null;
 const animatingThreatCardIds = new Set();
 const activeThreatDrawTransfers = new Set();
 const animatedThreatDrawTransfers = new Set();
+// Realtime Database はローカル書き込みとサーバー確認を別々に通知することがある。
+// 転送時刻だけでなくカード ID 単位でも実行中 Promise を共有し、同じ札の飛行体を同時に2枚作らない。
+const threatDrawAnimations = new Map();
+// 別々のカードでも、前のドローが着地する前に次の効果が進むと飛行体が同時に現れる。
+// 脅威ドローという「アクション」単位で直列化し、盤面上には常に1アクションだけを流す。
+let threatDrawAnimationTail = Promise.resolve();
 // 転送データと到着先カードは同じRealtime Database更新で届くため、DOM描画の完了とは別に
 // 「着地済み」を記録する。飛行カードが着くまで実カードを表示しないための唯一の判定源にする。
 const landedThreatDrawTransfers = new Set();
@@ -3494,6 +3499,8 @@ function scheduleThreatDraw(){
   const requestId = state.game?.threatDrawRequestId || `${state.game?.threatDrawPlayerId}-${drawAt}`;
   if (!drawAt || !state.roomCode) return;
   threatDrawTimer = setTimeout(async () => {
+    // RTDB transaction は競合時の暫定結果も既定でローカル通知する。ドロー演出は確定後の
+    // 1通知だけを受け取る必要があるため applyLocally を無効にする。
     await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
       if (!game?.pendingThreatDrawAt || game.pendingThreatDrawAt !== drawAt
         || (game.threatDrawRequestId && game.threatDrawRequestId !== requestId) || game.completedThreatDrawIds?.[requestId]
@@ -3506,9 +3513,9 @@ function scheduleThreatDraw(){
         game.threatDrawPlayerId = playerId;
         game.aragornBurdenThreatChoiceReadyAt = Date.now() + 2820;
         game.threatDrawTransfer = { playerId, cards:game.aragornBurdenThreatChoices.map(number => ({
-          kind:'threat', color:'threat', name:'脅威', number, id:`${playerId}-threat-choice-${Date.now()}-${number}`
-        })), movedAt:Date.now() };
-      } else drawThreatForCharacterEffect(game, playerId);
+          kind:'threat', color:'threat', name:'脅威', number, id:`${playerId}-threat-choice-${requestId}-${number}`
+        })), movedAt:drawAt };
+      } else drawThreatForCharacterEffect(game, playerId, { requestId, movedAt:drawAt });
       game.completedThreatDrawIds ||= {};
       game.completedThreatDrawIds[requestId] = Date.now();
       delete game.pendingThreatDrawAt;
@@ -3517,7 +3524,7 @@ function scheduleThreatDraw(){
       if (isBurdenAragorn) return game;
       continueAfterThreatDraw(game, playerId);
       return game;
-    });
+    }, { applyLocally:false });
   }, Math.max(0, drawAt - Date.now()) + 20);
 }
 
@@ -3929,7 +3936,7 @@ function oldForestWinsTrick(game, plays){
   return highestPlayedNumber < Number(game.oldForestRevealed.number);
 }
 
-function drawThreatForCharacterEffect(game, playerId){
+function drawThreatForCharacterEffect(game, playerId, drawIdentity = {}){
   const characterName = game.characterSelections?.[playerId]?.name;
   if (skipsCharacterThreatDraw(game, characterName)
       || !(characterDrawsThreat(characterName) || characterName === 'アラゴルン')) return false;
@@ -3944,20 +3951,28 @@ function drawThreatForCharacterEffect(game, playerId){
   if (!game.threatDeck.length) return false;
   const rank = game.threatDeck.shift();
   game.threatCards[playerId] ||= [];
+  // transaction の更新関数は競合時に複数回呼ばれる。ここで Date.now() を採番すると、
+  // 1回の論理ドローが別 ID のローカルイベントとして届き、同じ演出が2回再生される。
+  // 呼び出し側で一度だけ作った識別子を使い、再試行されても転送を同一に保つ。
+  const movedAt = Number(drawIdentity.movedAt) || Date.now();
+  const requestId = drawIdentity.requestId || `${playerId}-${movedAt}-${rank}`;
   const drawnCard = {
     kind:'threat', color:'threat', name:threat.name, number:rank,
-    id:`${playerId}-threat-${Date.now()}-${rank}`,
+    id:`${playerId}-threat-${requestId}-${rank}`,
     // 表示上の数字は、ドロー演出が獲得位置へ着地してから1秒間伏せておく。
-    numberRevealedAt:Date.now() + 3500
+    numberRevealedAt:movedAt + 3500
   };
   game.threatCards[playerId].push(drawnCard);
   game.characterEffectThreatDrawn ||= {};
   game.characterEffectThreatDrawn[playerId] = true;
-  game.threatDrawTransfer = { playerId, card:drawnCard, movedAt:Date.now() };
+  game.threatDrawTransfer = { playerId, card:drawnCard, movedAt };
   return true;
 }
 
 async function decideThreatRedraw(redraw){
+  const decisionAt = Date.now();
+  const redrawRequestId = `${state.userId}-threat-redraw-${decisionAt}`;
+  // 引き直しも同じく、transaction 再試行中の暫定カードでは演出しない。
   await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
     if (game?.phase !== 'threat-redraw-selection' || game.threatRedrawPlayerId !== state.userId
         || Date.now() < Number(game.threatRedrawReadyAt || 0)) return;
@@ -3969,8 +3984,8 @@ async function decideThreatRedraw(redraw){
         game.threatDeck.push(previous.number);
         game.threatCards[state.userId] = cards.filter(card => card !== previous);
         delete game.characterEffectThreatDrawn?.[state.userId];
-        drawThreatForCharacterEffect(game, state.userId);
-        game.threatRedrawTransfer = { playerId:state.userId, returnedCard:previous, movedAt:Date.now() };
+        drawThreatForCharacterEffect(game, state.userId, { requestId:redrawRequestId, movedAt:decisionAt });
+        game.threatRedrawTransfer = { playerId:state.userId, returnedCard:previous, movedAt:decisionAt };
       }
       game.threatRedrawUsed = true;
     }
@@ -3979,7 +3994,7 @@ async function decideThreatRedraw(redraw){
     delete game.threatRedrawPlayerId; delete game.threatRedrawReadyAt;
     beginNextExchange(game);
     return game;
-  });
+  }, { applyLocally:false });
 }
 
 threatRedrawDecision.querySelectorAll('.hold-decision').forEach(button => {
@@ -4339,10 +4354,34 @@ function animateBarrowDraw(sourceRect, transfer){
   lastAnimatedBarrowDrawAt = transfer.movedAt;
 }
 
-async function animateThreatDraw(sourceRect, transfer, transferKey){
+function animateThreatDraw(sourceRect, transfer, transferKey){
+  const animationKey = transfer?.card?.id
+    || (transfer?.cards || []).map(card => card.id).sort().join(',')
+    || transferKey;
+  if (!animationKey) return Promise.resolve();
+  const running = threatDrawAnimations.get(animationKey);
+  if (running) return running;
+  // 直前の演出が失敗・キャンセルされてもキューを止めず、次のアクションを必ず開始する。
+  const animation = threatDrawAnimationTail
+    .catch(() => {})
+    .then(() => runThreatDrawAnimation(sourceRect, transfer, transferKey));
+  threatDrawAnimationTail = animation;
+  threatDrawAnimations.set(animationKey, animation);
+  const release = () => {
+    if (threatDrawAnimations.get(animationKey) === animation) threatDrawAnimations.delete(animationKey);
+  };
+  animation.then(release, release);
+  return animation;
+}
+
+async function runThreatDrawAnimation(sourceRect, transfer, transferKey){
   if (!transfer?.card && transfer?.cards?.length) {
     await Promise.all(transfer.cards.map((card, index) => new Promise(resolve => {
-      setTimeout(() => animateThreatDraw(sourceRect, { ...transfer, card }, `${transferKey}:${card.id}`).finally(resolve), index * 120);
+      // 同一アクション内の複数枚（重荷アラゴルン）は意図した扇状ドローなので、
+      // 外側のアクションキューへ入れ直さず、ここでのみ時間差を付けて並行実行する。
+      setTimeout(() => runThreatDrawAnimation(
+        sourceRect, { ...transfer, card }, `${transferKey}:${card.id}`
+      ).then(resolve, resolve), index * 120);
     })));
     landedThreatDrawTransfers.add(transferKey);
     activeThreatDrawTransfers.delete(transferKey);
@@ -4353,6 +4392,10 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
     activeThreatDrawTransfers.delete(transferKey);
     return;
   }
+  // 待ち行列にいる間にレイアウトが変わるため、実行開始時のデッキ位置を採用する。
+  // デッキが既に空になった場合だけ、通知受信時に保存した位置へフォールバックする。
+  const liveSourceRect = threatDeck?.getBoundingClientRect();
+  if (liveSourceRect?.width) sourceRect = liveSourceRect;
   const target = document.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
   const targetRect = target?.getBoundingClientRect();
   if (!sourceRect?.width || !targetRect?.width) {
@@ -4410,14 +4453,13 @@ async function animateThreatDraw(sourceRect, transfer, transferKey){
       { left:`${latestTargetRect?.left ?? targetLeft}px`, top:`${latestTargetRect?.top ?? targetTop}px`, transform:`scale(${latestTargetRect?.width ? latestTargetRect.width / 82 : destinationScale}) rotateY(0deg)` }
     ], { duration:900, easing:'cubic-bezier(.22,.72,.22,1)', fill:'forwards' }).finished;
   } finally {
-    // 先に着地済みへ切り替え、次の同期再描画でも到着先が再び隠れないようにする。
+    // DOM の飛行札と到着札を同じフレーム内で交換する。到着札を先に表示して1フレーム待つと、
+    // 両方が重なる「二重発射」に見え、逆順では盤面が一瞬抜けてちらつく。
     landedThreatDrawTransfers.add(transferKey);
     animatingThreatCardIds.delete(transfer.card.id);
     const destination = document.querySelector(`[data-threat-card-id="${CSS.escape(transfer.card.id)}"]`);
-    destination?.classList.remove('threat-draw-target-hidden');
-    // 実カードを表示してから飛行カードを外し、到着時に背景が見えるフレームを作らない。
-    await new Promise(resolve => requestAnimationFrame(resolve));
     flight.remove();
+    destination?.classList.remove('threat-draw-target-hidden');
     activeThreatDrawTransfers.delete(transferKey);
   }
 }
@@ -4756,7 +4798,6 @@ function subscribeRoom(){
     const threatTransferKey = threatTransferIds && threatTransfer?.movedAt
       ? `${threatTransferIds}:${threatTransfer.movedAt}` : null;
     const shouldAnimateThreatDraw = Boolean(threatTransferKey
-      && threatTransfer.movedAt !== lastAnimatedThreatDrawAt
       && !animatedThreatDrawTransfers.has(threatTransferKey)
       && !activeThreatDrawTransfers.has(threatTransferKey)
       && !document.querySelector(`[data-threat-draw-transfer="${CSS.escape(threatTransferKey)}"]`));
@@ -4764,7 +4805,6 @@ function subscribeRoom(){
       // 再描画や重複購読が続いても、同じ転送を描画前に一度だけ確保する。
       activeThreatDrawTransfers.add(threatTransferKey);
       animatedThreatDrawTransfers.add(threatTransferKey);
-      lastAnimatedThreatDrawAt = threatTransfer.movedAt;
       (threatTransfer.cards || [threatTransfer.card]).filter(Boolean).forEach(card => animatingThreatCardIds.add(card.id));
     }
     const waiting = (!state.isHost && !state.room.maxPlayers);
