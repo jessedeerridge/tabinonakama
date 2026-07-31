@@ -646,7 +646,7 @@
 <section id="exchangeDialog" class="exchange-dialog hidden" aria-live="assertive">
   <div id="exchangeMessage" class="exchange-message"></div>
   <div id="exchangeTargets" class="exchange-targets"></div>
-  <div class="exchange-note">＊2秒クリックで決定。</div>
+  <div class="exchange-note">＊1秒長押しで決定。</div>
 </section>
 
 <section id="striderChoiceDialog" class="strider-choice-dialog hidden" aria-live="assertive">
@@ -655,7 +655,7 @@
     <button class="btn hold-decision" type="button" data-strider-choice="more"><span></span></button>
     <button class="btn hold-decision" type="button" data-strider-choice="less"><span></span></button>
   </div>
-  <div class="strider-choice-note">＊2秒長押しで決定。</div>
+  <div class="strider-choice-note">＊1秒長押しで決定。</div>
 </section>
 
 <div id="chapterCompleteBanner" class="chapter-complete-banner" role="status" aria-live="assertive"></div>
@@ -1963,7 +1963,7 @@ function playerName(playerId){
     || 'プレイヤー';
 }
 
-function attachTwoSecondHold(button, action){
+function attachOneSecondHold(button, action){
   let timer = null;
   let animation = null;
   const cancel = () => {
@@ -1976,8 +1976,8 @@ function attachTwoSecondHold(button, action){
     if (event.button !== undefined && event.button !== 0) return;
     event.preventDefault();
     button.setPointerCapture(event.pointerId);
-    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:2000, fill:'forwards' });
-    timer = setTimeout(() => { cancel(); action(); }, 2000);
+    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:1000, fill:'forwards' });
+    timer = setTimeout(() => { cancel(); action(); }, 1000);
   });
   button.addEventListener('pointerup', cancel);
   button.addEventListener('pointercancel', cancel);
@@ -2009,7 +2009,7 @@ function renderStriderChoice(){
 }
 
 striderChoiceDialog.querySelectorAll('.hold-decision').forEach(button => {
-  attachTwoSecondHold(button, () => chooseStriderComparison(button.dataset.striderChoice));
+  attachOneSecondHold(button, () => chooseStriderComparison(button.dataset.striderChoice));
 });
 
 function renderExchangeDialog(){
@@ -2030,7 +2030,7 @@ function renderExchangeDialog(){
       button.className = 'btn hold-decision exchange-target';
       button.innerHTML = `<span></span>`;
       button.firstElementChild.textContent = playerName(playerId);
-      attachTwoSecondHold(button, () => chooseExchangeTarget(playerId));
+      attachOneSecondHold(button, () => chooseExchangeTarget(playerId));
       exchangeTargets.appendChild(button);
     });
   } else if (choosingCard) {
@@ -2159,8 +2159,8 @@ yellowOneDecision.querySelectorAll('.hold-decision').forEach(button => {
     if (event.button !== undefined && event.button !== 0) return;
     event.preventDefault();
     button.setPointerCapture(event.pointerId);
-    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:2000, fill:'forwards' });
-    timer = setTimeout(() => { cancel(); decideYellowOne(button.dataset.yellowDecision === 'yes'); }, 2000);
+    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:1000, fill:'forwards' });
+    timer = setTimeout(() => { cancel(); decideYellowOne(button.dataset.yellowDecision === 'yes'); }, 1000);
   });
   button.addEventListener('pointerup', cancel);
   button.addEventListener('pointercancel', cancel);
