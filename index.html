@@ -2014,8 +2014,11 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   const trickCount = capturedTricks.length;
   const playerIds = game.playerOrder || [];
   const otherIds = playerIds.filter(id => id !== playerId);
-  const remainingRounds = Math.max(0, ...playerIds.map(id => (room.hands?.[id]?.cards || [])
-    .filter(card => card?.kind !== 'character').length));
+  const playedTrickCount = Math.max(0, Number(game.trickNumber || 1) - 1);
+  const remainingRounds = Number.isFinite(Number(game.totalTricks))
+    ? Math.max(0, Number(game.totalTricks) - playedTrickCount)
+    : Math.max(0, ...playerIds.map(id => (room.hands?.[id]?.cards || [])
+      .filter(card => card?.kind !== 'character').length));
   const victory = character.victory || characterCardData(character, playerId).victory;
   const isFinished = game.finished === true;
   const capturedCards = capturedTricks.flatMap(trick => trick.cards || []);
@@ -2198,12 +2201,15 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   }
 
   if (character.name === 'バーリマン・バタバー') {
-    // ラウンドは最少手札のプレイヤーが出し切ったトリックで終わるため、残り総数は途中でも計算できる。
-    // 現在のトリックが進行中の場合は、すでに出した人の1枚も残数へ戻して同じ基準にそろえる。
+    // 効果ターン終了時に固定した総トリック数を使い、途中の手札状態で「最後の3トリック」の
+    // 範囲が動かないようにする。旧データのみ現在の進行状況から終点を補完する。
+    const playedTricks = Math.max(0, Number(game.trickNumber || 1) - 1);
     const currentPlayers = new Set(Object.keys(game.trick || {}));
-    const remainingTricks = Math.min(...playerIds.map(id => (room.hands?.[id]?.cards || [])
+    const fallbackRemaining = Math.min(...playerIds.map(id => (room.hands?.[id]?.cards || [])
       .filter(card => card?.kind !== 'character').length + (currentPlayers.has(id) ? 1 : 0)));
-    const finalTrickNumber = Math.max(0, Number(game.trickNumber || 1) - 1) + remainingTricks;
+    const finalTrickNumber = Number.isFinite(Number(game.totalTricks))
+      ? Number(game.totalTricks) : playedTricks + fallbackRemaining;
+    const remainingTricks = Math.max(0, finalTrickNumber - playedTricks);
     const wonFinalThree = capturedTricks.some((trick, index) =>
       Number(trick.trickNumber || index + 1) > finalTrickNumber - 3);
     if (wonFinalThree) return { status:'achieved' };
@@ -4067,7 +4073,10 @@ function beginPostCharacterEffects(game){
     game.turnPlayerId = null;
     return;
   }
-  finishCharacterEffectTransition(game);
+  // 手札とゲームを同じルートトランザクションで読んで総トリック数を確定する。
+  game.phase = 'effect-transition-wait';
+  game.effectTransitionReadyAt = Date.now();
+  game.turnPlayerId = null;
 }
 
 function effectAnimationsReadyAt(game){
@@ -4085,7 +4094,14 @@ function effectAnimationsReadyAt(game){
   return Math.max(0, ...deadlines);
 }
 
-function finishCharacterEffectTransition(game){
+function finishCharacterEffectTransition(game, hands){
+  // キャラクター効果による受け渡しや失われしカードの取得がすべて確定してから、
+  // 最少手札を基準にこのラウンドの総トリック数を固定する。以降は手札枚数を見直さず、
+  // 「最後」「最後の3トリック」などの目的が参照する終点を変化させない。
+  if (!Number.isFinite(Number(game.totalTricks))) {
+    game.totalTricks = Math.min(...(game.playerOrder || []).map(playerId =>
+      (hands?.[playerId]?.cards || []).filter(card => card?.kind !== 'character').length));
+  }
   game.phase = 'playing';
   game.turnPlayerId = game.startingPlayerId || game.playerOrder?.[0] || null;
   delete game.startingPlayerId;
@@ -4102,11 +4118,12 @@ function scheduleEffectTransition(){
   const readyAt = state.game?.effectTransitionReadyAt;
   if (!readyAt || state.game?.phase !== 'effect-transition-wait' || !state.roomCode) return;
   effectTransitionTimer = setTimeout(async () => {
-    await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+      const game = room?.game;
       if (!game?.effectTransitionReadyAt || game.phase !== 'effect-transition-wait'
           || game.effectTransitionReadyAt !== readyAt || Date.now() < readyAt) return;
-      finishCharacterEffectTransition(game);
-      return game;
+      finishCharacterEffectTransition(game, room.hands);
+      return room;
     });
   }, Math.max(0, readyAt - Date.now()) + 20);
 }
@@ -5559,8 +5576,10 @@ function roundIsFinished(room){
   const game = room?.game;
   const order = game?.playerOrder || [];
   if (!order.length) return false;
-  // トリックは全員が1枚ずつ出して成立する。効果で手札が少なくなった人が出し切ったら、
-  // その人を除外して次のトリックを続けず、その時点をラウンド終了とする。
+  // 総トリック数は効果ターン終了時の最少手札で確定済み。古い進行データだけは、
+  // 固定値がないため従来どおり現在の手札が尽きたかで判定する。
+  const totalTricks = Number(game.totalTricks);
+  if (Number.isFinite(totalTricks)) return Math.max(0, Number(game.trickNumber || 1) - 1) >= totalTricks;
   return order.some(id => !(room.hands?.[id]?.cards || []).some(card => card?.kind !== 'character'));
 }
 
