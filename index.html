@@ -5532,6 +5532,15 @@ function renderYellowOneDecision(){
   yellowOneDecision.classList.toggle('hidden', !visible);
 }
 
+function roundIsFinished(room){
+  const game = room?.game;
+  const order = game?.playerOrder || [];
+  if (!order.length) return false;
+  // トリックは全員が1枚ずつ出して成立する。効果で手札が少なくなった人が出し切ったら、
+  // その人を除外して次のトリックを続けず、その時点をラウンド終了とする。
+  return order.some(id => !(room.hands?.[id]?.cards || []).some(card => card?.kind !== 'character'));
+}
+
 function nextTrickPlayer(game, room, playerId){
   const order = game.playerOrder || [];
   const currentIndex = order.indexOf(playerId);
@@ -5581,10 +5590,9 @@ function completeCurrentTrick(room, yellowOneWins = false){
   const bilboChoosesNextLeader = !oldForestWins && winningCharacter === 'ビルボ・バギンズ';
   game.turnPlayerId = bilboChoosesNextLeader ? null : (oldForestWins ? leadPlayerId : winnerId);
   game.trickNumber = (game.trickNumber || 1) + 1;
-  const ordinaryCardsRemain = id => (room.hands?.[id]?.cards || []).some(card => card.kind !== 'character');
-  // 効果で一人だけ手札が多くなったラウンドは、ほかの全員が出し切った時点で終了し、
-  // 多いプレイヤーの残り手札を結果確認に残す。
-  game.finished = order.filter(ordinaryCardsRemain).length <= 1;
+  // 一人でも手札を出し切ったら、ほかのプレイヤーにカードが残っていてもラウンドを終える。
+  // これにより、でぶちゃんの効果などで少ない手札の人を除外した不完全なトリックを始めない。
+  game.finished = roundIsFinished(room);
   if (!game.finished && bilboChoosesNextLeader) game.pendingCapture.bilboChoosesNextLeader = true;
 }
 
@@ -6320,7 +6328,7 @@ async function playCard(cardIndex, expectedCard){
     room.game.trick ||= {};
     room.game.trick[state.userId] = { card:{ ...card, playedBy:state.userId }, order: existing.length, tilt: Math.floor(Math.random()*5)-2 };
     const order = room.game.playerOrder;
-    // 配り切りで手札枚数に1枚差がある場合、カードが残っているプレイヤーだけで最後のトリックを行う。
+    // このトリックですでにプレイした人と、まだプレイ可能な手札がある人を参加者とする。
     const trickPlayers = order.filter(id => room.game.trick[id]
       || (room.hands[id]?.cards || []).some(handCard => handCard.kind !== 'character'
         && (room.game.shadowfaxReservedCard?.playerId !== id || room.game.shadowfaxReservedCard.inHand || handCard.id !== room.game.shadowfaxReservedCard.id)));
