@@ -1536,7 +1536,7 @@ function playerHasEquipment(game, playerId, equipmentName){
 function canClaimContinuationEquipment(game, playerId){
   const equipment = game?.continuationEquipment;
   const characterName = game?.characterSelections?.[playerId]?.name;
-  if (!equipment || !characterName || game.continuationEquipmentOwnerId) return false;
+  if (!equipment || !characterName || game.continuationEquipmentOwnerId || game.continuationEquipmentConsumed) return false;
   if (equipment.name === '折れたる剣') return characterDrawsThreat(characterName);
   return equipment.name === 'ゴンドールの角笛';
 }
@@ -1544,7 +1544,7 @@ function canClaimContinuationEquipment(game, playerId){
 function continuationEquipmentHasEligibleCharacter(game){
   const equipment = game?.continuationEquipment;
   const selectedCharacters = Object.values(game?.characterSelections || {});
-  if (!equipment) return false;
+  if (!equipment || game?.continuationEquipmentConsumed) return false;
   if (equipment.continuationOwnerName) {
     return selectedCharacters.some(character => character.name === equipment.continuationOwnerName);
   }
@@ -1998,7 +1998,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     .find(card => card?.kind === 'character') || game?.characterSelections?.[playerId];
   if (!game || !character) return { status:'pending' };
   if (Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3 && character.name === 'ガンダルフ') return { status:'achieved' };
-  if ([13, 14, 17].includes(Number(game.stageNumber)) && game.mithrilAppliedToPlayerId === playerId) return { status:'achieved' };
+  if ([13, 14, 17, 19].includes(Number(game.stageNumber)) && game.mithrilAppliedToPlayerId === playerId) return { status:'achieved' };
   const capturedTricks = game.capturedTricks?.[playerId] || [];
   const trickCount = capturedTricks.length;
   const playerIds = game.playerOrder || [];
@@ -2528,6 +2528,7 @@ async function decideMithril(useCoat){
         : Number(game.stageNumber) === 17 ? 'stageSeventeenMithrilAvailable'
         : Number(game.stageNumber) === 13 ? 'stageThirteenMithrilAvailable' : null;
       if (availabilityKey) room[availabilityKey] = false;
+      if (game.continuation) game.continuationEquipmentConsumed = true;
       game.equipmentCards ||= {};
       game.equipmentCards[frodoPlayerId] = (game.equipmentCards[frodoPlayerId] || [])
         .filter(card => card.name !== MITHRIL_COAT.name);
@@ -6453,7 +6454,8 @@ function finishCharacterSelection(room){
   const game = room?.game;
   const allCharactersChosen = Object.keys(game?.characterSelections || {}).length >= (game?.playerOrder || []).length;
   // 全員の選択後に所持可能なキャラクターがいなければ、アイテムを未獲得のまま開始する。
-  const equipmentReady = !game?.continuation || Boolean(game.continuationEquipmentOwnerId)
+  const equipmentReady = !game?.continuation || game.continuationEquipmentConsumed
+    || Boolean(game.continuationEquipmentOwnerId)
     || (allCharactersChosen && !continuationEquipmentHasEligibleCharacter(game));
   if (!game || game.phase !== 'character-selection' || !allCharactersChosen || !equipmentReady) return false;
   if (room.game.continuationChallengeSelectedAt
@@ -6650,7 +6652,8 @@ async function chooseCharacter(characterName, source){
       // 通常プレイのスタピーは、この後カード効果から別途決定する。
       room.game.effectStartingPlayerId = state.userId;
     }
-    if (room.game.continuation && room.game.continuationEquipment?.continuationOwnerName === characterName
+    if (room.game.continuation && !room.game.continuationEquipmentConsumed
+        && room.game.continuationEquipment?.continuationOwnerName === characterName
         && !room.game.continuationEquipmentOwnerId) {
       room.game.equipmentCards ||= {};
       room.game.equipmentCards[state.userId] ||= [];
@@ -6685,7 +6688,8 @@ function renderCharacterPicker(){
       requestAnimationFrame(() => animateCharacterSelection(playerId, character, sourceRect));
     }
   });
-  const manualContinuationEquipmentWaiting = Boolean(game?.continuationEquipment
+  const manualContinuationEquipmentWaiting = Boolean(!game?.continuationEquipmentConsumed
+    && game?.continuationEquipment
     && ['折れたる剣', 'ゴンドールの角笛'].includes(game.continuationEquipment.name)
     && !game.continuationEquipmentOwnerId);
   const canShowPicker = state.seatedTable !== null
@@ -6716,7 +6720,7 @@ function renderCharacterPicker(){
   const continuationEquipment = game.continuationEquipment;
   // 獲得済みアイテムは不可視化するが、枠は残して右隣の効果脅威カードを動かさない。
   const continuationEquipmentClaimed = Boolean(game.continuationEquipmentOwnerId);
-  const showContinuationEquipment = Boolean(continuationEquipment);
+  const showContinuationEquipment = Boolean(continuationEquipment && !game.continuationEquipmentConsumed);
   const challengeWasSelected = Boolean(game.continuationChallengeSelectedAt);
   const showContinuationChallenge = Boolean(game.continuationSpecialThreat && !challengeWasSelected);
   const displayedChoiceCount = allCharacters.length + (showContinuationEquipment ? 1 : 0)
@@ -7777,27 +7781,36 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
     });
   let continuationSetup = null;
   if (stage?.continuation) {
-    const goldCount = [2, 3].includes(playerOrder.length) ? 4 : 5;
-    const blackCount = [2, 3].includes(playerOrder.length) ? 3 : 6;
-    const goldPairs = shuffleInPlace(CONTINUATION_GOLD_PAIRS.map(pair => [...pair])).slice(0, goldCount);
-    const burdenIndex = Math.floor(Math.random() * goldPairs.length);
-    const burdenCode = goldPairs[burdenIndex][1];
-    const normalGoldCodes = goldPairs.filter((_, index) => index !== burdenIndex).map(pair => pair[0]);
-    const blackCodes = shuffleInPlace([...CONTINUATION_BLACK_CODES]).slice(0, blackCount);
-    // 選択画面では固定キャラ、重荷面、金ランク由来の通常面、追加候補の順に並べる。
-    stageCharacters = ['frodo','gandalf', burdenCode, ...normalGoldCodes, ...blackCodes].map(code => ({
-      code, name:CHARACTER_NAMES[code], required:code === 'frodo'
-    }));
-    const equipment = CONTINUATION_EQUIPMENT[Math.floor(Math.random() * CONTINUATION_EQUIPMENT.length)];
-    const persistedThreatName = resetLongProgress ? null
-      : currentRoom.longChapterProgress?.continuationThreatName;
-    const specialThreat = CONTINUATION_THREATS.find(threat => threat.name === persistedThreatName)
-      || CONTINUATION_THREATS[Math.floor(Math.random() * CONTINUATION_THREATS.length)];
-    continuationSetup = {
-      equipment:{ ...equipment },
-      burdenName:CHARACTER_NAMES[burdenCode],
-      specialThreat:{ ...specialThreat }
-    };
+    const persistedSetup = resetLongProgress ? null : currentRoom.longChapterProgress?.continuationSetup;
+    if (persistedSetup?.characters?.length && persistedSetup.equipment && persistedSetup.specialThreat) {
+      // 「続ける」では成否にかかわらず、スタート時に決めた構成をリセットまで引き継ぐ。
+      stageCharacters = persistedSetup.characters.map(character => ({ ...character }));
+      continuationSetup = {
+        equipment:{ ...persistedSetup.equipment },
+        burdenName:persistedSetup.burdenName,
+        specialThreat:{ ...persistedSetup.specialThreat },
+        equipmentConsumed:Boolean(persistedSetup.equipmentConsumed)
+      };
+    } else {
+      const goldCount = [2, 3].includes(playerOrder.length) ? 4 : 5;
+      const blackCount = [2, 3].includes(playerOrder.length) ? 3 : 6;
+      const goldPairs = shuffleInPlace(CONTINUATION_GOLD_PAIRS.map(pair => [...pair])).slice(0, goldCount);
+      const burdenIndex = Math.floor(Math.random() * goldPairs.length);
+      const burdenCode = goldPairs[burdenIndex][1];
+      const normalGoldCodes = goldPairs.filter((_, index) => index !== burdenIndex).map(pair => pair[0]);
+      const blackCodes = shuffleInPlace([...CONTINUATION_BLACK_CODES]).slice(0, blackCount);
+      // 選択画面では固定キャラ、重荷面、金ランク由来の通常面、追加候補の順に並べる。
+      stageCharacters = ['frodo','gandalf', burdenCode, ...normalGoldCodes, ...blackCodes].map(code => ({
+        code, name:CHARACTER_NAMES[code], required:code === 'frodo'
+      }));
+      const equipment = CONTINUATION_EQUIPMENT[Math.floor(Math.random() * CONTINUATION_EQUIPMENT.length)];
+      const specialThreat = CONTINUATION_THREATS[Math.floor(Math.random() * CONTINUATION_THREATS.length)];
+      continuationSetup = {
+        equipment:{ ...equipment },
+        burdenName:CHARACTER_NAMES[burdenCode],
+        specialThreat:{ ...specialThreat }
+      };
+    }
   }
   const fellowshipGroups = Number(stageNumber) === 18 ? {
     1:stageCharacters.slice(0, 4), 2:stageCharacters.slice(4, 8)
@@ -7865,7 +7878,8 @@ async function dealInitialHands(stageNumber, { resetLongProgress = false } = {})
         continuation:true,
         continuationEquipment:continuationSetup.equipment,
         continuationBurdenName:continuationSetup.burdenName,
-        continuationSpecialThreat:continuationSetup.specialThreat
+        continuationSpecialThreat:continuationSetup.specialThreat,
+        ...(continuationSetup.equipmentConsumed ? { continuationEquipmentConsumed:true } : {})
       } : {}),
       ...(excludedCard ? { excludedCard, excludedCardTilt:excludedCardTilts[0] } : {}),
       ...(isOldForest && excludedCards.length ? { excludedCards, excludedCardTilts } : {}),
@@ -7888,6 +7902,16 @@ chapterContinueBtn.addEventListener('click', async () => {
         room.longChapterProgress ||= { stageNumber:room.game.stageNumber, characters:{} };
         if (Number(room.longChapterProgress.stageNumber) !== Number(room.game.stageNumber)) {
           room.longChapterProgress = { stageNumber:room.game.stageNumber, characters:{} };
+        }
+        if (room.game.continuation) {
+          // 使用済みかどうかを含む脅威の進捗とは別に、抽選された構成そのものを固定する。
+          room.longChapterProgress.continuationSetup = {
+            characters:(room.game.availableCharacters || []).map(character => ({ ...character })),
+            equipment:{ ...room.game.continuationEquipment },
+            burdenName:room.game.continuationBurdenName,
+            specialThreat:{ ...room.game.continuationSpecialThreat },
+            equipmentConsumed:Boolean(room.game.continuationEquipmentConsumed)
+          };
         }
         if (room.game.continuationChallengeSelectedAt && room.game.continuationSpecialThreat?.name) {
           // 成否にかかわらず、次のキャラクター選択でも同じ効果脅威カードを表向きで表示する。
