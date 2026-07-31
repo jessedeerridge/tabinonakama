@@ -939,13 +939,13 @@
 <section id="exchangeDialog" class="exchange-dialog hidden" aria-live="assertive">
   <div id="exchangeMessage" class="exchange-message"></div>
   <div id="exchangeTargets" class="exchange-targets"></div>
-  <div class="exchange-note">＊2秒クリックで決定。</div>
+  <div class="exchange-note">＊2秒長押しで決定。</div>
 </section>
 
 <section id="lostCardClaimDialog" class="exchange-dialog hidden" aria-live="assertive">
   <div class="exchange-message">誰が失われしカードを取りますか</div>
   <div id="lostCardClaimTargets" class="exchange-targets"></div>
-  <div class="exchange-note">＊2秒クリックで決定。</div>
+  <div class="exchange-note">＊2秒長押しで決定。</div>
 </section>
 
 <section id="striderChoiceDialog" class="strider-choice-dialog hidden" aria-live="assertive">
@@ -3681,7 +3681,7 @@ function renderLostCardClaimDialog(){
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'btn hold-decision';
     button.innerHTML = `<span>${state.game.characterSelections?.[playerId]?.name || 'キャラクター'}</span>`;
-    attachTwoSecondHold(button, () => decideLostCardClaim(playerId));
+    attachOneSecondHold(button, () => decideLostCardClaim(playerId));
     lostCardClaimTargets.appendChild(button);
   });
 }
@@ -4073,7 +4073,7 @@ async function decideThreatRedraw(redraw){
 }
 
 threatRedrawDecision.querySelectorAll('.hold-decision').forEach(button => {
-  attachTwoSecondHold(button, () => decideThreatRedraw(button.dataset.threatRedraw === 'yes'));
+  attachOneSecondHold(button, () => decideThreatRedraw(button.dataset.threatRedraw === 'yes'));
 });
 
 let continuationEquipmentPromptOpen = false;
@@ -4124,7 +4124,7 @@ async function selectContinuationChallenge(){
 
 continuationEquipmentDecision.querySelector('[data-equipment-decision="yes"]')
   .addEventListener('click', event => event.preventDefault());
-attachTwoSecondHold(
+attachOneSecondHold(
   continuationEquipmentDecision.querySelector('[data-equipment-decision="yes"]'),
   claimContinuationEquipment
 );
@@ -4253,7 +4253,7 @@ function renderThreatChoice(){
     threatChoiceGrid.classList.add('equipment-range-grid');
     [[1,2],[3,4],[5,6]].forEach(([min,max]) => {
       const button = document.createElement('button'); button.className = 'threat-choice'; button.textContent = `${min}～${max}`;
-      attachTwoSecondHold(button, () => chooseAragornEquipmentRange(min, max)); threatChoiceGrid.append(button);
+      attachOneSecondHold(button, () => chooseAragornEquipmentRange(min, max)); threatChoiceGrid.append(button);
     });
     return;
   }
@@ -4263,7 +4263,7 @@ function renderThreatChoice(){
     (state.game.aragornBurdenThreatChoices || []).forEach(number => {
       const button = document.createElement('button'); button.className = 'threat-choice'; button.textContent = number;
       button.disabled = waitingForCards;
-      attachTwoSecondHold(button, () => chooseAragornBurdenThreat(number)); threatChoiceGrid.append(button);
+      attachOneSecondHold(button, () => chooseAragornBurdenThreat(number)); threatChoiceGrid.append(button);
     });
     if (waitingForCards) setTimeout(renderThreatChoice, choiceReadyAt - Date.now() + 20);
     return;
@@ -4279,7 +4279,7 @@ function renderThreatChoice(){
     if (occupiedThreatNumbers.has(number)) continue;
     const button = document.createElement('button');
     button.className = 'threat-choice'; button.textContent = number;
-    attachTwoSecondHold(button, () => chooseAragornThreat(number));
+    attachOneSecondHold(button, () => chooseAragornThreat(number));
     threatChoiceGrid.append(button);
   }
 }
@@ -4985,7 +4985,7 @@ function playerName(playerId){
     || 'プレイヤー';
 }
 
-function attachTwoSecondHold(button, action){
+function attachOneSecondHold(button, action){
   let timer = null;
   let animation = null;
   const cancel = () => {
@@ -4998,8 +4998,8 @@ function attachTwoSecondHold(button, action){
     if (event.button !== undefined && event.button !== 0) return;
     event.preventDefault();
     button.setPointerCapture(event.pointerId);
-    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:2000, fill:'forwards' });
-    timer = setTimeout(() => { cancel(); action(); }, 2000);
+    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:1000, fill:'forwards' });
+    timer = setTimeout(() => { cancel(); action(); }, 1000);
   });
   button.addEventListener('pointerup', cancel);
   button.addEventListener('pointercancel', cancel);
@@ -5022,7 +5022,7 @@ function renderBilboLeadChoice(){
     const button = document.createElement('button');
     button.className = 'btn hold-decision';
     button.textContent = playerName(playerId);
-    attachTwoSecondHold(button, () => chooseBilboLeadPlayer(playerId));
+    attachOneSecondHold(button, () => chooseBilboLeadPlayer(playerId));
     bilboLeadChoiceTargets.append(button);
   });
 }
@@ -5054,7 +5054,7 @@ async function chooseFellowshipGroup(groupNumber){
 }
 
 fellowshipGroupDecision.querySelectorAll('.hold-decision').forEach(button => {
-  attachTwoSecondHold(button, () => chooseFellowshipGroup(Number(button.dataset.fellowshipGroup)));
+  attachOneSecondHold(button, () => chooseFellowshipGroup(Number(button.dataset.fellowshipGroup)));
 });
 
 function renderFellowshipGroupDecision(){
@@ -5092,7 +5092,7 @@ function renderStriderChoice(){
 }
 
 striderChoiceDialog.querySelectorAll('.hold-decision').forEach(button => {
-  attachTwoSecondHold(button, () => chooseStriderComparison(button.dataset.striderChoice));
+  attachOneSecondHold(button, () => chooseStriderComparison(button.dataset.striderChoice));
 });
 
 shadowfaxDecision.querySelectorAll('.hold-decision').forEach(button => {
@@ -5108,11 +5108,11 @@ shadowfaxDecision.querySelectorAll('.hold-decision').forEach(button => {
     });
   };
   // 戻す「はい」だけは2秒長押し。「いいえ」はポップを閉じるだけなので1クリックで確定する。
-  if (button.dataset.shadowfaxDecision === 'yes') attachTwoSecondHold(button, decide);
+  if (button.dataset.shadowfaxDecision === 'yes') attachOneSecondHold(button, decide);
   else button.addEventListener('click', decide);
 });
 mithrilDecision.querySelectorAll('.hold-decision').forEach(button => {
-  attachTwoSecondHold(button, () => decideMithril(button.dataset.mithrilDecision === 'yes'));
+  attachOneSecondHold(button, () => decideMithril(button.dataset.mithrilDecision === 'yes'));
 });
 
 function renderExchangeDialog(){
@@ -5133,7 +5133,7 @@ function renderExchangeDialog(){
       button.className = 'btn hold-decision exchange-target';
       button.innerHTML = `<span></span>`;
       button.firstElementChild.textContent = playerName(playerId);
-      attachTwoSecondHold(button, () => chooseExchangeTarget(playerId));
+      attachOneSecondHold(button, () => chooseExchangeTarget(playerId));
       exchangeTargets.appendChild(button);
     });
   } else if (choosingCard) {
@@ -5481,8 +5481,8 @@ yellowOneDecision.querySelectorAll('.hold-decision').forEach(button => {
     if (event.button !== undefined && event.button !== 0) return;
     event.preventDefault();
     button.setPointerCapture(event.pointerId);
-    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:2000, fill:'forwards' });
-    timer = setTimeout(() => { cancel(); decideYellowOne(button.dataset.yellowDecision === 'yes'); }, 2000);
+    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:1000, fill:'forwards' });
+    timer = setTimeout(() => { cancel(); decideYellowOne(button.dataset.yellowDecision === 'yes'); }, 1000);
   });
   button.addEventListener('pointerup', cancel);
   button.addEventListener('pointercancel', cancel);
