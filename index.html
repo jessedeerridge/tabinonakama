@@ -1568,6 +1568,16 @@ function threatNumberForPlayer(game, playerId){
   return card.number;
 }
 
+function objectiveThreatNumbers(game, playerId){
+  const choice = game?.equipmentChoices?.[playerId];
+  if (playerHasEquipment(game, playerId, '折れたる剣') && Number.isFinite(Number(choice?.min))
+      && Number.isFinite(Number(choice?.max))) {
+    return Array.from({ length:choice.max - choice.min + 1 }, (_, index) => choice.min + index);
+  }
+  const threatNumber = Number(threatNumberForPlayer(game, playerId));
+  return Number.isFinite(threatNumber) ? [threatNumber] : [];
+}
+
 // 山札は各カード1枚ずつ（黄のみ1〜5、ほかの色は1〜8）。
 const CARD_TYPES = [
   { color: 'red', name: '影', max: 8 },
@@ -2011,7 +2021,7 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   }
 
   if (character.name === '農夫マゴット') {
-    const threatRanks = new Set((game.threatCards?.[playerId] || []).map(card => Number(card.number)));
+    const threatRanks = new Set(objectiveThreatNumbers(game, playerId));
     const count = capturedCards.filter(card => threatRanks.has(Number(card.number))).length;
     if (count >= 2) return { status:'achieved' };
     const available = remainingCards.filter(card => threatRanks.has(Number(card.number))).length;
@@ -2026,21 +2036,34 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   };
   const threatSuitGoal = threatSuitCharacters[character.name];
   if (threatSuitGoal) {
-    const threat = Number(threatNumberForPlayer(game, playerId));
-    if (!Number.isFinite(threat)) return { status:'pending' };
-    const hasRequiredCards = cards => cards.some(card => card.color === threatSuitGoal.suit && Number(card.number) === threat)
-      && (!threatSuitGoal.requiresShadow || cards.some(card => card.color === 'red' && Number(card.number) === threat));
+    const threats = objectiveThreatNumbers(game, playerId);
+    if (!threats.length) return { status:'pending' };
+    const requiredSuits = [threatSuitGoal.suit, ...(threatSuitGoal.requiresShadow ? ['red'] : [])];
+    const hasRequiredCards = cards => requiredSuits.every(suit =>
+      cards.some(card => card.color === suit && threats.includes(Number(card.number))));
     if (hasRequiredCards(capturedCards)) return { status:'achieved' };
     const stillAvailable = hasRequiredCards([...capturedCards, ...remainingCards]);
     return { status:!isFinished && stillAvailable ? 'pending' : 'failed' };
   }
 
-  if (Number(game.stageNumber) === 15 && ['オロフィンとルーミル', 'ハルディア'].includes(character.name)) {
-    const threat = Number(threatNumberForPlayer(game, playerId));
-    if (!Number.isFinite(threat)) return { status:'pending' };
-    if (capturedCards.some(card => card.color === 'green' && Number(card.number) === threat)) return { status:'achieved' };
-    const stillAvailable = remainingCards.some(card => card.color === 'green' && Number(card.number) === threat);
+  if (['オロフィンとルーミル', 'ハルディア'].includes(character.name)) {
+    const threats = objectiveThreatNumbers(game, playerId);
+    if (!threats.length) return { status:'pending' };
+    const hasRequiredCards = cards => threats.every(threat =>
+      cards.some(card => card.color === 'green' && Number(card.number) === threat));
+    if (hasRequiredCards(capturedCards)) return { status:'achieved' };
+    const stillAvailable = hasRequiredCards([...capturedCards, ...remainingCards]);
     return { status:!isFinished && stillAvailable ? 'pending' : 'failed' };
+  }
+
+  if (['サム', 'サムワイズ・ギャムジー'].includes(character.name)) {
+    const threats = objectiveThreatNumbers(game, playerId);
+    if (!threats.length) return { status:'pending' };
+    const suits = character.name === 'サムワイズ・ギャムジー' ? ['orange', 'red'] : ['orange'];
+    const hasRequiredCards = cards => suits.every(suit =>
+      cards.some(card => card.color === suit && threats.includes(Number(card.number))));
+    if (hasRequiredCards(capturedCards)) return { status:'achieved' };
+    return { status:!isFinished && hasRequiredCards([...capturedCards, ...remainingCards]) ? 'pending' : 'failed' };
   }
 
   if (character.name === 'ガラドリエル') {
@@ -2523,6 +2546,15 @@ function createVictoryConditionIcon(cardData, playerId){
     separator.textContent = 'or';
     icon.append(left, separator, right);
   };
+  const numberChoice = (numbers, color) => {
+    const option = document.createElement('span');
+    option.className = 'victory-condition-option';
+    numbers.forEach((number, index) => {
+      if (index > 0) option.append(label('or'));
+      option.append(square(String(number), color));
+    });
+    return option;
+  };
   const countSquares = (count, color = 'black') => {
     const items = [];
     if (count >= 4) return [square('', color), label(`x${count}`)];
@@ -2544,8 +2576,10 @@ function createVictoryConditionIcon(cardData, playerId){
   // 〈長き暗闇〉では数字だけを伏せ、目的本来のスート色・トリック記号・枚数表記は残す。
   // 共通の白い「?」へ置き換えると、どの種類のカードを何枚集める目的なのか判別できない。
   const displayedThreatNumber = moriaDarknessConcealed ? null : threatNumber;
+  const displayedThreatNumbers = moriaDarknessConcealed ? [] : objectiveThreatNumbers(state.game, playerId);
   const appendSuitRank = (...colors) => {
-    icon.append(...colors.map(color => square(String(displayedThreatNumber ?? '?'), color)));
+    if (!displayedThreatNumbers.length) icon.append(...colors.map(color => square('?', color)));
+    else displayedThreatNumbers.forEach(number => icon.append(...colors.map(color => square(String(number), color))));
   };
   if (Number(state.game?.stageNumber) === 14 && moriaEventIndex === 0 && name === 'ガンダルフ') {
     icon.append(square('', 'orange'), square('', 'gray'), square('', 'green'));
@@ -2613,13 +2647,21 @@ function createVictoryConditionIcon(cardData, playerId){
   } else if (name === '飛蔭（とびかげ）') {
     icon.append(coloredTrick('orange'), coloredTrick('orange'));
   } else if (['サム', 'サムワイズ・ギャムジー'].includes(name)) {
-    appendSuitRank(...(name === 'サムワイズ・ギャムジー' ? ['orange', 'red'] : ['orange']));
+    const suits = name === 'サムワイズ・ギャムジー' ? ['orange', 'red'] : ['orange'];
+    if (suits.length === 2 && displayedThreatNumbers.length > 1) {
+      icon.classList.add('multiline');
+      icon.append(...suits.map(suit => line(numberChoice(displayedThreatNumbers, suit))));
+    } else appendSuitRank(...suits);
   } else if (name === 'ペレグリン・トゥック') {
     icon.append(coloredTrick(), label('x0'));
   } else if (['レゴラス', 'ギムリ', '緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name)) {
     const suit = ['レゴラス', '緑葉のレゴラス'].includes(name) ? 'green' : 'gray';
     const requiresShadow = ['緑葉のレゴラス', 'グローインの息子ギムリ'].includes(name);
-    appendSuitRank(...(requiresShadow ? [suit, 'red'] : [suit]));
+    const suits = requiresShadow ? [suit, 'red'] : [suit];
+    if (suits.length === 2 && displayedThreatNumbers.length > 1) {
+      icon.classList.add('multiline');
+      icon.append(...suits.map(requiredSuit => line(numberChoice(displayedThreatNumbers, requiredSuit))));
+    } else appendSuitRank(...suits);
   } else if (['アラゴルン', 'アラソルンの息子アラゴルン'].includes(name)) {
     if (equipmentChoice) {
       const expandBoth = equipmentChoice.min === 1 && equipmentChoice.max === 2;
@@ -2631,15 +2673,19 @@ function createVictoryConditionIcon(cardData, playerId){
     } else if (displayedThreatNumber != null) icon.append(...countTricks(Number(displayedThreatNumber)));
     else icon.append(coloredTrick(), label('x?'));
   } else if (victory.includes('脅威カードと同じ数字')) {
-    const matchingSquare = () => {
+    const matchingSquare = number => {
       const color = ['レゴラス', 'オロフィンとルーミル', 'ハルディア'].includes(name)
         ? 'green' : name === 'ギムリ' ? 'gray' : 'black';
-      const item = square(String(displayedThreatNumber ?? '?'), color);
+      const item = square(String(number ?? '?'), color);
       if (name === '農夫マゴット') item.classList.add('number-centered');
       return item;
     };
-    icon.append(matchingSquare());
-    if (victory.includes('2枚以上')) icon.append(matchingSquare(), label('以上'));
+    const numbers = displayedThreatNumbers.length ? displayedThreatNumbers : [null];
+    numbers.forEach(number => {
+      icon.append(matchingSquare(number));
+      if (victory.includes('2枚以上')) icon.append(matchingSquare(number));
+    });
+    if (victory.includes('2枚以上')) icon.append(label('以上'));
   } else if (victory.includes('ちょうど1もしくは2')) {
     const oneTrick = line(...countTricks(1));
     const twoTricks = line(...countTricks(2));
@@ -3693,6 +3739,12 @@ function beginNextExchange(game){
     const characterName = game.characterSelections?.[sourceId]?.name;
     game.effectTurnStartedAt ||= {};
     game.effectTurnStartedAt[sourceId] ||= Date.now();
+    if (playerHasEquipment(game, sourceId, '折れたる剣') && !game.equipmentChoices?.[sourceId]) {
+      game.phase = 'aragorn-threat-selection';
+      game.threatDrawPlayerId = sourceId;
+      game.turnPlayerId = null;
+      return;
+    }
     const claimants = lostCardClaimants(game);
     if (claimants.length >= 2 && claimants.includes(sourceId) && !game.lostCardClaimPlayerId) {
       game.phase = 'lost-card-claim-selection';
@@ -3718,6 +3770,7 @@ function beginNextExchange(game){
       && characterName === 'アラゴルン';
     const needsThreatDraw = !skipsCharacterThreatDraw(game, characterName)
       && (characterDrawsThreat(characterName) || darknessAragornDraw)
+      && !game.equipmentChoices?.[sourceId]
       && !game.characterEffectThreatDrawn?.[sourceId]
       && !(game.threatCards?.[sourceId] || []).some(card => card.kind === 'threat');
     if (needsThreatDraw) {
@@ -4170,7 +4223,7 @@ function renderThreatChoice(){
   threatChoiceGrid.replaceChildren();
   threatChoiceGrid.classList.remove('equipment-range-grid');
   if (!visible) return;
-  const isEquipmentChoice = Number(state.game?.stageNumber) === 11;
+  const isEquipmentChoice = playerHasEquipment(state.game, state.userId, '折れたる剣');
   const isBurdenChoice = state.game?.phase === 'aragorn-burden-threat-selection';
   threatChoiceMessage.textContent = isEquipmentChoice ? '目的となる数字範囲を選んでください。'
     : isBurdenChoice ? 'どちらを選びますか。' : '脅威カードを選んでください。';
@@ -4242,7 +4295,8 @@ async function chooseAragornBurdenThreat(number){
 async function chooseAragornEquipmentRange(min, max){
   threatChoiceDialog.classList.add('hidden');
   await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
-    if (game?.phase !== 'aragorn-threat-selection' || game.threatDrawPlayerId !== state.userId || Number(game.stageNumber) !== 11) return;
+    if (game?.phase !== 'aragorn-threat-selection' || game.threatDrawPlayerId !== state.userId
+        || !playerHasEquipment(game, state.userId, '折れたる剣')) return;
     if (![[1,2],[3,4],[5,6]].some(range => range[0] === min && range[1] === max)) return;
     game.equipmentChoices ||= {}; game.equipmentChoices[state.userId] = { min, max };
     delete game.threatDrawPlayerId; beginNextExchange(game); return game;
