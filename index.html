@@ -3350,11 +3350,12 @@ function renderStageInformation(){
     && state.game?.tomPlayerId === state.userId;
   const canGlorfindelPick = Boolean(excludedCard) && state.game?.phase === 'glorfindel-selection'
     && state.game?.glorfindelPlayerId === state.userId;
-  const canGaladrielExchange = Boolean(excludedCard) && state.game?.phase === 'galadriel-lost-selection'
+  const canLostCardExchange = Boolean(excludedCard)
+    && ['galadriel-lost-selection','tsuranukimaru-selection'].includes(state.game?.phase)
     && state.game?.specialSelectionPlayerId === state.userId;
   excludedCardSlot.classList.toggle('gandalf-pick', canGandalfPick || canTomPick || canGlorfindelPick);
-  excludedCardSlot.classList.toggle('galadriel-drop-hint', canGaladrielExchange);
-  excludedCardSlot.setAttribute('aria-label', canGaladrielExchange ? '失われしカードとの交換先' : '失われしカード');
+  excludedCardSlot.classList.toggle('galadriel-drop-hint', canLostCardExchange);
+  excludedCardSlot.setAttribute('aria-label', canLostCardExchange ? '失われしカードとの交換先' : '失われしカード');
   excludedCardSlot.style.width = `${38 + Math.max(0, excludedCards.length - 1) * 16}px`;
   excludedCards.forEach((cardData, index) => {
     const item = document.createElement('div');
