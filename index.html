@@ -206,6 +206,7 @@
   .victory-condition-or{margin:0 1px;font-size:9px;font-weight:900;line-height:15px;}
   .victory-condition-suffix{margin-left:2px;font-size:9px;font-weight:900;line-height:15px;}
   .victory-condition-icon.achieved{opacity:.35;}
+  .victory-condition-square.achieved{opacity:.35;}
   .victory-condition-icon.gandalf-numbers{height:31px;display:grid;grid-template-columns:repeat(4,15px);grid-template-rows:repeat(2,15px);gap:1px;}
   .victory-condition-icon.gandalf-numbers .victory-condition-square{display:flex;align-items:center;justify-content:center;padding:0;text-align:center;line-height:1;}
   .victory-condition-square.number-acquired{opacity:.25;}
@@ -1988,6 +1989,17 @@ function createCharacterEffectRow(type, text){
   return row;
 }
 
+function gildorForestFinishIsGuaranteed(room, playerId){
+  const game = room?.game;
+  if (!game || game.characterSelections?.[playerId]?.name !== 'ギルドール・イングロリオン') return false;
+  const playableCards = (room.hands?.[playerId]?.cards || []).filter(card => card?.kind !== 'character');
+  if (!playableCards.length || !playableCards.every(card => card.color === 'green')) return false;
+  // 他の全目的がすでに確定済みなら、残る各トリックでギルドールが森を出すことが保証される。
+  // 最終トリックも必ず森になるため、実際に出し切るまで待つ必要はない。
+  return (game.playerOrder || []).filter(id => id !== playerId)
+    .every(id => victoryConditionStatus(room, id).status === 'achieved');
+}
+
 function hasAchievedVictoryCondition(cardData, playerId){
   return victoryConditionStatus(state.room, playerId, cardData).status === 'achieved';
 }
@@ -2024,9 +2036,15 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   }
 
   if (character.name === 'ピピン') {
-    if (!isFinished) return { status:'pending' };
     const otherCounts = otherIds.map(id => (game.capturedTricks?.[id] || []).length);
-    return { status:!otherCounts.length || trickCount <= Math.min(...otherCounts) ? 'achieved' : 'failed' };
+    if (!otherCounts.length) return { status:'achieved' };
+    // 同数最少も成功。ピピンが残りの全トリックを取っても現在の他プレイヤーの
+    // 最小値を超えなければ、今後の勝者の組み合わせにかかわらず条件は覆らない。
+    const myRemainingCards = (room.hands?.[playerId]?.cards || [])
+      .filter(card => card?.kind !== 'character').length;
+    if (trickCount + myRemainingCards <= Math.min(...otherCounts)) return { status:'achieved' };
+    if (!isFinished) return { status:'pending' };
+    return { status:trickCount <= Math.min(...otherCounts) ? 'achieved' : 'failed' };
   }
 
   if (character.name === 'ペレグリン・トゥック') {
@@ -2143,11 +2161,24 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   }
 
   if (character.name === 'ギルドール・イングロリオン') {
-    if (!isFinished) return { status:'pending' };
     const allTricks = Object.values(game.capturedTricks || {}).flat();
-    const lastTrick = allTricks.find(trick => Number(trick.trickNumber) === Number(game.trickNumber) - 1);
-    return { status:(lastTrick?.cards || []).some(card => card.playedBy === playerId && card.color === 'green')
-      ? 'achieved' : 'failed' };
+    // finished は最後のトリックの回収演出より先に立つ。pendingCapture も候補に含め、
+    // 回収前に「最後の森を出していない」と誤判定しない。
+    const completedLastTrick = allTricks.reduce((last, trick) =>
+      Number(trick.trickNumber) > Number(last?.trickNumber || 0) ? trick : last, null);
+    const finalTrick = game.pendingCapture || completedLastTrick;
+    if (isFinished) {
+      return { status:(finalTrick?.cards || []).some(card => card.playedBy === playerId && card.color === 'green')
+        ? 'achieved' : 'failed' };
+    }
+    if (gildorForestFinishIsGuaranteed(room, playerId)) return { status:'achieved' };
+    // この目的で使えるのはギルドール本人の手札だけ。森がなくなった時点で
+    // 他人の手札に森が残っていても回復できないため、直ちに達成不可能とする。
+    const hasGreenInHand = (room.hands?.[playerId]?.cards || [])
+      .some(card => card?.kind !== 'character' && card.color === 'green');
+    const hasGreenInCurrentTrick = Object.values(game.trick || {})
+      .some(play => play?.card?.playedBy === playerId && play.card.color === 'green');
+    return { status:hasGreenInHand || hasGreenInCurrentTrick ? 'pending' : 'failed' };
   }
 
   if (['“でぶちゃん”のボルジャー', '小馬のビル'].includes(character.name)) {
@@ -2762,11 +2793,21 @@ function createVictoryConditionIcon(cardData, playerId){
     } else if (displayedThreatNumber != null) icon.append(...countTricks(Number(displayedThreatNumber)));
     else icon.append(coloredTrick(), label('x?'));
   } else if (victory.includes('脅威カードと同じ数字')) {
+    const maggotCapturedCount = name === '農夫マゴット'
+      ? (state.game?.capturedTricks?.[playerId] || []).flatMap(trick => trick.cards || [])
+        .filter(card => objectiveThreatNumbers(state.game, playerId).includes(Number(card.number))).length
+      : 0;
+    let maggotSquareIndex = 0;
     const matchingSquare = number => {
       const color = ['レゴラス', 'オロフィンとルーミル', 'ハルディア'].includes(name)
         ? 'green' : name === 'ギムリ' ? 'gray' : 'black';
       const item = square(String(number ?? '?'), color);
-      if (name === '農夫マゴット') item.classList.add('number-centered');
+      if (name === '農夫マゴット') {
+        item.classList.add('number-centered');
+        // 2枚目を待つ間も、すでに獲得した1枚分の進捗を個別に表す。
+        if (maggotSquareIndex < Math.min(2, maggotCapturedCount)) item.classList.add('achieved');
+        maggotSquareIndex += 1;
+      }
       return item;
     };
     const numbers = displayedThreatNumbers.length ? displayedThreatNumbers : [null];
@@ -5491,6 +5532,15 @@ function renderYellowOneDecision(){
   yellowOneDecision.classList.toggle('hidden', !visible);
 }
 
+function roundIsFinished(room){
+  const game = room?.game;
+  const order = game?.playerOrder || [];
+  if (!order.length) return false;
+  // トリックは全員が1枚ずつ出して成立する。効果で手札が少なくなった人が出し切ったら、
+  // その人を除外して次のトリックを続けず、その時点をラウンド終了とする。
+  return order.some(id => !(room.hands?.[id]?.cards || []).some(card => card?.kind !== 'character'));
+}
+
 function nextTrickPlayer(game, room, playerId){
   const order = game.playerOrder || [];
   const currentIndex = order.indexOf(playerId);
@@ -5540,10 +5590,9 @@ function completeCurrentTrick(room, yellowOneWins = false){
   const bilboChoosesNextLeader = !oldForestWins && winningCharacter === 'ビルボ・バギンズ';
   game.turnPlayerId = bilboChoosesNextLeader ? null : (oldForestWins ? leadPlayerId : winnerId);
   game.trickNumber = (game.trickNumber || 1) + 1;
-  const ordinaryCardsRemain = id => (room.hands?.[id]?.cards || []).some(card => card.kind !== 'character');
-  // 効果で一人だけ手札が多くなったラウンドは、ほかの全員が出し切った時点で終了し、
-  // 多いプレイヤーの残り手札を結果確認に残す。
-  game.finished = order.filter(ordinaryCardsRemain).length <= 1;
+  // 一人でも手札を出し切ったら、ほかのプレイヤーにカードが残っていてもラウンドを終える。
+  // これにより、でぶちゃんの効果などで少ない手札の人を除外した不完全なトリックを始めない。
+  game.finished = roundIsFinished(room);
   if (!game.finished && bilboChoosesNextLeader) game.pendingCapture.bilboChoosesNextLeader = true;
 }
 
@@ -6279,7 +6328,7 @@ async function playCard(cardIndex, expectedCard){
     room.game.trick ||= {};
     room.game.trick[state.userId] = { card:{ ...card, playedBy:state.userId }, order: existing.length, tilt: Math.floor(Math.random()*5)-2 };
     const order = room.game.playerOrder;
-    // 配り切りで手札枚数に1枚差がある場合、カードが残っているプレイヤーだけで最後のトリックを行う。
+    // このトリックですでにプレイした人と、まだプレイ可能な手札がある人を参加者とする。
     const trickPlayers = order.filter(id => room.game.trick[id]
       || (room.hands[id]?.cards || []).some(handCard => handCard.kind !== 'character'
         && (room.game.shadowfaxReservedCard?.playerId !== id || room.game.shadowfaxReservedCard.inHand || handCard.id !== room.game.shadowfaxReservedCard.id)));
@@ -7245,7 +7294,8 @@ function renderPlayerCircle(players){
       // キャラクターカードは獲得カード置き場で公開するため、手札の裏面には含めない。
       const colorOrder = { red:0, green:1, orange:2, gray:3, river:4, yellow:5 };
       const hiddenCards = handData.cards.filter(card => card?.kind !== 'character');
-      const isPublicHand = state.game?.characterSelections?.[p.id]?.name === 'ゴールドベリ';
+      const isPublicHand = state.game?.characterSelections?.[p.id]?.name === 'ゴールドベリ'
+        || gildorForestFinishIsGuaranteed(state.room, p.id);
       // 公開時も本人の手札と同じスート・数字順で並べる。
       if (isPublicHand) hiddenCards.sort((left, right) => {
         const typeDifference = (colorOrder[left.color] ?? 3) - (colorOrder[right.color] ?? 3);
