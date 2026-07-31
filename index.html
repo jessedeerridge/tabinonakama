@@ -2761,6 +2761,7 @@ let effectTransitionTimer = null;
 let lastAnimatedBarrowDrawAt = null;
 let lastAnimatedThreatDrawAt = null;
 let lastAnimatedThreatRedrawAt = null;
+let lastAnimatedAragornThreatReturnAt = null;
 const animatingThreatCardIds = new Set();
 const activeThreatDrawTransfers = new Set();
 const animatedThreatDrawTransfers = new Set();
@@ -3816,6 +3817,7 @@ function effectAnimationsReadyAt(game){
   const deadlines = [
     Number(game.threatDrawTransfer?.movedAt || 0) + 2700,
     Number(game.threatRedrawTransfer?.movedAt || 0) + 3700,
+    Number(game.aragornThreatReturnTransfer?.movedAt || 0) + 900,
     Number(game.lostCardTransfer?.movedAt || 0) + 900,
     Number(game.barrowDrawTransfer?.movedAt || 0) + 1400,
     Number(game.exchangeOfferTransfer?.movedAt || 0) + 1500,
@@ -4177,6 +4179,10 @@ async function chooseAragornBurdenThreat(number){
     const choices = game.aragornBurdenThreatChoices || [];
     if (!choices.includes(number)) return;
     const rejected = choices.find(value => value !== number);
+    const returnedCard = (game.threatDrawTransfer?.cards || []).find(card => Number(card.number) === Number(rejected))
+      || { kind:'threat', color:'threat', name:'脅威', number:rejected,
+        id:`${state.userId}-threat-return-${Date.now()}-${rejected}` };
+    const returnedAt = Date.now();
     game.threatCards ||= {};
     game.threatCards[state.userId] = [
       { kind:'threat', color:'threat', name:'脅威', number, id:`${state.userId}-threat-${Date.now()}-${number}` }
@@ -4188,6 +4194,8 @@ async function chooseAragornBurdenThreat(number){
       const shuffledIndex = Math.floor(Math.random() * (index + 1));
       [game.threatDeck[index], game.threatDeck[shuffledIndex]] = [game.threatDeck[shuffledIndex], game.threatDeck[index]];
     }
+    // 選択直前まで表示されていた未選択カードの座標から、デッキへ戻す演出を全端末で再生する。
+    game.aragornThreatReturnTransfer = { playerId:state.userId, returnedCard, movedAt:returnedAt };
     game.characterEffectThreatDrawn ||= {}; game.characterEffectThreatDrawn[state.userId] = true;
     delete game.aragornBurdenThreatChoices; delete game.aragornBurdenThreatChoiceReadyAt; delete game.threatDrawPlayerId;
     continueAfterThreatDraw(game, state.userId); return game;
@@ -4776,6 +4784,16 @@ function subscribeRoom(){
         returnSourceRect, threatTransfer, threatTransferKey, shouldAnimateThreatDraw
       ));
     } else if (shouldAnimateThreatDraw) animateThreatDraw(threatSourceRect, threatTransfer, threatTransferKey);
+    const aragornThreatReturnTransfer = state.game?.aragornThreatReturnTransfer;
+    if (aragornThreatReturnTransfer?.movedAt
+        && aragornThreatReturnTransfer.movedAt !== lastAnimatedAragornThreatReturnAt) {
+      lastAnimatedAragornThreatReturnAt = aragornThreatReturnTransfer.movedAt;
+      const returnSourceRect = previousThreatCardRects.get(aragornThreatReturnTransfer.returnedCard?.id);
+      requestAnimationFrame(() => {
+        const returnFlight = createThreatReturnFlight(returnSourceRect, aragornThreatReturnTransfer);
+        animateThreatReturn(returnFlight, returnSourceRect, threatDeck);
+      });
+    }
     const galadrielLostTransfer = state.game?.galadrielLostTransfer;
     if (galadrielLostTransfer?.completedAt
         && galadrielLostTransfer.completedAt !== lastAnimatedGaladrielLostTransferAt) {
