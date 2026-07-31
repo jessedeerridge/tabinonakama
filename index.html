@@ -2780,7 +2780,6 @@ let threatDrawTimer = null;
 let threatNumberRevealTimer = null;
 let effectTransitionTimer = null;
 let lastAnimatedBarrowDrawAt = null;
-let lastAnimatedThreatDrawAt = null;
 let lastAnimatedThreatRedrawAt = null;
 let lastAnimatedAragornThreatReturnAt = null;
 const animatingThreatCardIds = new Set();
@@ -3500,6 +3499,8 @@ function scheduleThreatDraw(){
   const requestId = state.game?.threatDrawRequestId || `${state.game?.threatDrawPlayerId}-${drawAt}`;
   if (!drawAt || !state.roomCode) return;
   threatDrawTimer = setTimeout(async () => {
+    // RTDB transaction は競合時の暫定結果も既定でローカル通知する。ドロー演出は確定後の
+    // 1通知だけを受け取る必要があるため applyLocally を無効にする。
     await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
       if (!game?.pendingThreatDrawAt || game.pendingThreatDrawAt !== drawAt
         || (game.threatDrawRequestId && game.threatDrawRequestId !== requestId) || game.completedThreatDrawIds?.[requestId]
@@ -3512,9 +3513,9 @@ function scheduleThreatDraw(){
         game.threatDrawPlayerId = playerId;
         game.aragornBurdenThreatChoiceReadyAt = Date.now() + 2820;
         game.threatDrawTransfer = { playerId, cards:game.aragornBurdenThreatChoices.map(number => ({
-          kind:'threat', color:'threat', name:'脅威', number, id:`${playerId}-threat-choice-${Date.now()}-${number}`
-        })), movedAt:Date.now() };
-      } else drawThreatForCharacterEffect(game, playerId);
+          kind:'threat', color:'threat', name:'脅威', number, id:`${playerId}-threat-choice-${requestId}-${number}`
+        })), movedAt:drawAt };
+      } else drawThreatForCharacterEffect(game, playerId, { requestId, movedAt:drawAt });
       game.completedThreatDrawIds ||= {};
       game.completedThreatDrawIds[requestId] = Date.now();
       delete game.pendingThreatDrawAt;
@@ -3523,7 +3524,7 @@ function scheduleThreatDraw(){
       if (isBurdenAragorn) return game;
       continueAfterThreatDraw(game, playerId);
       return game;
-    });
+    }, { applyLocally:false });
   }, Math.max(0, drawAt - Date.now()) + 20);
 }
 
@@ -3935,7 +3936,7 @@ function oldForestWinsTrick(game, plays){
   return highestPlayedNumber < Number(game.oldForestRevealed.number);
 }
 
-function drawThreatForCharacterEffect(game, playerId){
+function drawThreatForCharacterEffect(game, playerId, drawIdentity = {}){
   const characterName = game.characterSelections?.[playerId]?.name;
   if (skipsCharacterThreatDraw(game, characterName)
       || !(characterDrawsThreat(characterName) || characterName === 'アラゴルン')) return false;
@@ -3950,20 +3951,28 @@ function drawThreatForCharacterEffect(game, playerId){
   if (!game.threatDeck.length) return false;
   const rank = game.threatDeck.shift();
   game.threatCards[playerId] ||= [];
+  // transaction の更新関数は競合時に複数回呼ばれる。ここで Date.now() を採番すると、
+  // 1回の論理ドローが別 ID のローカルイベントとして届き、同じ演出が2回再生される。
+  // 呼び出し側で一度だけ作った識別子を使い、再試行されても転送を同一に保つ。
+  const movedAt = Number(drawIdentity.movedAt) || Date.now();
+  const requestId = drawIdentity.requestId || `${playerId}-${movedAt}-${rank}`;
   const drawnCard = {
     kind:'threat', color:'threat', name:threat.name, number:rank,
-    id:`${playerId}-threat-${Date.now()}-${rank}`,
+    id:`${playerId}-threat-${requestId}-${rank}`,
     // 表示上の数字は、ドロー演出が獲得位置へ着地してから1秒間伏せておく。
-    numberRevealedAt:Date.now() + 3500
+    numberRevealedAt:movedAt + 3500
   };
   game.threatCards[playerId].push(drawnCard);
   game.characterEffectThreatDrawn ||= {};
   game.characterEffectThreatDrawn[playerId] = true;
-  game.threatDrawTransfer = { playerId, card:drawnCard, movedAt:Date.now() };
+  game.threatDrawTransfer = { playerId, card:drawnCard, movedAt };
   return true;
 }
 
 async function decideThreatRedraw(redraw){
+  const decisionAt = Date.now();
+  const redrawRequestId = `${state.userId}-threat-redraw-${decisionAt}`;
+  // 引き直しも同じく、transaction 再試行中の暫定カードでは演出しない。
   await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
     if (game?.phase !== 'threat-redraw-selection' || game.threatRedrawPlayerId !== state.userId
         || Date.now() < Number(game.threatRedrawReadyAt || 0)) return;
@@ -3975,8 +3984,8 @@ async function decideThreatRedraw(redraw){
         game.threatDeck.push(previous.number);
         game.threatCards[state.userId] = cards.filter(card => card !== previous);
         delete game.characterEffectThreatDrawn?.[state.userId];
-        drawThreatForCharacterEffect(game, state.userId);
-        game.threatRedrawTransfer = { playerId:state.userId, returnedCard:previous, movedAt:Date.now() };
+        drawThreatForCharacterEffect(game, state.userId, { requestId:redrawRequestId, movedAt:decisionAt });
+        game.threatRedrawTransfer = { playerId:state.userId, returnedCard:previous, movedAt:decisionAt };
       }
       game.threatRedrawUsed = true;
     }
@@ -3985,7 +3994,7 @@ async function decideThreatRedraw(redraw){
     delete game.threatRedrawPlayerId; delete game.threatRedrawReadyAt;
     beginNextExchange(game);
     return game;
-  });
+  }, { applyLocally:false });
 }
 
 threatRedrawDecision.querySelectorAll('.hold-decision').forEach(button => {
@@ -4789,7 +4798,6 @@ function subscribeRoom(){
     const threatTransferKey = threatTransferIds && threatTransfer?.movedAt
       ? `${threatTransferIds}:${threatTransfer.movedAt}` : null;
     const shouldAnimateThreatDraw = Boolean(threatTransferKey
-      && threatTransfer.movedAt !== lastAnimatedThreatDrawAt
       && !animatedThreatDrawTransfers.has(threatTransferKey)
       && !activeThreatDrawTransfers.has(threatTransferKey)
       && !document.querySelector(`[data-threat-draw-transfer="${CSS.escape(threatTransferKey)}"]`));
@@ -4797,7 +4805,6 @@ function subscribeRoom(){
       // 再描画や重複購読が続いても、同じ転送を描画前に一度だけ確保する。
       activeThreatDrawTransfers.add(threatTransferKey);
       animatedThreatDrawTransfers.add(threatTransferKey);
-      lastAnimatedThreatDrawAt = threatTransfer.movedAt;
       (threatTransfer.cards || [threatTransfer.card]).filter(Boolean).forEach(card => animatingThreatCardIds.add(card.id));
     }
     const waiting = (!state.isHost && !state.room.maxPlayers);
