@@ -4998,8 +4998,8 @@ function attachOneSecondHold(button, action){
     if (event.button !== undefined && event.button !== 0) return;
     event.preventDefault();
     button.setPointerCapture(event.pointerId);
-    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:1000, fill:'forwards' });
-    timer = setTimeout(() => { cancel(); action(); }, 1000);
+    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:1500, fill:'forwards' });
+    timer = setTimeout(() => { cancel(); action(); }, 1500);
   });
   button.addEventListener('pointerup', cancel);
   button.addEventListener('pointercancel', cancel);
@@ -5481,8 +5481,8 @@ yellowOneDecision.querySelectorAll('.hold-decision').forEach(button => {
     if (event.button !== undefined && event.button !== 0) return;
     event.preventDefault();
     button.setPointerCapture(event.pointerId);
-    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:1000, fill:'forwards' });
-    timer = setTimeout(() => { cancel(); decideYellowOne(button.dataset.yellowDecision === 'yes'); }, 1000);
+    animation = button.animate([{ '--hold-progress':'0' }, { '--hold-progress':'1' }], { duration:1500, fill:'forwards' });
+    timer = setTimeout(() => { cancel(); decideYellowOne(button.dataset.yellowDecision === 'yes'); }, 1500);
   });
   button.addEventListener('pointerup', cancel);
   button.addEventListener('pointercancel', cancel);
