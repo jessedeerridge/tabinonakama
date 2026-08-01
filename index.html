@@ -5676,7 +5676,8 @@ function scheduleTrickClear(){
     return;
   }
   trickClearTimer = setTimeout(async () => {
-    await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+      const game = room?.game;
       const pending = game?.pendingCapture;
       if (!pending || pending.captureAt !== captureAt || Date.now() < captureAt) return;
       if (pending.captureOwner === 'old-forest') {
@@ -5708,8 +5709,24 @@ function scheduleTrickClear(){
         };
         game.turnPlayerId = null;
       }
-      // 獲得欄への到着と同時に結果判定を行い、次の手番をすぐ開始できるようにする。
-      game.pendingOutcomeCheckAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS + OUTCOME_CHECK_DELAY_MS;
+      const outcomeCheckAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS + OUTCOME_CHECK_DELAY_MS;
+      if (game.finished) {
+        // 最終トリックでは全員の手札が同時に尽きるため、この更新の後には次の手番がなく、
+        // 別のクライアントタイマーだけに結果確定を委ねると進行を再開する契機もなくなる。
+        // 回収と結果を同じルートトランザクションで確定し、表示だけを到着時刻まで待たせる。
+        if (game.pendingBalrogFailure) {
+          game.chapterOutcome ||= { status:'failed', reason:'balrog', decidedAt:outcomeCheckAt };
+          delete game.pendingBalrogFailure;
+        }
+        const outcome = chapterOutcome(room);
+        if (!game.chapterOutcome && outcome) {
+          game.chapterOutcome = { status:outcome, decidedAt:outcomeCheckAt };
+        }
+        delete game.pendingOutcomeCheckAt;
+      } else {
+        // ラウンド途中の目的達成・失敗は、獲得札の到着後に従来どおり判定する。
+        game.pendingOutcomeCheckAt = outcomeCheckAt;
+      }
       // 獲得カードの移動完了から1秒待って、次の森カードを公開する。
       if (!game.finished && Number(game.stageNumber) === 5 && game.oldForestDeck?.length) {
         game.pendingOldForestDrawAt = Date.now() + 1000;
@@ -5717,7 +5734,7 @@ function scheduleTrickClear(){
       if (!game.finished && !game.pendingBalrogFailure && Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3) {
         game.pendingBalrogDrawAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS;
       }
-      return game;
+      return room;
     });
   }, Math.max(0, captureAt - Date.now()) + 20);
 }
