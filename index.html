@@ -5566,11 +5566,17 @@ function roundIsFinished(room){
   const game = room?.game;
   const order = game?.playerOrder || [];
   if (!order.length) return false;
+  const remainingCards = id => (room.hands?.[id]?.cards || [])
+    .filter(card => card?.kind !== 'character').length;
+  // totalTricks は「最後のトリック」の目的表示用の固定値であり、終了可否の唯一の
+  // 情報源にはしない。全員同数の配り切りでは最終プレイ後に全手札が0になるため、
+  // 実際の手札消尽を先に見る。交換・予約札などで固定値がずれていても終了を取り逃さない。
+  if (order.some(id => remainingCards(id) === 0)) return true;
   // 総トリック数は効果ターン終了時の最少手札で確定済み。古い進行データだけは、
   // 固定値がないため従来どおり現在の手札が尽きたかで判定する。
   const totalTricks = Number(game.totalTricks);
   if (Number.isFinite(totalTricks)) return Math.max(0, Number(game.trickNumber || 1) - 1) >= totalTricks;
-  return order.some(id => !(room.hands?.[id]?.cards || []).some(card => card?.kind !== 'character'));
+  return false;
 }
 
 function nextTrickPlayer(game, room, playerId){
@@ -5696,7 +5702,13 @@ function scheduleTrickClear(){
     return;
   }
   trickClearTimer = setTimeout(async () => {
-    await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    // 最終トリックでは全員の数字札が同時に0枚になり、hands 側の空配列が
+    // Realtime Database から消える更新と game 側の回収更新が続けて届く。
+    // 回収だけを /game で確定してから別タイマーで部屋全体を判定すると、その間に
+    // 購読が切れた端末しか残っていない場合 pendingOutcomeCheckAt のまま停止し得る。
+    // 手札を含む部屋全体のトランザクションで、回収と確定可能な章結果を原子的に保存する。
+    await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+      const game = room?.game;
       const pending = game?.pendingCapture;
       if (!pending || pending.captureAt !== captureAt || Date.now() < captureAt) return;
       if (pending.captureOwner === 'old-forest') {
@@ -5723,8 +5735,20 @@ function scheduleTrickClear(){
         };
         game.turnPlayerId = null;
       }
-      // 獲得欄への到着と同時に結果判定を行い、次の手番をすぐ開始できるようにする。
-      game.pendingOutcomeCheckAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS + OUTCOME_CHECK_DELAY_MS;
+      const outcomeReadyAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS + OUTCOME_CHECK_DELAY_MS;
+      if (game.pendingBalrogFailure) {
+        game.finished = true;
+        game.chapterOutcome ||= { status:'failed', reason:'balrog', decidedAt:outcomeReadyAt };
+        delete game.pendingBalrogFailure;
+      }
+      const outcome = chapterOutcome(room);
+      if (!game.chapterOutcome && outcome) {
+        // 表示開始時刻だけ到着後に置き、結果自体はカード回収と同時に永続化する。
+        game.chapterOutcome = { status:outcome, decidedAt:outcomeReadyAt };
+      }
+      // ミスリルの選択など、この時点でまだ結果を確定できない場合だけ再判定を予約する。
+      if (!game.chapterOutcome) game.pendingOutcomeCheckAt = outcomeReadyAt;
+      else delete game.pendingOutcomeCheckAt;
       // 獲得カードの移動完了から1秒待って、次の森カードを公開する。
       if (!game.finished && Number(game.stageNumber) === 5 && game.oldForestDeck?.length) {
         game.pendingOldForestDrawAt = Date.now() + 1000;
@@ -5732,7 +5756,7 @@ function scheduleTrickClear(){
       if (!game.finished && !game.pendingBalrogFailure && Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3) {
         game.pendingBalrogDrawAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS;
       }
-      return game;
+      return room;
     });
   }, Math.max(0, captureAt - Date.now()) + 20);
 }
