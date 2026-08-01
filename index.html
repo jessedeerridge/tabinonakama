@@ -5386,11 +5386,14 @@ async function chooseGlorfindelExchangeCard(cardId, droppedTargetId){
     if ((isSource && pending.sourceCards[targetId]) || (!isSource && pending.targetCards[targetId])) return;
     const hand = room.hands?.[state.userId]?.cards || [];
     const cardIndex = hand.findIndex(card => card.id === cardId && card.kind !== 'character');
-    if (cardIndex < 0) return;
+    // グロルフィンデルから届いた札は表向きなので、手札だけでなく保留位置の札も返す札として選べる。
+    const receivedCard = !isSource && pending.characterName === 'グロルフィンデル'
+      && pending.sourceCards[targetId]?.id === cardId ? pending.sourceCards[targetId] : null;
+    if (cardIndex < 0 && !receivedCard) return;
     const characterName = game.characterSelections?.[state.userId]?.name;
-    const card = hand[cardIndex];
+    const card = receivedCard || hand[cardIndex];
     if (card.color === 'yellow' && card.number === 1 && characterName === 'フロド') return;
-    hand.splice(cardIndex, 1);
+    if (!receivedCard) hand.splice(cardIndex, 1);
     if (isSource) pending.sourceCards[targetId] = card;
     else pending.targetCards[targetId] = card;
 
@@ -5398,16 +5401,19 @@ async function chooseGlorfindelExchangeCard(cardId, droppedTargetId){
     if (!ready) return room;
     // 全員分を保留してから一度のトランザクションで配置し、途中状態や順番依存を作らない。
     pending.candidates.forEach(id => {
-      room.hands[id].cards.push(pending.sourceCards[id]);
+      // 受取札そのものを返した場合は同じカードを両方の手札へ複製せず、交換元へだけ戻す。
+      if (pending.sourceCards[id].id !== pending.targetCards[id].id) room.hands[id].cards.push(pending.sourceCards[id]);
       room.hands[pending.sourceId].cards.push(pending.targetCards[id]);
     });
     game.simultaneousExchangeCompleted ||= {};
     game.simultaneousExchangeCompleted[pending.sourceId] = true;
     if (pending.characterName === 'グロルフィンデル') game.glorfindelExchangeCompleted = true;
-    const transferCards = pending.candidates.flatMap(id => [
-      { card:pending.sourceCards[id], fromId:pending.sourceId, toId:id },
-      { card:pending.targetCards[id], fromId:id, toId:pending.sourceId }
-    ]);
+    const transferCards = pending.candidates.flatMap(id => pending.sourceCards[id].id === pending.targetCards[id].id
+      ? [{ card:pending.targetCards[id], fromId:id, toId:pending.sourceId }]
+      : [
+        { card:pending.sourceCards[id], fromId:pending.sourceId, toId:id },
+        { card:pending.targetCards[id], fromId:id, toId:pending.sourceId }
+      ]);
     game.glorfindelExchangeTransfer = {
       sourceId:pending.sourceId, targetIds:[...pending.candidates], cards:transferCards, completedAt:Date.now()
     };
@@ -7453,6 +7459,16 @@ function renderPlayerCircle(players){
       if (simultaneousExchange.sourceId !== p.id && p.id === state.userId) {
         receivedCard.classList.add('face-up');
         receivedCard.appendChild(createCardElement(heldGlorfindelCard));
+        const canReturnReceivedCard = simultaneousExchange.characterName === 'グロルフィンデル'
+          && state.game?.phase === 'glorfindel-exchange-selection'
+          && !simultaneousExchange.targetCards?.[p.id]
+          && !(heldGlorfindelCard.color === 'yellow' && heldGlorfindelCard.number === 1
+            && state.game?.characterSelections?.[p.id]?.name === 'フロド');
+        if (canReturnReceivedCard) {
+          tag.classList.add('exchange-return-active');
+          receivedCard.classList.add('return-pick');
+          receivedCard.addEventListener('pointerdown', event => beginExchangeCardDrag(event, heldGlorfindelCard, receivedCard));
+        }
       }
       tag.appendChild(receivedCard);
     });
