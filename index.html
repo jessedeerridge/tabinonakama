@@ -2382,12 +2382,13 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
   return { status:isFinished ? 'failed' : 'pending' };
 }
 
+function mithrilOwnerId(room){
+  return Object.entries(room?.game?.equipmentCards || {})
+    .find(([, cards]) => (cards || []).some(card => card.name === MITHRIL_COAT.name))?.[0] || null;
+}
+
 function frodoHasMithril(room){
-  const game = room?.game;
-  const frodoPlayerId = Object.entries(game?.characterSelections || {})
-    .find(([, character]) => character.name === 'フロド')?.[0];
-  return Boolean(frodoPlayerId && (game?.equipmentCards?.[frodoPlayerId] || [])
-    .some(card => card.name === MITHRIL_COAT.name));
+  return Boolean(mithrilOwnerId(room));
 }
 
 function chapterOutcome(room){
@@ -2553,17 +2554,13 @@ function canDecideMithril(room = state.room){
 }
 
 function renderMithrilDecision(){
-  const frodoPlayerId = Object.entries(state.game?.characterSelections || {})
-    .find(([, character]) => character.name === 'フロド')?.[0];
-  const visible = canDecideMithril();
-  const isFrodo = frodoPlayerId === state.userId;
+  const isOwner = mithrilOwnerId(state.room) === state.userId;
+  const visible = isOwner && canDecideMithril();
   mithrilDecision.classList.toggle('hidden', !visible);
-  mithrilDecision.classList.toggle('read-only', visible && !isFrodo);
-  mithrilDecision.querySelector('.yellow-one-question').textContent = isFrodo
-    ? 'ミスリルの胴着を使いますか。'
-    : 'フロドはミスリルの胴着を使いますか。';
-  mithrilDecision.querySelector('.yellow-one-note').classList.toggle('hidden', !isFrodo);
-  mithrilDecision.querySelectorAll('.hold-decision').forEach(button => { button.disabled = !isFrodo; });
+  mithrilDecision.classList.remove('read-only');
+  mithrilDecision.querySelector('.yellow-one-question').textContent = 'ミスリルの胴着を使いますか。';
+  mithrilDecision.querySelector('.yellow-one-note').classList.remove('hidden');
+  mithrilDecision.querySelectorAll('.hold-decision').forEach(button => { button.disabled = !visible; });
 }
 
 async function decideMithril(useCoat){
@@ -2571,9 +2568,8 @@ async function decideMithril(useCoat){
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
     if (!canDecideMithril(room)) return;
     const game = room.game;
-    const frodoPlayerId = Object.entries(game.characterSelections || {})
-      .find(([, character]) => character.name === 'フロド')?.[0];
-    if (frodoPlayerId !== state.userId) return;
+    const ownerId = mithrilOwnerId(room);
+    if (ownerId !== state.userId) return;
     const failedPlayerId = (game.playerOrder || [])
       .find(playerId => victoryConditionStatus(room, playerId).status !== 'achieved');
     game.mithrilDecision = useCoat ? 'yes' : 'no';
@@ -2585,7 +2581,7 @@ async function decideMithril(useCoat){
       if (availabilityKey) room[availabilityKey] = false;
       if (game.continuation) game.continuationEquipmentConsumed = true;
       game.equipmentCards ||= {};
-      game.equipmentCards[frodoPlayerId] = (game.equipmentCards[frodoPlayerId] || [])
+      game.equipmentCards[ownerId] = (game.equipmentCards[ownerId] || [])
         .filter(card => card.name !== MITHRIL_COAT.name);
       game.chapterOutcome = { status:'complete', decidedAt:Date.now() };
     } else {
