@@ -2505,11 +2505,12 @@ function renderChapterComplete(){
   chapterCompleteBanner.classList.remove('hidden');
   const stage = STAGES.find(item => item.number === Number(state.game?.stageNumber));
   const longFinal = stage?.winCondition === 'long' && isLongChapterComplete();
-  const resultLabel = stage?.winCondition === 'long' && !longFinal
-    ? `to be continued（${outcome?.status === 'failed' ? '失敗' : '成功'}）`
-    : outcome?.status === 'failed' ? '失敗' : '完';
-  chapterCompleteMessage.textContent = resultLabel.startsWith('to be continued')
-    ? resultLabel
+  const storyContinues = stage?.winCondition === 'long'
+    && !longFinal
+    && outcome?.status !== 'failed';
+  const resultLabel = outcome?.status === 'failed' ? '失敗' : '完';
+  chapterCompleteMessage.textContent = storyContinues
+    ? '物語は続く'
     : `${stage?.chapterLabel || `第${state.game?.stageNumber || ''}章`}　${resultLabel}`;
   const movementDuration = 900;
   if (elapsed >= movementDuration) {
