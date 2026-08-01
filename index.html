@@ -5626,6 +5626,24 @@ function completeCurrentTrick(room, yellowOneWins = false){
   if (!game.finished && bilboChoosesNextLeader) game.pendingCapture.bilboChoosesNextLeader = true;
 }
 
+function capturedTrickRecord(pending){
+  const record = {
+    cards:pending.cards || [],
+    winningCardId:pending.winningCardId,
+    trickNumber:pending.trickNumber
+  };
+  // RTDB は空の配列／オブジェクトを保存せず、全員の手札が同時に尽きる最終トリックでは
+  // pendingCapture.remainingSuitsByPlayer 自体が消える。その値を undefined のまま新しい
+  // オブジェクトへ設定すると transaction 全体が検証エラーになり、回収が永久に止まる。
+  // 実際に残りスートがある場合だけ任意のスナップショットを引き継ぐ。
+  const remainingSuitsByPlayer = Object.fromEntries(
+    Object.entries(pending.remainingSuitsByPlayer || {})
+      .filter(([, suits]) => Array.isArray(suits) && suits.length)
+  );
+  if (Object.keys(remainingSuitsByPlayer).length) record.remainingSuitsByPlayer = remainingSuitsByPlayer;
+  return record;
+}
+
 async function decideYellowOne(wins){
   if (!state.roomCode) return;
   await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
@@ -5688,12 +5706,7 @@ function scheduleTrickClear(){
         game.capturedCards[pending.winnerId].push(...pending.cards);
         game.capturedTricks ||= {};
         game.capturedTricks[pending.winnerId] ||= [];
-        game.capturedTricks[pending.winnerId].push({
-          cards: pending.cards,
-          winningCardId: pending.winningCardId,
-          trickNumber: pending.trickNumber,
-          remainingSuitsByPlayer: pending.remainingSuitsByPlayer
-        });
+        game.capturedTricks[pending.winnerId].push(capturedTrickRecord(pending));
       }
       // 黄1の発光は場に出ている間だけにし、獲得欄へ移る時点で停止する。
       (pending.cards || []).forEach(card => {
