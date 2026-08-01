@@ -2959,6 +2959,7 @@ let pendingSeatPlayerIdToSteal = null;
 let isRenderingSeatTabs = false;
 let latestPlayers = [];
 let trickClearTimer = null;
+let trickGatherTimer = null;
 let outcomeCheckTimer = null;
 const CAPTURE_ARRIVAL_DURATION_MS = 700;
 // 獲得カードの到着と同時に結果を確定し、次の手番とプレイ可能パルスを待たせない。
@@ -5685,15 +5686,19 @@ yellowOneDecision.querySelectorAll('.hold-decision').forEach(button => {
 
 function scheduleTrickClear(){
   clearTimeout(trickClearTimer);
+  clearTimeout(trickGatherTimer);
   const gatherAt = state.game?.pendingCapture?.gatherAt;
   const captureAt = state.game?.pendingCapture?.captureAt;
   if (!captureAt || !state.roomCode) return;
+  // 回収開始時の再描画と、獲得欄へ確定する処理は別々に予約する。
+  // 以前は gatherAt のコールバックから captureAt のタイマーを予約していたため、
+  // 最終トリックの結果表示による再描画や例外で前者が中断されると、pendingCapture が
+  // 永久に残ってカードが勝者まで移動しなかった。確定処理を最初から絶対時刻で予約し、
+  // 見た目の再描画が失敗してもゲーム進行を止めない。
   if (gatherAt && Date.now() < gatherAt) {
-    trickClearTimer = setTimeout(() => {
+    trickGatherTimer = setTimeout(() => {
       renderHands();
-      scheduleTrickClear();
     }, Math.max(0, gatherAt - Date.now()) + 20);
-    return;
   }
   trickClearTimer = setTimeout(async () => {
     await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
