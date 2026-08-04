@@ -2069,6 +2069,18 @@ function victoryConditionStatus(room, playerId, suppliedCharacter){
     return { status:trickCount <= Math.min(...otherCounts) ? 'achieved' : 'failed' };
   }
 
+  // 〈黒の息〉による失敗はキャラクター自身の目的より優先し、ミスリルでも救済できない。
+  if (hasSpecialThreat(game, playerId, '黒の息')
+      && capturedCards.some(card => Number(card.number) === 8)) {
+    return { status:'failed', forced:true };
+  }
+
+  if (character.name === 'ピピン') {
+    if (!isFinished) return { status:'pending' };
+    const otherCounts = otherIds.map(id => (game.capturedTricks?.[id] || []).length);
+    return { status:!otherCounts.length || trickCount <= Math.min(...otherCounts) ? 'achieved' : 'failed' };
+  }
+
   if (character.name === 'ペレグリン・トゥック') {
     if (trickCount > 0) return { status:'failed' };
     if (!isFinished) return { status:'pending' };
