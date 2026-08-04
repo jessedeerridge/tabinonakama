@@ -5722,7 +5722,8 @@ function scheduleTrickClear(){
     return;
   }
   trickClearTimer = setTimeout(async () => {
-    await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    await runTransaction(ref(db, `rooms/${state.roomCode}`), room => {
+      const game = room?.game;
       const pending = game?.pendingCapture;
       if (!pending || pending.captureAt !== captureAt || Date.now() < captureAt) return;
       if (pending.captureOwner === 'old-forest') {
@@ -5749,8 +5750,21 @@ function scheduleTrickClear(){
         };
         game.turnPlayerId = null;
       }
-      // 獲得欄への到着と同時に結果判定を行い、次の手番をすぐ開始できるようにする。
-      game.pendingOutcomeCheckAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS + OUTCOME_CHECK_DELAY_MS;
+      if (game.finished) {
+        // ギルドールの目的は「最後のトリックに森を出したか」を獲得済みトリックから判定する。
+        // 以前は回収を /game のトランザクションで確定した後、別のタイマーとルーム全体の
+        // トランザクションに結果判定を委ねていた。そのため、最後の森を回収した更新と
+        // pendingOutcomeCheckAt の監視が途切れると、finished のまま完／失敗が確定しなかった。
+        // 最終回収だけは hands を含む同じルームトランザクション内で判定し、待機状態を残さない。
+        const outcome = chapterOutcome(room);
+        if (!game.chapterOutcome && outcome) {
+          game.chapterOutcome = { status:outcome, decidedAt:Date.now() + CAPTURE_ARRIVAL_DURATION_MS + OUTCOME_CHECK_DELAY_MS };
+        }
+        delete game.pendingOutcomeCheckAt;
+      } else {
+        // 途中のトリックは到着演出後に目的の早期達成／失敗を判定する。
+        game.pendingOutcomeCheckAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS + OUTCOME_CHECK_DELAY_MS;
+      }
       // 獲得カードの移動完了から1秒待って、次の森カードを公開する。
       if (!game.finished && Number(game.stageNumber) === 5 && game.oldForestDeck?.length) {
         game.pendingOldForestDrawAt = Date.now() + 1000;
@@ -5758,7 +5772,7 @@ function scheduleTrickClear(){
       if (!game.finished && !game.pendingBalrogFailure && Number(game.stageNumber) === 14 && Number(game.moriaEventIndex) === 3) {
         game.pendingBalrogDrawAt = Date.now() + CAPTURE_ARRIVAL_DURATION_MS;
       }
-      return game;
+      return room;
     });
   }, Math.max(0, captureAt - Date.now()) + 20);
 }
