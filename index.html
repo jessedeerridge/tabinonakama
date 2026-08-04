@@ -5048,6 +5048,10 @@ function subscribeRoom(){
     state.room = snap.val() || {};
     state.game = state.room.game || null;
     state.hands = state.room.hands || {};
+    // 最後のトリックでは全員の手札が同時に空になり、以降の描画処理が空手札用の
+    // DOMを組み直す。描画中に例外が起きても回収確定タイマーだけは失われないよう、
+    // pendingCapture を受け取った直後、ほかの描画より先に予約する。
+    scheduleTrickClear();
     const threatTransfer = state.game?.threatDrawTransfer;
     const threatTransferIds = threatTransfer?.card?.id
       || threatTransfer?.cards?.map(card => card.id).join(',');
@@ -5155,7 +5159,6 @@ function subscribeRoom(){
         animateLostCard(excludedSourceRects, transfer);
       });
     }
-    scheduleTrickClear();
     syncSeatUI();
   });
 }
@@ -5722,7 +5725,7 @@ function scheduleTrickClear(){
     return;
   }
   trickClearTimer = setTimeout(async () => {
-    await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
+    const result = await runTransaction(ref(db, `rooms/${state.roomCode}/game`), game => {
       const pending = game?.pendingCapture;
       if (!pending || pending.captureAt !== captureAt || Date.now() < captureAt) return;
       if (pending.captureOwner === 'old-forest') {
@@ -5760,6 +5763,14 @@ function scheduleTrickClear(){
       }
       return game;
     });
+    // タブの休止・復帰や端末時計の補正でタイマーが captureAt より早く発火すると、
+    // トランザクションは未確定のまま終了する。Realtime Database の次の通知だけに
+    // 頼らず、同じ pendingCapture が残っていればこのクライアント自身で再予約する。
+    const remaining = result.snapshot.val()?.pendingCapture;
+    if (remaining?.captureAt === captureAt) {
+      trickClearTimer = setTimeout(scheduleTrickClear,
+        Math.max(50, Number(remaining.captureAt) - Date.now() + 20));
+    }
   }, Math.max(0, captureAt - Date.now()) + 20);
 }
 
